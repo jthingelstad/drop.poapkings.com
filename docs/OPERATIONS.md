@@ -177,9 +177,9 @@ identity), or verification fails.
 
 **Boards.** There are five ranked seasonal boards: Surge, Higher / Lower,
 Trade, Survival, and Rain. Practice is unranked and never has a leader or
-winner. A held (Awaiting) run ranks provisionally. Only an Excluded run leaves
-a board. `seasonPodiumFinishers` is the one read that still withholds a
-pending run.
+winner. Every finished run ranks and wears no seal. Only a run a person removed
+after a hand investigation (Excluded) leaves a board, and no read withholds a
+run, `seasonPodiumFinishers` included.
 
 **Season brief.** Build one sanitized public snapshot of all five boards:
 
@@ -264,7 +264,10 @@ look up the logged `#D…` tag with `referee-run`.
 
 **Coverage.**
 
-1. Process automatic `review` and `hidden` decisions first.
+1. Look first at runs whose evidence carries automatic review signals
+   (`reviewSignals`). A signal is a reason to look, not a hold. Older automatic
+   holds (`decidedBy: "integrity-gate"`) need no decision: the boards ignore
+   them.
 2. Enumerate the current-season and all-time top 25 for every ranked mode.
 3. Deduplicate earning run IDs across scopes and resolve each entry to its
    exact earning run.
@@ -277,8 +280,10 @@ look up the logged `#D…` tag with `referee-run`.
 
 - Automatic scorer and integrity flags are review signals, never verdicts.
   Exceptional is not automated.
-- `hidden` needs strong evidence and a `--player-reason` code. It is immediate
-  and reversible.
+- Every run ranks on finishing. `hidden` is how a person removes a run from the
+  boards after a hand investigation. It needs strong evidence and a
+  `--player-reason` code, and it is immediate and reversible. A `clear` or
+  `watch` decision changes nothing a player sees.
 - A run decision never implies account enforcement.
 - `referee-ranked-access.mjs` needs `--approved-by jamie` from a task that
   carries that approval. It blocks only future ranked starts, is reversible,

@@ -54,7 +54,6 @@ export const testRecentRuns = [
     score: 67_299,
     seasonId: 134,
     completedAt: '2026-07-18T18:42:00.000Z',
-    reviewStatus: 'pending',
     placement: 2
   },
   {
@@ -175,9 +174,9 @@ export const testUpdates = [
     body: 'Wide screens can now play every Drop mode with Falling Cards behind the fight and a home-row speed setup: **ASDFG** for 1–5, **JKL;** for 6–9, and **Space** to run it back. [Deal into Surge](/#/surge).'
   }
 ] as const
-// The You page's single Your games panel reads this, so the reviewed runs live
-// here too: the three referee states have to be reachable from the history the
-// panel actually renders.
+// The You page's single Your games panel reads this, so the removed run lives
+// here too: the one status a run can carry has to be reachable from the history
+// the panel actually renders.
 const seasonRuns = [
   ...testRecentRuns,
   ...Array.from({ length: 27 }, (_, index) => ({
@@ -249,10 +248,6 @@ export function leaderboardEntries(mode: GameMode) {
     rank: index + 1,
     score: scores[index]!,
     achievedAt: `2026-07-${18 - index}T18:00:00.000Z`,
-    // Rank 1 was cleared by a referee; rank 2 is still awaiting one and ranks
-    // provisionally, so the board renders both seals.
-    reviewStatus: index === 1 ? ('pending' as const) : ('reviewed' as const),
-    ...(index === 0 ? { refereeReviewed: true } : {}),
     ...(mode === 'survival' || mode === 'higher-lower' ? { timeMs: 61_317 + index } : {}),
     player: {
       id: entry.id,

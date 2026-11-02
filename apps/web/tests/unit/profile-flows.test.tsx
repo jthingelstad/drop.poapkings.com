@@ -709,8 +709,7 @@ describe('Profile interactive flows', () => {
       mode: 'surge' as const,
       score: 12_500,
       seasonId: 134,
-      completedAt: '2026-07-19T00:00:00.000Z',
-      reviewStatus: 'pending' as const
+      completedAt: '2026-07-19T00:00:00.000Z'
     },
     {
       runId: 'r2',
@@ -729,7 +728,7 @@ describe('Profile interactive flows', () => {
     }
   ]
 
-  it('groups your games by day, seals each row, and signs out from the Account scope', async () => {
+  it('groups your games by day, marks only a removed run, and signs out from the Account scope', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: 134, games: historyRuns.length }],
@@ -743,15 +742,14 @@ describe('Profile interactive flows', () => {
     expect(container.querySelectorAll('.ed-games__day-group')).toHaveLength(3)
     expect(container.querySelector('.ed-games__day-head')?.textContent).toContain('1 game')
     expect(container.textContent).toContain('12.500s')
-    // A run no referee touched wears no seal at all; only the held and the
-    // excluded run are marked.
-    const rowSeals = (label: string) =>
-      [...container.querySelectorAll('.ed-games__row')].filter((row) => row.querySelector(`[aria-label="${label}"]`))
-    expect(rowSeals('Referee cleared')).toHaveLength(0)
-    expect(rowSeals('Awaiting referee')).toHaveLength(1)
-    expect(rowSeals('Not ranked')).toHaveLength(1)
-    expect(container.textContent).toContain('AWAITING')
+    // No run wears a seal. The one a person removed from the boards says so in
+    // words; nothing says Awaiting or Cleared.
+    expect(container.querySelectorAll('.ed-games__row .ed-seal')).toHaveLength(0)
+    expect(container.querySelectorAll('.ed-games__row [aria-label]')).toHaveLength(0)
     expect(container.textContent).toContain('EXCLUDED')
+    expect(container.textContent).not.toContain('AWAITING')
+    expect(container.textContent).not.toContain('Awaiting')
+    expect(container.textContent).not.toContain('Cleared')
 
     await fire(byText(container, 'Account') as Element)
     await fire(byText(container, 'Sign out') as Element)
@@ -759,7 +757,7 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('You')
   })
 
-  it('counts flagged games in the chip and toggles the filter', async () => {
+  it('counts removed games in the chip and toggles the filter', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
     vi.mocked(api.getSeasonHistory).mockResolvedValue({
       index: [{ id: 134, games: historyRuns.length }],
@@ -767,14 +765,13 @@ describe('Profile interactive flows', () => {
     })
     await mount()
 
-    // Two of the three runs carry a referee status (pending + excluded); the
-    // unreviewed one is not flagged.
+    // Only the run a person removed from the boards is counted.
     const flagged = container.querySelector('.ed-filterchip--flagged') as HTMLButtonElement
-    expect(flagged.textContent).toContain('Flagged 2')
+    expect(flagged.textContent).toContain('Excluded 1')
 
     await fire(flagged)
     expect(flagged.getAttribute('aria-pressed')).toBe('true')
-    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(2)
+    expect(container.querySelectorAll('.ed-games__row')).toHaveLength(1)
 
     await fire(flagged)
     expect(container.querySelectorAll('.ed-games__row')).toHaveLength(3)

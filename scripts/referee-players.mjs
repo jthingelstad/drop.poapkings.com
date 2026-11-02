@@ -8,6 +8,7 @@
 import {
   client,
   failClosed,
+  isExcludedFromBoards,
   parseFlags,
   playerReference,
   print,
@@ -99,7 +100,6 @@ for (const profile of profiles) {
     runCount: 0,
     modes: {},
     reviewedRuns: 0,
-    pendingRuns: 0,
     excludedRuns: 0,
     earnedBadges: 0,
     rankedAccess: "allowed",
@@ -137,9 +137,14 @@ for (const decision of decisions) {
   if (typeof decision.runId === "string") {
     const player = playerByRun.get(decision.runId);
     if (!player) continue;
-    if (decision.queueState === "pending") player.pendingRuns += 1;
-    else if (decision.visibility === "hidden") player.excludedRuns += 1;
-    else player.reviewedRuns += 1;
+    // Legacy automatic holds and reopened queue holds stay in the table but
+    // were never a person's call, so they count as neither.
+    if (isExcludedFromBoards(decision)) player.excludedRuns += 1;
+    else if (
+      decision.queueState !== "pending" &&
+      decision.decidedBy !== "integrity-gate"
+    )
+      player.reviewedRuns += 1;
   } else if (
     typeof decision.playerId === "string" &&
     profileBySub
@@ -166,49 +171,16 @@ const players = [...profileBySub.values()]
 const totals = {
   players: profileBySub.size,
   runs: runs.length,
-  pending: [...profileBySub.values()].reduce(
-    (sum, player) => sum + player.pendingRuns,
-    0,
-  ),
   restricted: [...profileBySub.values()].filter(
     (player) => player.rankedAccess === "restricted",
   ).length,
 };
-
-const reviewQueue = decisions
-  .filter(
-    (decision) =>
-      typeof decision.runId === "string" && decision.queueState === "pending",
-  )
-  .map((decision) => {
-    const run = runById.get(decision.runId);
-    const player = playerByRun.get(decision.runId);
-    return sanitizeRecord({
-      runId: decision.runId,
-      runReference: runReference(decision.runId),
-      playerId: player?.playerId,
-      playerReference: player?.playerReference,
-      publicName: player?.publicName,
-      mode: run?.mode,
-      score: run?.score,
-      completedAt: run?.completedAt,
-      decidedAt: decision.decidedAt,
-      reason: decision.reason,
-      subjectType: decision.subjectType,
-    });
-  })
-  .sort((left, right) =>
-    String(left.decidedAt ?? left.completedAt ?? "").localeCompare(
-      String(right.decidedAt ?? right.completedAt ?? ""),
-    ),
-  );
 
 print({
   status: "ok",
   generatedAt: new Date().toISOString(),
   totals,
   players,
-  reviewQueue,
   recentRuns: runs
     .filter((run) => typeof run.runId === "string")
     .sort((left, right) =>

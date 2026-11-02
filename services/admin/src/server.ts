@@ -262,8 +262,6 @@ function decisionArguments(
 ): string[] {
   const action = input.action;
   const reason = stringField(input.reason, "reason", 8, 1_000);
-  if (action === "reopen")
-    return [runId, "--reopen", "--approved-by", "jamie", "--reason", reason];
   if (action === "exclude") {
     const playerReason = stringField(input.playerReason, "playerReason", 3, 64);
     const allowed = new Set([

@@ -18,7 +18,6 @@ import BadgeGrid from '../components/BadgeGrid'
 import XpTimelinePanel from '../components/XpTimeline'
 import EmptyState from '../components/EmptyState'
 import SkeletonRows from '../components/Skeleton'
-import ReviewStatusMark from '../components/ReviewStatus'
 import ClanInviteModal from '../components/ClanInviteModal'
 import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
 import { badgeViews } from '../lib/badges'
@@ -76,12 +75,10 @@ function seasonEndLine(season: Season | null): string {
 function LeaderboardRow({
   entry,
   mode,
-  index,
   rankOverride
 }: {
   entry: LeaderboardEntry
   mode: GameMode
-  index: number
   rankOverride?: number
 }) {
   const isPlayer = entry.player.id === player.value?.id
@@ -89,7 +86,6 @@ function LeaderboardRow({
   const games = entry.player.totalGames
   const rankColor = rank === 1 ? 'gold' : rank <= 3 ? 'lav' : 'muted'
   const score = leaderboardScoreLabel(mode, entry.score)
-  const awaiting = entry.reviewStatus === 'pending'
   return (
     <li
       class={`ed-lbrow${rank <= 3 ? ' ed-lbrow--podium' : ''}${isPlayer ? ' ed-lbrow--you' : ''}${rank === 1 ? ' ed-lbrow--crown' : ''}`}
@@ -105,26 +101,17 @@ function LeaderboardRow({
             </strong>
             <AccountTags tags={entry.player.accountTags} />
           </span>
-          {awaiting ? (
-            <small class="ed-lbrow__meta ed-lbrow__meta--awaiting">Awaiting the referee</small>
-          ) : (
-            <small class="ed-lbrow__meta">
-              <span class="ed-lbrow__xp">
-                <Icon name="zap" />
-                {entry.player.xp.toLocaleString()} XP
-              </span>
-              <span>
-                · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
-              </span>
-            </small>
-          )}
+          <small class="ed-lbrow__meta">
+            <span class="ed-lbrow__xp">
+              <Icon name="zap" />
+              {entry.player.xp.toLocaleString()} XP
+            </span>
+            <span>
+              · {games.toLocaleString()} {games === 1 ? 'game' : 'games'}
+            </span>
+          </small>
         </span>
         <span class="ed-lbrow__result">
-          {entry.reviewStatus ? (
-            <ReviewStatusMark status={entry.reviewStatus} size={rank === 1 ? 32 : 26} index={index} />
-          ) : (
-            <span class="ed-lbrow__seal-slot" aria-hidden="true" />
-          )}
           <span class="ed-lbrow__score">
             {score}
             {entry.timeMs !== undefined && (
@@ -524,7 +511,6 @@ export default function Leaderboards() {
                 <LeaderboardRow
                   entry={entry}
                   mode={mode}
-                  index={index}
                   rankOverride={isClan ? index + 1 : undefined}
                   key={entry.player.id}
                 />
@@ -587,10 +573,7 @@ export default function Leaderboards() {
 
       {!isBadges && !isXp && (
         <footer class="ed-board__key">
-          <ReviewStatusMark status="reviewed" size={18} />
-          <span>Cleared by a referee.</span>
-          <ReviewStatusMark status="pending" size={18} />
-          <span>means the run ranks while it is checked; excluded runs leave the board.</span>
+          <span>Every finished run ranks.</span>
           <a class="ed-textlink" href="/fair-play/">
             Fair Play
           </a>

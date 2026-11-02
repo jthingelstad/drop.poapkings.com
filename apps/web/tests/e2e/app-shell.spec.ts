@@ -95,7 +95,24 @@ test('treats an API outage as offline and recovers without a retry panel', { tag
 })
 
 test('route changes reset the active shell scroll position', async ({ page }) => {
+  // A long board, so the route overflows the viewport whatever the shared
+  // fixture rows add up to and the scroll this test resets is real.
+  const base = leaderboardEntries('surge')
+  const entries = Array.from({ length: 16 }, (_, index) => ({
+    ...base[index % base.length]!,
+    rank: index + 1,
+    score: 58_410 + index * 1_000,
+    player: { ...base[index % base.length]!.player, id: `scroll-player-${index}` }
+  }))
+  await page.route(/^http:\/\/127\.0\.0\.1:[0-9]+\/leaderboards(?:[/?]|$)/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mode: 'surge', seasonId: testSeason.id, currentSeason: testSeason, entries })
+    })
+  )
   await page.goto('/#/leaderboards')
+  await expect(page.locator('.ed-board__list')).toContainText('16')
 
   const routeScroller = page.locator('[data-route-scroll]')
   await expect(routeScroller).toBeVisible()

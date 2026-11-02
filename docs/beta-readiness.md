@@ -115,13 +115,11 @@ integrity checks and operational monitoring in place.
 
 The server recomputes every completion from its signed challenge. When
 assumption-based timing or transcript checks produce a deterministic candidate
-score plus review signals, the ranked run is recorded and sent to the referee
-under the Awaiting seal — and it **still ranks provisionally on the public
-board** while it waits. Only an `excluded` run leaves a board. The one read that
-withholds a pending run is `seasonPodiumFinishers`, because a provisional
-placement is reversible and a finalized podium is not. The Fair Play Referee can
-later clear a falsely flagged run or exclude a suspect one through an audited,
-reversible decision; the automatic label is a review signal, never a verdict.
+score plus review signals, the ranked run is recorded, ranks at once, and keeps
+the signals in its evidence. There is no hold and no seal. Only a run a person
+removes after a hand investigation (`excluded`) leaves a board, through an
+audited, reversible decision; the automatic label is a review signal, never a
+verdict.
 
 If no comparable score can be derived, the attempt remains unscored and cannot
 be placed on a leaderboard. Its sanitized evidence is retained for review

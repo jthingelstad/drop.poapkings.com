@@ -130,12 +130,6 @@ function publicLeader(board, mode, seasonId) {
   if (Number.isNaN(Date.parse(achievedAt))) {
     throw new Error(`${mode} leader achievedAt is invalid`);
   }
-  const reviewStatus =
-    first.reviewStatus === "pending"
-      ? "Awaiting"
-      : first.reviewStatus === "reviewed"
-        ? "Cleared"
-        : null;
   return {
     mode,
     visibleEntries: board.entries.length,
@@ -144,9 +138,6 @@ function publicLeader(board, mode, seasonId) {
       score: first.score,
       achievedAt,
       ...(Number.isSafeInteger(first.timeMs) ? { timeMs: first.timeMs } : {}),
-      reviewStatus,
-      provisional: reviewStatus === "Awaiting",
-      finalEligible: reviewStatus === "Cleared",
     },
   };
 }

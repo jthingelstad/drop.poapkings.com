@@ -95,29 +95,28 @@ or reduce it, and whether the weakness is player-specific or systemic.
 
 ## Visibility
 
-Before a referee judgment, the integrity gate may create a neutral
-`review`/`hidden` pending hold for a strong automatic signal or a strict new
-all-time leader. This is an administrative queue state, not an adverse finding:
-the run remains intact, owner-visible, and **ranks provisionally on the public
-board** under the Awaiting seal while it waits, and it must be promptly reviewed.
-The strong-evidence threshold below applies to the referee's decision to keep it
-hidden, not to the temporary queue hold.
+Every run ranks on finishing and wears no seal (Jamie, 2026-11-02: "Drop
+retires the Awaiting hold and the Cleared seal; every run ranks on finishing
+with no seal, and only a hand investigation can remove a run from the boards").
+Drop checks runs statistically: completion records the automatic timing and
+scoring signals, and the leader checks, in the evidence (`integrityOutcome`,
+`reviewSignals`) and writes no decision. A signal is a reason a person might
+look, never a hold and never a verdict.
 
-**A pending hold no longer removes a run from a board.** `refereeReviewStatus`
-in `services/api/src/referee-status.ts` separates a queue hold from a final
-exclusion, and only `excluded` leaves a board. The one read that still withholds
-a pending run is `seasonPodiumFinishers`: a provisional placement is reversible,
-a finalized podium is not. This changes what a slow review costs — an unreviewed
-hold no longer silently denies an honest player their rank — but it raises the
-stakes on the exclusion threshold below, because exclusion is now the only action
-that moves a board.
+A person may investigate a run with the referee scripts and, if it is really
+wrong, remove it from the boards with a `review`/`hidden` decision. That is the
+only action that moves a board, so it carries the whole weight of the threshold
+below. A removal is reversible. `isExcludedFromBoards` in
+`services/api/src/referee-status.ts` is the one classifier the boards, the
+owner's history, badges, shares and season awards share.
 
-When materially new player-level evidence changes the context of an earlier
-judgment, Jamie may explicitly reopen that judgment through the sanctioned
-decision script. The reopened run returns to the same neutral pending state,
-keeps ranking provisionally under the Awaiting seal, and retains both the old
-judgment and the new queue event in its audit history. Reopening is not an
-exclusion and carries no player-facing accusation.
+Older records stay in the table and are ignored by that classifier: an
+automatic integrity-gate hold (`decidedBy: "integrity-gate"`) and a judgment
+reopened as a queue hold (`queueState: "pending"`) were never a person's final
+call, so those runs rank. `referee-decide.mjs` no longer writes either; its
+`--pending` and `--reopen` flags fail closed. When materially new evidence
+changes the context of an earlier judgment, a person records a new `visible` or
+`hidden` decision; both stay in the audit history.
 
 - `visible`: the scored run remains eligible for public boards. This includes normal
   `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
@@ -136,14 +135,13 @@ transcript, evidence, unrelated result, or account. A later audited `visible` de
 restores the exact run at its correct rank. A final referee exclusion also makes
 the run ineligible for derived badges: the API lazily reconciles the player's
 badge bag from eligible history after the audited decision, while leaving
-canonical XP and learning records intact. Pending holds do not remove badges,
-and a later audited restoration restores the run's badge contribution.
+canonical XP and learning records intact. A later audited restoration restores
+the run's badge contribution.
 
-Player-visible status uses the CSS struck-wax seal and the agreed vocabulary:
-`Awaiting`, `Cleared`, and `Excluded` — no emoji or art file. An Awaiting run ranks
-provisionally and carries that status on the public board; an Excluded run stays
-owner-visible and leaves every public board; a Cleared visible run carries its public
-status. An unreviewed run has no seal. Private dispositions, signals, and reasons never
+No run carries a review mark on any public surface. The one player-visible
+status is `Excluded`, shown only to the run's owner in their history: the run
+stays owner-visible and leaves every public board. A `clear` or `watch` decision
+changes nothing a player sees. Private dispositions, signals, and reasons never
 leave the referee surface. Every referee-excluded run also requires one approved
 player-reason category. The API turns that category into a concise owner-only sentence
 beneath the run; arbitrary referee notes are never exposed.
@@ -164,11 +162,11 @@ separate approved `allowed` decision restores ranked access. Public surfaces des
 status and process without publishing accusations or private evidence.
 
 Automatic scorer or integrity output is triage, not authority. A flagged run with a
-deterministic score can be retained under hidden review and then confirmed or restored
-from exact evidence. An unscoreable attempt can be judged without inventing a rank.
-Both mechanisms use the server-issued run UUID internally and its deterministic `#D…`
-Drop run tag on player surfaces. A scoreable hold joins its immediate pending notice,
-history row, evidence, and decision; an unscoreable attempt joins the unrecorded notice
+deterministic score ranks like any other; a person may investigate it from its
+evidence and remove or restore it. An unscoreable attempt can be judged without
+inventing a rank. Both use the server-issued run UUID internally and its
+deterministic `#D…` Drop run tag on player surfaces. A scored run joins its history
+row, evidence, and any decision; an unscoreable attempt joins the unrecorded notice
 to retained evidence but has no scored history row or leaderboard status. Referee tools
 accept either identifier and fail closed on an ambiguous short tag.
 Never treat words such as “invalid,” “impossible,” or “implausible” as a verdict.

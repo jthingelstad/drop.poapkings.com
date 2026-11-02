@@ -50,13 +50,12 @@ indexable pages explain the six modes, learning approach, current card costs,
 badge ladders, Game Setup, Fair Play, and support without wrapping that content
 inside the game UI.
 
-Ranked play is human play: a person chooses every answer. Strict new leaders and
-technically unusual results go to a referee, and a held run **still ranks
-provisionally** while it waits — only an excluded run leaves a board. The three
-states are **Awaiting**, **Cleared**, and **Excluded**, drawn as a struck-wax
-seal; most runs are never reviewed and carry no mark at all. The standalone Fair
-Play page explains allowed settings and accessibility tools, prohibited
-automation, private review, and re-review.
+Ranked play is human play: a person chooses every answer. Drop checks runs
+statistically, and every finished run ranks as soon as it ends, with no review
+mark. A person may investigate a run and, if it is really wrong, remove it from
+the boards; a removal can be reversed, and only the run's owner sees it as
+**Excluded**. The standalone Fair Play page explains allowed settings and
+accessibility tools, prohibited automation, private review, and re-review.
 
 Finishing a recorded run gives you its permanent personalized link, and You →
 Log can publish the same link later. Your earned badges and your own player

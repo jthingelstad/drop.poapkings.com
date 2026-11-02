@@ -178,8 +178,10 @@ void test("operator tooling lives in scripts/ and the Fair Play policy keeps its
   assert.match(fairPlayPolicy, /missing.*evidence remains fail-closed/s);
   assert.match(
     fairPlayPolicy,
-    /`Awaiting`, `Cleared`, and `Excluded`.*Awaiting run ranks\s+provisionally/s,
+    /Every run ranks on finishing and wears no seal/,
   );
+  assert.match(fairPlayPolicy, /one player-visible\s+status is `Excluded`/);
+  assert.doesNotMatch(fairPlayPolicy, /`Awaiting`|`Cleared`|provisionally/);
   assert.doesNotMatch(fairPlayPolicy, /🔎|✅|🚫|`Pending`|`Reviewed`/);
 });
 
@@ -221,6 +223,7 @@ void test("season brief contains all five public boards and strips identity fiel
             rank: 1,
             score: mode === "surge" ? 12.345 : 21,
             achievedAt: "2026-09-10T12:00:00.000Z",
+            // A field an older API sent; the brief carries no review status.
             reviewStatus: mode === "rain" ? "pending" : "reviewed",
             player: {
               id: `private-${mode}`,
@@ -246,8 +249,11 @@ void test("season brief contains all five public boards and strips identity fiel
     brief.boards.map((board) => board.mode),
     RANKED_MODE_FIXTURES,
   );
-  assert.equal(brief.boards.at(-1).leader.reviewStatus, "Awaiting");
-  assert.equal(brief.boards.at(-1).leader.finalEligible, false);
+  for (const board of brief.boards) {
+    assert.equal("reviewStatus" in board.leader, false);
+    assert.equal("provisional" in board.leader, false);
+    assert.equal("finalEligible" in board.leader, false);
+  }
   const serialized = JSON.stringify(brief);
   assert.doesNotMatch(
     serialized,

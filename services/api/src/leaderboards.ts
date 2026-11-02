@@ -14,11 +14,7 @@ import {
   hydratePublicProfiles,
   placeholderPublicProfile,
 } from "./public-profile.js";
-import {
-  boardReviewStatus,
-  isExcludedFromBoards,
-  refereeReviewStatus,
-} from "./referee-status.js";
+import { isExcludedFromBoards } from "./referee-status.js";
 import type { GameMode, PublicProfile, RefereeDecision } from "./types.js";
 
 // Every read in this module is reachable from GET /leaderboards, which is
@@ -49,15 +45,6 @@ const MAX_VISIBILITY_BATCHES = 5;
 
 type BoardItem = Record<string, unknown>;
 
-// What a run awaiting a referee is allowed to do on a given read.
-//
-// "rank" is the public rule: a held run ranks provisionally and carries an
-// awaiting status, so a leading score is never silently absent from the board
-// while it waits for a person. "withhold" is for the internal finalization
-// read — a season podium is an award, and awarding one to a run no referee has
-// cleared yet is not something a later decision can take back cleanly.
-type PendingPolicy = "rank" | "withhold";
-
 const historyUnavailable = () =>
   new HttpError(
     503,
@@ -76,13 +63,9 @@ export async function seasonLeaderboard(
 }
 
 // Internal season-finalization read. It deliberately returns only subjects,
-// never hydrated public rows, while reusing the exact referee-aware ranking
-// path players see. Keeping this separate prevents an internal subject key
-// from leaking into GET /leaderboards.
-//
-// This is the one read that still withholds a pending run. The public board
-// ranks it provisionally because a provisional placement is reversible; a
-// finalized podium is not.
+// never hydrated public rows, while reusing the exact ranking path players
+// see, so the podium is the board as it stood. Keeping this separate prevents
+// an internal subject key from leaking into GET /leaderboards.
 export async function seasonPodiumFinishers(
   tableName: string,
   mode: GameMode,
@@ -99,10 +82,10 @@ export interface SeasonFinalist {
   score: number;
 }
 
-// Referee-cleared final standings for season awards. Pending results are
-// withheld because XP and badges are permanent; sparse boards still retain
-// their occupied 1-based positions. A 2,000-player read matches the existing
-// bounded 2,000-run partition walk and is used only by the private season job.
+// Final standings for season awards: the same board players see, which omits
+// only runs a hand investigation removed. Sparse boards still retain their
+// occupied 1-based positions. A 2,000-player read matches the existing bounded
+// 2,000-run partition walk and is used only by the private season job.
 export async function seasonFinalists(
   tableName: string,
   mode: GameMode,
@@ -114,7 +97,6 @@ export async function seasonFinalists(
     mode,
     seasonId,
     Math.max(0, Math.min(2_000, Math.floor(limit))),
-    "withhold",
   );
   return items.flatMap((item, index) =>
     typeof item.playerSub === "string" &&
@@ -125,8 +107,9 @@ export async function seasonFinalists(
   );
 }
 
-// Completion-time eligibility check for a strict new season leader. It reuses
-// the same referee-aware, per-player ranking path as the public board.
+// Completion-time check for a strict new season leader, recorded as a review
+// signal in the run's evidence. It reuses the same per-player ranking path as
+// the public board.
 export async function seasonLeaderboardLeader(
   tableName: string,
   mode: GameMode,
@@ -140,7 +123,6 @@ async function seasonLeaderboardItems(
   mode: GameMode,
   seasonId: number,
   limit: number,
-  pending: PendingPolicy = "rank",
 ): Promise<BoardItem[]> {
   const items: BoardItem[] = [];
   const seenPlayers = new Set<string>();
@@ -174,20 +156,13 @@ async function seasonLeaderboardItems(
     const candidates = pageItems.filter(
       (item) => !seenPlayers.has(String(item.playerSub)),
     );
-    const decisions = await seasonCandidateDecisions(
-      tableName,
-      candidates,
-      pending,
-    );
+    const decisions = await seasonCandidateDecisions(tableName, candidates);
     for (const item of pageItems) {
-      const decision = decisions.get(String(item.runId));
-      if (isExcludedFromBoards(decision)) continue;
-      if (pending === "withhold" && refereeReviewStatus(decision) === "pending")
-        continue;
+      if (isExcludedFromBoards(decisions.get(String(item.runId)))) continue;
       const sub = String(item.playerSub);
       if (!seenPlayers.has(sub)) {
         seenPlayers.add(sub);
-        items.push(reviewedItem(item, decision));
+        items.push(item);
         if (items.length >= limit) break;
       }
     }
@@ -202,13 +177,12 @@ async function seasonLeaderboardItems(
   return items;
 }
 
-// An ordered page only needs a player's leading run reviewed. Read their
-// lower runs only if that candidate is excluded (or held for final awards).
-// Resolve fallback candidates in batches, not one network round trip per run.
+// An ordered page only needs a player's leading run checked. Read their lower
+// runs only if that candidate is excluded. Resolve fallback candidates in
+// batches, not one network round trip per run.
 async function seasonCandidateDecisions(
   tableName: string,
   items: BoardItem[],
-  pending: PendingPolicy,
 ): Promise<Map<string, RefereeDecision>> {
   const leading = new Map<string, BoardItem>();
   for (const item of items) {
@@ -220,14 +194,7 @@ async function seasonCandidateDecisions(
   const decisions = await refereeDecisions(tableName, [...leadingIds]);
   const needsFallback = new Set(
     leaders
-      .filter((item) => {
-        const decision = decisions.get(String(item.runId));
-        return (
-          isExcludedFromBoards(decision) ||
-          (pending === "withhold" &&
-            refereeReviewStatus(decision) === "pending")
-        );
-      })
+      .filter((item) => isExcludedFromBoards(decisions.get(String(item.runId))))
       .map((item) => String(item.playerSub)),
   );
   const fallbacks = items.filter(
@@ -254,9 +221,10 @@ export async function allTimeLeaderboard(
   return withPublicProfiles(tableName, mode, items);
 }
 
-// Completion-time eligibility check for a strict new all-time leader. It uses
-// the same referee-aware fallback as the public board, but returns the raw
-// earning run so every mode's ordered tiebreaks remain available.
+// Completion-time check for a strict new all-time leader, recorded as a review
+// signal in the run's evidence. It uses the same exclusion fallback as the
+// public board, but returns the raw earning run so every mode's ordered
+// tiebreaks remain available.
 export async function allTimeLeaderboardLeader(
   tableName: string,
   mode: GameMode,
@@ -296,9 +264,8 @@ async function allTimeLeaderboardItems(
       ...(
         await Promise.all(
           pageItems.map(async (item) => {
-            const decision = decisions.get(String(item.runId));
-            if (!isExcludedFromBoards(decision))
-              return reviewedItem(item, decision);
+            if (!isExcludedFromBoards(decisions.get(String(item.runId))))
+              return item;
             return bestRankableRun(
               tableName,
               String(item.playerSub),
@@ -394,9 +361,8 @@ export async function clanAllTimeLeaderboard(
       ...(
         await Promise.all(
           pageItems.map(async (item) => {
-            const decision = decisions.get(String(item.runId));
-            if (!isExcludedFromBoards(decision))
-              return reviewedItem(item, decision);
+            if (!isExcludedFromBoards(decisions.get(String(item.runId))))
+              return item;
             return bestRankableRun(
               tableName,
               String(item.playerSub),
@@ -480,24 +446,6 @@ export async function refereeDecisions(
       );
   }
   return decisions;
-}
-
-// Stamp the row with what the board should say about it. Both fields are
-// absent on a run no referee has touched: `reviewStatus` is only ever a real
-// referee state, and `refereeReviewed` keeps its original meaning so a browser
-// still running the previous release marks exactly the rows it always did.
-function reviewedItem(
-  item: BoardItem,
-  decision: RefereeDecision | undefined,
-): BoardItem {
-  const status = boardReviewStatus(decision);
-  return {
-    ...item,
-    ...(status ? { reviewStatus: status } : {}),
-    ...(refereeReviewStatus(decision) === "reviewed"
-      ? { refereeReviewed: true }
-      : {}),
-  };
 }
 
 async function resolveAllTimeEarningRun(
@@ -607,8 +555,7 @@ async function bestRankableRun(
     const rankable = window.find(
       (item) => !isExcludedFromBoards(decisions.get(String(item.runId))),
     );
-    if (rankable)
-      return reviewedItem(rankable, decisions.get(String(rankable.runId)));
+    if (rankable) return rankable;
   }
   return undefined;
 }
@@ -637,7 +584,9 @@ async function withPublicProfiles(
   );
 }
 
-// Shared row shape for the season and all-time boards.
+// Shared row shape for the season and all-time boards. A row carries no
+// review status: every run ranks with no seal, and a removed run is not on
+// the board at all.
 function toLeaderboardRow(
   item: BoardItem,
   mode: GameMode,
@@ -653,10 +602,6 @@ function toLeaderboardRow(
     rank: index + 1,
     score: item.score,
     achievedAt: item.completedAt,
-    ...(item.reviewStatus === "pending" || item.reviewStatus === "reviewed"
-      ? { reviewStatus: item.reviewStatus }
-      : {}),
-    ...(item.refereeReviewed === true ? { refereeReviewed: true } : {}),
     ...(showTime && item.timeMs !== undefined
       ? { timeMs: item.timeMs as number }
       : {}),

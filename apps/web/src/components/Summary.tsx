@@ -17,7 +17,6 @@ import BadgeEarned from './BadgeEarned'
 import ModeIcon from './ModeIcon'
 import ShareLine from './ShareLine'
 import SignInToSave from './SignInToSave'
-import ReviewStatusMark, { type ReviewSeal } from './ReviewStatus'
 import { useGameKeys } from '../lib/use-game-keys'
 import { isInteractiveKeyTarget, isSpaceKey } from '../lib/game-keys'
 
@@ -25,16 +24,9 @@ import { isInteractiveKeyTarget, isSpaceKey } from '../lib/game-keys'
 // short ledger), the mode's signature panel read back in a sentence, and what to
 // do next.
 //
-// The summary's job is what happened, not what is pending. There is no
-// "Awaiting a referee" line and no awaiting seal here: at the moment a run ends
-// EVERY recorded run is awaiting, so a mark every run carries tells a player
-// nothing. That state is keyed where it can differ — on the boards, in the run
-// log, in the Updates slot. A cleared seal is never drawn on a summary either: a
-// referee reads input evidence and takes minutes, so it cannot have cleared a
-// run that ended two seconds ago.
-//
-// The one seal that survives is `not recorded`, because that IS what happened:
-// an offline or guest run the board never saw.
+// The summary's job is what happened. A recorded run ranks the moment it ends,
+// so there is nothing pending to say. An offline or guest run the board never
+// saw gets one plain line saying so.
 
 // `moments` is still accepted so existing callers compile, but the summary no
 // longer renders a row of generic tiles — the "what changed" ledger replaced it.
@@ -85,8 +77,6 @@ export default function Summary({
   const offline = offlineRunMode.value === share.mode
   const visiblePbCallout = offline ? undefined : pbCallout
 
-  // The only seal a summary draws: this run was not recorded at all.
-  const seal: ReviewSeal | null = offline ? 'not-recorded' : null
   const stateLine = offline
     ? 'The run happened and your device remembers it. The board never saw it, so nothing moved.'
     : null
@@ -123,7 +113,6 @@ export default function Summary({
         </div>
         <div class="ed-sum__score-row">
           <div class="ed-sum__headline">{headline}</div>
-          {seal && <ReviewStatusMark status={seal} size={32} struck />}
         </div>
         {stateLine && (
           <p class="ed-sum__state" role="status">

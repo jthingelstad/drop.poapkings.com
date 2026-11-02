@@ -221,6 +221,11 @@ async function recordSignedInRun(
   const { score, transcript, scoringReviewSignals } = scored;
   const timing = analyzeTimingEvidence(run.mode, transcript);
   const tiebreaks = modeTiebreaks(run, transcript, score);
+  // A strict new season or all-time leader is recorded as a review signal in
+  // the evidence, exactly as before. Since 2026-11-02 no signal holds a run:
+  // every run ranks on finishing, and only a hand investigation can remove one
+  // from the boards. The signal names stay as they were, so evidence written
+  // before and after the change reads the same.
   const leaderReviewSignals: string[] = [];
   if (run.ranked !== false) {
     try {
@@ -263,11 +268,10 @@ async function recordSignedInRun(
     );
   }
   if (automaticReviewReason) {
-    // The signed evidence produced a deterministic candidate score, so
-    // preserve the exact run and quarantine it from public rankings. This
-    // makes a false positive reversible while prrequesting a suspicious score
-    // from appearing before referee review.
-    console.warn("Run completion quarantined by integrity check", {
+    // The signed evidence produced a deterministic candidate score. The run is
+    // recorded and ranks like any other; the signals live in its evidence for
+    // any hand investigation.
+    console.warn("Run completion carried review signals", {
       requestId: request.requestId,
       runId: run.runId,
       mode: run.mode,
@@ -294,7 +298,6 @@ async function recordSignedInRun(
     season.id,
     completionXp,
     tiebreaks,
-    automaticReviewReason,
   );
   if (run.mode === "practice") {
     try {
@@ -341,8 +344,8 @@ async function recordSignedInRun(
         error: error instanceof Error ? error.name : "unknown",
       });
     }
-    // Referee evidence for every recorded ranked run, including runs that the
-    // automatic integrity gate quarantined for review. Best-effort; never
+    // Referee evidence for every recorded ranked run, including runs that
+    // carried automatic review signals. Best-effort; never
     // fails or rolls back the recorded run. Practice is ranked:false, so this
     // branch naturally excludes it — practice writes no evidence.
     try {
@@ -402,7 +405,6 @@ async function recordSignedInRun(
         score,
         completedAt: result.completedAt,
         personalBest: personalBest.improved,
-        underReview: Boolean(automaticReviewReason),
       })),
     );
   } catch (error) {
@@ -492,7 +494,7 @@ async function recordSignedInRun(
   }
   console.info(
     automaticReviewReason
-      ? "Game completed under referee review"
+      ? "Game completed with review signals"
       : "Game completed",
     {
       runId: run.runId,
@@ -510,7 +512,6 @@ async function recordSignedInRun(
     season,
     ranked: run.ranked !== false,
     completedAt: result.completedAt,
-    ...(automaticReviewReason ? { underReview: true } : {}),
     // The browser reports usage to Tinylytics; only the server knows whether
     // this recorded score beat the player's all-time best.
     ...(personalBest.improved ? { personalBest: true } : {}),

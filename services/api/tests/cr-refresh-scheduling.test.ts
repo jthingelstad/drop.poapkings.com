@@ -544,7 +544,6 @@ describe("Clash Royale refresh scheduling", () => {
       134,
       { practiceCards: 1 },
       undefined, // no Survival time tiebreak for a Practice run
-      undefined,
     );
     expect(JSON.parse(response.body || "{}").season).toMatchObject({
       source: "clash-royale",

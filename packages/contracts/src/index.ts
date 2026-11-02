@@ -618,7 +618,10 @@ export interface LearningSummary {
   costAccuracy: Record<string, { seen: number; correct: number }>;
 }
 
-export type RunReviewStatus = "pending" | "reviewed" | "excluded";
+// The one run status a player surface carries (owner-only): a hand
+// investigation removed the run from the boards. Awaiting and Cleared were
+// retired on 2026-11-02.
+export type RunReviewStatus = "excluded";
 
 const RUN_REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
@@ -674,9 +677,6 @@ export interface CompletedRun {
   season: Season;
   ranked?: boolean;
   completedAt: string;
-  // The score was recorded but is excluded from public leaderboards pending a
-  // Fair Play Referee decision. Automatic scorer flags are not final verdicts.
-  underReview?: boolean;
   // Present only when this recorded score beat the player's all-time best. The
   // server owns that comparison; the browser reports it to Tinylytics.
   personalBest?: true;

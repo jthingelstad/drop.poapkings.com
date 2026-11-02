@@ -436,22 +436,6 @@ a {
   font: 400 1.5rem/1 var(--display);
 }
 
-.static-statuses {
-  list-style: none;
-  padding: 0 !important;
-  margin-top: 18px !important;
-}
-
-.static-statuses li {
-  display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.static-statuses strong {
-  color: var(--lavender);
-}
-
 .static-update-stamp {
   margin-bottom: 16px !important;
   color: #a99fce;
@@ -538,10 +522,7 @@ a {
     font-size: 2.55rem;
   }
 
-  .static-statuses li {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
+  
 
   .static-mode {
     grid-template-columns: 62px minmax(0, 1fr);

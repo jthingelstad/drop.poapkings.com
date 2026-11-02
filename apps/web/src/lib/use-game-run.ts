@@ -49,11 +49,6 @@ export const recordedRunCompletedAt = signal<string | null>(null)
 // because six modes render that component and none of them know anything about
 // badges. Cleared when the next run is prepared, so a replay never
 // re-celebrates the previous run's badges.
-//
-// There is deliberately no "held for review" signal beside these. A run that
-// just ended is ALWAYS awaiting a referee, so the summary says nothing about it;
-// the recording toast names the hold and carries the reference, and the run log,
-// the boards and Updates carry the verdict once there is one to carry.
 export const earnedBadges = signal<EarnedRung[]>([])
 
 // XP earned by the run just completed, for the summary's "what changed" ledger.
@@ -441,12 +436,7 @@ export function useGameRun<T extends GameMode>(mode: T, options?: GameRunOptions
     earnedXpAwards.value = result.xpAwards ?? []
     setRecordingNotice({
       state: 'saved',
-      message: !isRecordedMode(result.mode)
-        ? 'Practice session saved'
-        : result.underReview
-          ? 'Game recorded — awaiting the referee'
-          : 'Game recorded',
-      ...(result.underReview ? { detail: `Reference: ${runReference(result.runId)}` } : {})
+      message: !isRecordedMode(result.mode) ? 'Practice session saved' : 'Game recorded'
     })
 
     try {
@@ -461,10 +451,9 @@ export function useGameRun<T extends GameMode>(mode: T, options?: GameRunOptions
         mode: result.mode,
         score: result.score,
         seasonId: result.season.id,
-        completedAt: result.completedAt,
-        ...(result.underReview ? { reviewStatus: 'pending' } : {})
+        completedAt: result.completedAt
       })
-      if (seasonBest && isRecordedMode(result.mode) && !result.underReview) {
+      if (seasonBest && isRecordedMode(result.mode)) {
         setRecordingNotice({ state: 'saved', message: 'Game recorded — new season best!' })
       }
       window.dispatchEvent(new Event(TROPHY_ROAD_UPDATED_EVENT))

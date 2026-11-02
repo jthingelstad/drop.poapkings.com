@@ -40,7 +40,7 @@ import { enqueueRefresh } from "../refresh-jobs.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { isRecruiterInviteReference } from "../recruiter.js";
-import { refereeReviewStatus } from "../referee-status.js";
+import { isExcludedFromBoards } from "../referee-status.js";
 import { isShareToken } from "../shares.js";
 import type { ElixirCandidate, ElixirLink, PlayerProfile } from "../types.js";
 import {
@@ -112,9 +112,7 @@ async function recruiterFor(
     const decision = (await repository.refereeDecisions([published.runId])).get(
       published.runId,
     );
-    return refereeReviewStatus(decision) === "excluded"
-      ? undefined
-      : published.owner;
+    return isExcludedFromBoards(decision) ? undefined : published.owner;
   }
   if (
     isPublishedBadgeReference(

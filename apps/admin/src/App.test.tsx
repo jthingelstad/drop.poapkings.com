@@ -33,7 +33,7 @@ function fixtureFetch() {
         generatedAt: "2026-08-13T12:00:00.000Z",
         operator: "jamie",
         csrfToken: "csrf",
-        totals: { players: 1, runs: 2, pending: 1, restricted: 0 },
+        totals: { players: 1, runs: 2, restricted: 0 },
         players: [
           {
             playerId: "player-1",
@@ -49,14 +49,12 @@ function fixtureFetch() {
             runCount: 2,
             modes: { surge: 2 },
             reviewedRuns: 0,
-            pendingRuns: 1,
             excludedRuns: 0,
             earnedBadges: 1,
             rankedAccess: "allowed",
           },
         ],
         recentRuns: [],
-        reviewQueue: [],
       });
     if (path === "/api/updates" && init?.method !== "POST")
       return response({
@@ -122,7 +120,12 @@ function fixtureFetch() {
               score: 12004,
               seasonId: 135,
               completedAt: "2026-08-13T10:00:00.000Z",
-              decision: { queueState: "pending", visibility: "visible" },
+              // A legacy hold record: stored, but never a person's call.
+              decision: {
+                queueState: "pending",
+                visibility: "hidden",
+                decidedBy: "fair-play-referee",
+              },
             },
             {
               runId: "run-2",
@@ -182,7 +185,11 @@ it("keeps the searchable player directory open beside filterable run history", a
   await vi.waitFor(() => expect(host.textContent).toContain("2 of 2 runs"));
   expect(host.textContent).toContain("player@example.com");
   expect(host.textContent).toContain("#P1234567890");
-  expect(host.textContent).toContain("🔎 Pending");
+  // The Review Queue is retired, and a legacy hold reads as unreviewed.
+  expect(host.textContent).not.toContain("Review Queue");
+  expect(host.textContent).not.toContain("awaiting review");
+  expect(host.textContent).not.toContain("Pending");
+  expect(host.textContent).toContain("• Unreviewed");
   expect(
     host.querySelector(
       'input[placeholder="Name, email, #P, Clash tag, clan…"]',

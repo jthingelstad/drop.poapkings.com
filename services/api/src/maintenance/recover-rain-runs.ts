@@ -374,7 +374,6 @@ async function main(): Promise<void> {
         plan.evidence.seasonId,
         plan.xp,
         plan.tiebreaks,
-        undefined,
         {
           completedAt: plan.evidence.completedAt,
           recoveredAt,

@@ -31,7 +31,7 @@ Every other doc points back here instead of keeping its own copy of this list.
 | **`README.md`**                                               | Public overview + local-development entry point.                                                                  |
 | **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                             |
 | **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                |
-| **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the player-facing referee seal. Read `SPEC.md` §11 for what shipped. |
+| **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the referee seal, retired 2026-11-02. Read `SPEC.md` §11 for what holds now. |
 | **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                            |
 | **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                          |
 | **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                              |
@@ -88,17 +88,19 @@ Every other doc points back here instead of keeping its own copy of this list.
    other copyrighted text.
 7. **Referee evidence is sanitized; decisions are a bounded overlay.** Fair Play
    evidence lives under `PLAYER#{sub}/EVIDENCE#` (written best-effort at
-   `/runs/complete` for recorded ranked (accepted or quarantined) + unscored
-   signed-in attempts; automatic scorer/integrity labels are review signals,
-   never referee verdicts; never practice
+   `/runs/complete` for recorded ranked (accepted or carrying signals) +
+   unscored signed-in attempts; automatic scorer/integrity labels are review
+   signals, never holds or referee verdicts; never practice
    or guest) and holds the challenge, transcript, timing, versions, and
    **peppered** correlation hashes — **never a raw IP or user-agent**.
    `TELEMETRY_PEPPER` is Lambda-only: never put it in the referee scripts,
    the referee role, CI, or the browser. The `scripts/referee-*.mjs` are the
    **only** sanctioned referee data and decision path; they emit the
    pseudonymous `playerId`, never `sub` or email, and fail closed. The role may
-   write only `REFEREE#` decision partitions. Leaderboards honor a reversible
-   `hidden`/`visible` decision without changing canonical runs or scores.
+   write only `REFEREE#` decision partitions. Every run ranks on finishing;
+   only a person's `hidden` decision after a hand investigation removes one,
+   and leaderboards honor that reversible `hidden`/`visible` decision without
+   changing canonical runs or scores.
    Player-level ranked-access enforcement is a separate `REFEREE#PLAYER#`
    overlay: it requires explicit Jamie approval, blocks only future ranked
    starts, remains reversible, and never deletes the account or evidence.
@@ -563,24 +565,21 @@ production run. A successful exact-head validation triggers
   input kind, and `isTrusted`; never collect coordinates, pressure, pointer
   identity, or key codes. Active response time excludes forced reveal and
   card-transition waits. Preload timed card art before the clock starts.
-- **Leading results rank while they wait.** A strict new season or all-time
-  leader still goes to Fair Play review, and automatic timing/scoring
-  signals use the same neutral hold — but a held run now **ranks provisionally**
-  on the public board instead of disappearing from it. Only an `excluded` run
-  leaves a board. The one read that still withholds a pending run is
-  `seasonPodiumFinishers`: a provisional placement is reversible, a finalized
-  podium is not.
-- **The vocabulary is Cleared / Awaiting / Excluded**, and the mark is the
-  struck-wax seal in `components/ReviewStatus.tsx` — CSS only, no emoji, no art
-  file. "Pending", "Reviewed", and "Not included in rankings" are retired from
-  the UI; the API enum `pending | reviewed | excluded` is unchanged.
-  `services/api/src/referee-status.ts` is the single classifier both the owner's
-  history and the public boards read, so the two surfaces cannot disagree about
-  the same run. Its hidden branch fails closed.
-- **An unreviewed run wears no seal.** Most runs are never reviewed; they carry
-  no `reviewStatus` on any surface. Cleared means a referee examined that exact
-  run, so it is never the default for a run nobody examined — on a board, in
-  history, or in the status counts.
+- **Every run ranks on finishing, with no seal.** Jamie, 2026-11-02: "Drop
+  retires the Awaiting hold and the Cleared seal; every run ranks on finishing
+  with no seal, and only a hand investigation can remove a run from the
+  boards". Completion records the automatic timing and scoring signals and the
+  leader checks in the evidence (`integrityOutcome`, `reviewSignals`) and
+  writes no decision. No read withholds a run, `seasonPodiumFinishers`
+  included. A person removes a run with `scripts/referee-decide.mjs`
+  (`review`/`hidden`), and a later `visible` decision restores it.
+- **The only run status is `excluded`, and only its owner sees it.**
+  `isExcludedFromBoards` in `services/api/src/referee-status.ts` is the single
+  classifier the boards, owner history, badges, shares and season awards read,
+  so no two surfaces disagree about a run. Its hidden branch fails closed.
+  Older integrity-gate holds and `queueState: "pending"` records stay in the
+  table and are ignored. Do not bring back an Awaiting hold, a Cleared mark, a
+  seal, or a review queue.
 - **`GET /me/seasons` is bounded.** It returns a one-row-per-season `index` plus
   a single season's runs (`season=all` is an explicit opt-in). Never reintroduce
   a read that ships a player's whole career to render one month.

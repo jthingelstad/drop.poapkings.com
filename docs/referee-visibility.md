@@ -3,6 +3,11 @@
 Status: **superseded — kept as the reasoning behind what shipped.** Reviewed
 2026-08-19.
 
+**Superseded again 2026-11-02.** Jamie: "Drop retires the Awaiting hold and the
+Cleared seal; every run ranks on finishing with no seal, and only a hand
+investigation can remove a run from the boards". Nothing below about holds,
+seals, or the Review Queue is current; `docs/FAIR-PLAY.md` is.
+
 Scope was approved 2026-07-25 and narrowed the same day. What actually shipped
 since is both more and different, so read the summary below rather than the
 proposal underneath it:

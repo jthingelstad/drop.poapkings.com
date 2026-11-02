@@ -393,7 +393,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       plan.seasonId,
       { practiceCards: plan.evidence.answerCount },
       undefined,
-      undefined,
       {
         completedAt: plan.completedAt,
         recoveredAt,

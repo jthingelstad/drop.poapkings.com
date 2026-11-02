@@ -106,8 +106,7 @@ separate authorization.
 season boards. It feeds no post: season posts are automatic, two a season, published
 by the API when it finalizes a season (`docs/OPERATIONS.md`, "Seasons"), and there is
 no weekly standings post. It calls only the same unauthenticated `/seasons` and `/leaderboards`
-routes available to players, then emits public names, scores, times, and public review
-status. It deliberately strips player ids, tags, profile fields, and any non-board
+routes available to players, then emits public names, scores, and times. It deliberately strips player ids, tags, profile fields, and any non-board
 data; it has no AWS, referee, account, or write access.
 
 ```sh
@@ -156,11 +155,6 @@ node scripts/referee-decide.mjs <runId-or-#Dreference> \
 node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition clear --visibility not_ranked \
   --reason "Play appears genuine; candidate score needs product reconciliation"
-node scripts/referee-decide.mjs <runId-or-#Dreference> \
-  --pending --reason "Existing top result queued for referee review"
-node scripts/referee-decide.mjs <runId-or-#Dreference> \
-  --reopen --approved-by jamie \
-  --reason "Player-level evidence changed; prior judgment reopened for review"
 node scripts/referee-ranked-access.mjs <playerId> \
   --restrict --approved-by jamie \
   --reason "Repeated confirmed automation across reviewed ranked runs"
@@ -229,7 +223,7 @@ Configuration:
 | `referee-tags.mjs`          | —                                                                                                                                                                           | Normalized current-profile player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first; includes profiles missing sparse GSI2 membership.                                                                                                                                                                                                          |
 | `referee-feed.mjs`          | `--since <ISO>`                                                                                                                                                             | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                                                                                                                                                                                                |
 | `referee-decisions.mjs`     | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]`                                                                                              | Current private judgments for unresolved and changed-case review.                                                                                                                                                                                                                                                                                                              |
-| `referee-decide.mjs`        | `<runId-or-#Dreference> (--pending \| --reopen --approved-by jamie \| --disposition <d> --visibility visible\|hidden\|not_ranked) --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. `--pending` seeds an automatic review hold but cannot replace an existing referee judgment. `--reopen` turns an existing judgment back into a neutral pending hold when the current task contains Jamie's approval. A referee exclusion requires a safe player-reason code; `visible` restores a scored run. |
+| `referee-decide.mjs`        | `<runId-or-#Dreference> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. This is how a person removes a run from the boards after a hand investigation (`review`/`hidden`, with a safe player-reason code); `visible` restores a scored run. A clear changes nothing a player sees. `--pending` and `--reopen` were retired on 2026-11-02 and fail closed. |
 | `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>`                                                                                                  | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence.                                                                                                                                                                         |
 
 ## Ranked modes and board epochs
@@ -285,11 +279,14 @@ the same, so hiding one fabricated score does not erase the player's legitimate
 history. Legacy all-time rows without a projected `runId` are resolved against
 immutable player history and fail closed if no exact earning run exists.
 `referee-run` and `referee-player` annotate evidence/history with the current
-decision when one exists. The game may seed `review`/`hidden` whenever
-an assumption in scoring or integrity flags a run that still has a deterministic
-candidate score; `referee-decide.mjs` replaces that current decision with the
-referee's evidence-grounded judgment while preserving both events in audit
-history. Automatic labels are review signals, never verdicts.
+decision when one exists. Since 2026-11-02 every run ranks on finishing: the
+game records automatic timing and scoring signals in the evidence
+(`integrityOutcome`, `reviewSignals`) and writes no decision. Only a person's
+`hidden` decision, after a hand investigation, removes a run from the boards,
+and a later `visible` decision restores it. Older automatic holds
+(`decidedBy: "integrity-gate"`) and reopened queue holds (`queueState:
+"pending"`) stay in the table and are ignored by the board classifier.
+Automatic labels are review signals, never verdicts.
 
 ## Output contract
 

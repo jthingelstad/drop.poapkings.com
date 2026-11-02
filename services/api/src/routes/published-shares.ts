@@ -2,7 +2,7 @@ import type { HttpResponse } from "../http.js";
 import { playerReference, runReference } from "@elixir-drop/contracts";
 import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
-import { refereeReviewStatus } from "../referee-status.js";
+import { isExcludedFromBoards } from "../referee-status.js";
 import type { PublishedRunShareItem } from "../repository.js";
 import {
   deleteRunShareImage,
@@ -181,7 +181,7 @@ async function publishedShare(
   const decision = (
     await context.repository.refereeDecisions([share.runId])
   ).get(share.runId);
-  if (refereeReviewStatus(decision) === "excluded") {
+  if (isExcludedFromBoards(decision)) {
     if (context.config.shareAssetBucket)
       await deleteRunShareImage(
         context.config.shareAssetBucket,
@@ -258,7 +258,7 @@ export async function createPublishedRunShare(
       "not_found",
     );
   const decisions = await repository.refereeDecisions([run.runId]);
-  if (refereeReviewStatus(decisions.get(run.runId)) === "excluded")
+  if (isExcludedFromBoards(decisions.get(run.runId)))
     throw new HttpError(
       409,
       "That run is not publicly shareable.",
@@ -382,7 +382,7 @@ export async function uploadPublishedRunImage(
       "not_found",
     );
   const decisions = await repository.refereeDecisions([runId]);
-  if (refereeReviewStatus(decisions.get(runId)) === "excluded")
+  if (isExcludedFromBoards(decisions.get(runId)))
     throw new HttpError(
       409,
       "That run is not publicly shareable.",

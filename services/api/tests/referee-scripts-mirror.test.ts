@@ -1296,17 +1296,6 @@ async function itemsTheApiWrites(): Promise<Array<[string, Item]>> {
   send.mockResolvedValueOnce({}).mockResolvedValueOnce(storedProfile);
   await repository.completeRun(run, 61, SEASON_ID, 9, { timeMs: 44_500 });
   takePuts();
-  // Quarantined run: history row + automatic referee decision rows.
-  send.mockResolvedValueOnce({}).mockResolvedValueOnce(storedProfile);
-  await repository.completeRun(
-    run,
-    61,
-    SEASON_ID,
-    9,
-    { timeMs: 44_500 },
-    "impossible_pace",
-  );
-  takePuts();
 
   send.mockResolvedValue({});
   await repository.updateAllTimeBest(

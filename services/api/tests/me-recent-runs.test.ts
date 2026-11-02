@@ -130,7 +130,7 @@ describe("GET /me recent runs", () => {
       "survival",
     ]);
   });
-  it("shows review state only to the run owner", async () => {
+  it("shows the owner only an exclusion, never Awaiting or Cleared", async () => {
     repository.listRecentRuns.mockResolvedValue([
       {
         runId: "pending-run",
@@ -210,9 +210,9 @@ describe("GET /me recent runs", () => {
     if (!result || typeof result === "string") throw new Error("no result");
     const body = JSON.parse(result.body ?? "{}");
     expect(body.recentRuns).toMatchObject([
-      { runId: "pending-run", reviewStatus: "pending" },
-      { runId: "reviewed-run", reviewStatus: "reviewed" },
-      { runId: "reopened-run", reviewStatus: "pending" },
+      { runId: "pending-run" },
+      { runId: "reviewed-run" },
+      { runId: "reopened-run" },
       {
         runId: "excluded-run",
         reviewStatus: "excluded",
@@ -220,6 +220,11 @@ describe("GET /me recent runs", () => {
           "This run was excluded because its recorded response timing was not consistent with human play.",
       },
     ]);
+    // Legacy holds, a reopened judgment, and a clear carry no status at all.
+    for (const run of body.recentRuns.slice(0, 3)) {
+      expect(run).not.toHaveProperty("reviewStatus");
+      expect(run).not.toHaveProperty("reviewExplanation");
+    }
     expect(JSON.stringify(body.recentRuns)).not.toContain("private");
   });
 });
@@ -521,7 +526,7 @@ describe("GET /me/seasons", () => {
       },
     ]);
   });
-  it("narrows by review status, counting an untouched run as reviewed", async () => {
+  it("narrows by review status to the runs a person removed", async () => {
     repository.listRunHistory.mockResolvedValue([
       {
         runId: "held",
@@ -529,6 +534,13 @@ describe("GET /me/seasons", () => {
         score: 20000,
         seasonId: 134,
         completedAt: "2026-07-20T18:00:00.000Z",
+      },
+      {
+        runId: "removed",
+        mode: "surge",
+        score: 21000,
+        seasonId: 134,
+        completedAt: "2026-07-19T19:00:00.000Z",
       },
       {
         runId: "untouched",
@@ -548,30 +560,34 @@ describe("GET /me/seasons", () => {
             decidedBy: "integrity-gate",
           },
         ],
+        [
+          "removed",
+          {
+            runId: "removed",
+            visibility: "hidden",
+            disposition: "review",
+            decidedBy: "fair-play-referee",
+          },
+        ],
       ]) as never,
     );
-    const held = await dispatch(meEvent("/me/seasons", { status: "pending" }));
-    if (!held || typeof held === "string") throw new Error("no result");
-    expect(JSON.parse(held.body ?? "{}").seasons[0].runs).toEqual([
-      expect.objectContaining({ runId: "held", reviewStatus: "pending" }),
-    ]);
-    // A run no referee touched is NOT cleared — it has no status at all, and
-    // only the dedicated `unreviewed` filter matches it.
-    const cleared = await dispatch(
-      meEvent("/me/seasons", { status: "reviewed" }),
+    const excluded = await dispatch(
+      meEvent("/me/seasons", { status: "excluded" }),
     );
-    if (!cleared || typeof cleared === "string") throw new Error("no result");
-    expect(JSON.parse(cleared.body ?? "{}").seasons).toEqual([]);
-    const unreviewed = await dispatch(
-      meEvent("/me/seasons", { status: "unreviewed" }),
-    );
-    if (!unreviewed || typeof unreviewed === "string")
-      throw new Error("no result");
-    const unreviewedRuns = JSON.parse(unreviewed.body ?? "{}").seasons[0].runs;
-    expect(unreviewedRuns).toEqual([
-      expect.objectContaining({ runId: "untouched" }),
+    if (!excluded || typeof excluded === "string") throw new Error("no result");
+    expect(JSON.parse(excluded.body ?? "{}").seasons[0].runs).toEqual([
+      expect.objectContaining({ runId: "removed", reviewStatus: "excluded" }),
     ]);
-    expect(unreviewedRuns[0].reviewStatus).toBeUndefined();
+    const all = await dispatch(meEvent("/me/seasons"));
+    if (!all || typeof all === "string") throw new Error("no result");
+    const runs = JSON.parse(all.body ?? "{}").seasons[0].runs;
+    // A legacy hold is not a status any more; neither is an untouched run.
+    expect(
+      runs.find((run: { runId: string }) => run.runId === "held"),
+    ).not.toHaveProperty("reviewStatus");
+    expect(
+      runs.find((run: { runId: string }) => run.runId === "untouched"),
+    ).not.toHaveProperty("reviewStatus");
   });
   it("rejects an invalid season, mode, or status", async () => {
     repository.listRunHistory.mockResolvedValue([]);
@@ -579,6 +595,9 @@ describe("GET /me/seasons", () => {
       { season: "nope" },
       { mode: "chess" },
       { status: "cleared" },
+      { status: "pending" },
+      { status: "reviewed" },
+      { status: "unreviewed" },
       { season: "2026-13-nope" },
     ];
     for (const query of queries) {
