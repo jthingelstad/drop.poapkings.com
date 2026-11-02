@@ -1221,49 +1221,6 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
-  ApiLatencyP99Alarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-api-latency-p99
-      AlarmDescription: Elixir Drop API p99 response latency exceeded 2 seconds in two of three five-minute windows.
-      Namespace: ElixirDrop/HTTP
-      MetricName: RequestLatency
-      ExtendedStatistic: p99
-      Period: 300
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 2
-      Threshold: 2000
-      ComparisonOperator: GreaterThanThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  ApiFunctionConcurrencyAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-api-concurrency
-      AlarmDescription: Elixir Drop HTTP EndpointActiveEnvironments.
-      Namespace: AWS/Lambda/Web/Usage
-      MetricName: EndpointActiveEnvironments
-      Dimensions:
-        - Name: FunctionName
-          Value: elixir-drop-web-api
-        - Name: EndpointName
-          Value: production
-        - Name: ExecutionRegion
-          Value: !Ref AWS::Region
-      Statistic: Maximum
-      Period: 60
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 2
-      Threshold: 3
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
   DataTableThrottleAlarm:
     Type: AWS::CloudWatch::Alarm
     DependsOn: AlarmTopic
@@ -1296,129 +1253,6 @@ Resources:
         - Id: throttles
           Expression: readthrottles + writethrottles
           Label: DynamoDB throttle events
-          ReturnData: true
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 2
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  DataTableSystemErrorAlarm:
-    Type: AWS::CloudWatch::Alarm
-    DependsOn: AlarmTopic
-    Properties:
-      AlarmName: elixir-drop-dynamodb-system-errors
-      AlarmDescription: DynamoDB returned service errors for Elixir Drop in two of three minutes.
-      Metrics:
-        - Id: batchget
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: BatchGetItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: batchwrite
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: BatchWriteItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: deleteitem
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: DeleteItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: getitem
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: GetItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: putitem
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: PutItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: query
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: Query
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: transactwrite
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: TransactWriteItems
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: updateitem
-          MetricStat:
-            Metric:
-              Namespace: AWS/DynamoDB
-              MetricName: SystemErrors
-              Dimensions:
-                - Name: TableName
-                  Value: !Ref DataTable
-                - Name: Operation
-                  Value: UpdateItem
-            Period: 60
-            Stat: Sum
-          ReturnData: false
-        - Id: systemerrors
-          Expression: SUM(METRICS())
-          Label: DynamoDB system errors
           ReturnData: true
       EvaluationPeriods: 3
       DatapointsToAlarm: 2
@@ -1551,7 +1385,7 @@ Resources:
     Properties:
       DashboardName: elixir-drop-operations
       DashboardBody: !Sub |
-        {"start": "-PT8H", "periodOverride": "inherit", "widgets": [{"type": "alarm", "x": 0, "y": 0, "width": 24, "height": 5, "properties": {"title": "Elixir Drop service alarms", "sortBy": "stateUpdatedTimestamp", "alarms": ["${WebDistributionErrorAlarm.Arn}", "${ApiFunctionErrorAlarm.Arn}", "${ApiFunctionThrottleAlarm.Arn}", "${ApiLatencyP95Alarm.Arn}", "${ApiLatencyP99Alarm.Arn}", "${ApiFunctionConcurrencyAlarm.Arn}", "${DataTableThrottleAlarm.Arn}", "${DataTableSystemErrorAlarm.Arn}"]}}, {"type": "metric", "x": 0, "y": 5, "width": 12, "height": 6, "properties": {"title": "API requests and responses", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web", "ExecutedRequests", "FunctionName", "elixir-drop-web-api", "EndpointName", "production"], [".", "HTTPResponseStatusClass4XX", ".", ".", ".", "."], [".", "HTTPResponseStatusClass5XX", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 5, "width": 12, "height": 6, "properties": {"title": "API response latency", "region": "${AWS::Region}", "period": 300, "metrics": [["ElixirDrop/HTTP", "RequestLatency", {"stat": "p50"}], [".", ".", {"stat": "p95"}], [".", ".", {"stat": "p99"}]]}}, {"type": "log", "x": 0, "y": 11, "width": 24, "height": 7, "properties": {"title": "Requests and p95 by HTTP route", "region": "${AWS::Region}", "view": "table", "query": "SOURCE '/elixir-drop/api' | fields message.route, message.elapsedMs | filter message.event = 'api.timings' | stats count(*) as requests, pct(message.elapsedMs, 95) as p95 by message.route"}}, {"type": "metric", "x": 0, "y": 18, "width": 24, "height": 7, "properties": {"title": "HTTP environment CPU and active time", "region": "${AWS::Region}", "period": 300, "view": "timeSeries", "stacked": false, "metrics": [["AWS/Lambda/Web", "EnvironmentCPUTime", "FunctionName", "elixir-drop-web-api"], [".", "EnvironmentActiveTime", ".", "."]]}}, {"type": "metric", "x": 0, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP endpoint limits", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web/Usage", "EndpointRequestThrottles", "FunctionName", "elixir-drop-web-api", "EndpointName", "production", "ExecutionRegion", "${AWS::Region}"], [".", "EndpointActiveEnvironmentThrottles", ".", ".", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP memory and concurrency", "region": "${AWS::Region}", "period": 300, "metrics": [["AWS/Lambda/Web", "EnvironmentMaxMemoryUsage", "FunctionName", "elixir-drop-web-api", {"stat": "Maximum"}], [".", "EnvironmentConcurrentRequests", ".", ".", {"stat": "Maximum", "yAxis": "right"}]]}}, {"type": "metric", "x": 0, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB consumed capacity", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", {"label": "Read units"}], [".", "ConsumedWriteCapacityUnits", ".", ".", {"label": "Write units"}]]}}, {"type": "metric", "x": 12, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB failures", "region": "${AWS::Region}", "period": 60, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${DataTable}", {"label": "Read throttles"}], [".", "WriteThrottleEvents", ".", ".", {"label": "Write throttles"}], [".", "SystemErrors", ".", ".", "Operation", "GetItem", {"label": "Get errors"}], [".", ".", ".", ".", ".", "Query", {"label": "Query errors"}], [".", ".", ".", ".", ".", "UpdateItem", {"label": "Update errors"}], [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]]}}, {"type": "metric", "x": 0, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web requests and bytes", "region": "us-east-1", "period": 300, "stat": "Sum", "metrics": [["AWS/CloudFront", "Requests", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Requests"}], [".", "BytesDownloaded", ".", ".", ".", ".", {"label": "Bytes", "yAxis": "right"}]]}}, {"type": "metric", "x": 12, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web error rate", "region": "us-east-1", "period": 300, "stat": "Average", "yAxis": {"left": {"label": "Percent", "showUnits": false}}, "metrics": [["AWS/CloudFront", "TotalErrorRate", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Total"}], [".", "4xxErrorRate", ".", ".", ".", ".", {"label": "4xx"}], [".", "5xxErrorRate", ".", ".", ".", ".", {"label": "5xx"}]]}}]}
+        {"start": "-PT8H", "periodOverride": "inherit", "widgets": [{"type": "alarm", "x": 0, "y": 0, "width": 24, "height": 5, "properties": {"title": "Elixir Drop service alarms", "sortBy": "stateUpdatedTimestamp", "alarms": ["${WebDistributionErrorAlarm.Arn}", "${ApiFunctionErrorAlarm.Arn}", "${ApiFunctionThrottleAlarm.Arn}", "${ApiLatencyP95Alarm.Arn}", "${DataTableThrottleAlarm.Arn}"]}}, {"type": "metric", "x": 0, "y": 5, "width": 12, "height": 6, "properties": {"title": "API requests and responses", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web", "ExecutedRequests", "FunctionName", "elixir-drop-web-api", "EndpointName", "production"], [".", "HTTPResponseStatusClass4XX", ".", ".", ".", "."], [".", "HTTPResponseStatusClass5XX", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 5, "width": 12, "height": 6, "properties": {"title": "API response latency", "region": "${AWS::Region}", "period": 300, "metrics": [["ElixirDrop/HTTP", "RequestLatency", {"stat": "p50"}], [".", ".", {"stat": "p95"}], [".", ".", {"stat": "p99"}]]}}, {"type": "log", "x": 0, "y": 11, "width": 24, "height": 7, "properties": {"title": "Requests and p95 by HTTP route", "region": "${AWS::Region}", "view": "table", "query": "SOURCE '/elixir-drop/api' | fields message.route, message.elapsedMs | filter message.event = 'api.timings' | stats count(*) as requests, pct(message.elapsedMs, 95) as p95 by message.route"}}, {"type": "metric", "x": 0, "y": 18, "width": 24, "height": 7, "properties": {"title": "HTTP environment CPU and active time", "region": "${AWS::Region}", "period": 300, "view": "timeSeries", "stacked": false, "metrics": [["AWS/Lambda/Web", "EnvironmentCPUTime", "FunctionName", "elixir-drop-web-api"], [".", "EnvironmentActiveTime", ".", "."]]}}, {"type": "metric", "x": 0, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP endpoint limits", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/Lambda/Web/Usage", "EndpointRequestThrottles", "FunctionName", "elixir-drop-web-api", "EndpointName", "production", "ExecutionRegion", "${AWS::Region}"], [".", "EndpointActiveEnvironmentThrottles", ".", ".", ".", ".", ".", "."]]}}, {"type": "metric", "x": 12, "y": 25, "width": 12, "height": 6, "properties": {"title": "HTTP memory and concurrency", "region": "${AWS::Region}", "period": 300, "metrics": [["AWS/Lambda/Web", "EnvironmentMaxMemoryUsage", "FunctionName", "elixir-drop-web-api", {"stat": "Maximum"}], [".", "EnvironmentConcurrentRequests", ".", ".", {"stat": "Maximum", "yAxis": "right"}]]}}, {"type": "metric", "x": 0, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB consumed capacity", "region": "${AWS::Region}", "period": 300, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", {"label": "Read units"}], [".", "ConsumedWriteCapacityUnits", ".", ".", {"label": "Write units"}]]}}, {"type": "metric", "x": 12, "y": 31, "width": 12, "height": 6, "properties": {"title": "DynamoDB failures", "region": "${AWS::Region}", "period": 60, "stat": "Sum", "metrics": [["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${DataTable}", {"label": "Read throttles"}], [".", "WriteThrottleEvents", ".", ".", {"label": "Write throttles"}], [".", "SystemErrors", ".", ".", "Operation", "GetItem", {"label": "Get errors"}], [".", ".", ".", ".", ".", "Query", {"label": "Query errors"}], [".", ".", ".", ".", ".", "UpdateItem", {"label": "Update errors"}], [".", ".", ".", ".", ".", "TransactWriteItems", {"label": "Transaction errors"}]]}}, {"type": "metric", "x": 0, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web requests and bytes", "region": "us-east-1", "period": 300, "stat": "Sum", "metrics": [["AWS/CloudFront", "Requests", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Requests"}], [".", "BytesDownloaded", ".", ".", ".", ".", {"label": "Bytes", "yAxis": "right"}]]}}, {"type": "metric", "x": 12, "y": 37, "width": 12, "height": 6, "properties": {"title": "Web error rate", "region": "us-east-1", "period": 300, "stat": "Average", "yAxis": {"left": {"label": "Percent", "showUnits": false}}, "metrics": [["AWS/CloudFront", "TotalErrorRate", "DistributionId", "${WebDistribution}", "Region", "Global", {"label": "Total"}], [".", "4xxErrorRate", ".", ".", ".", ".", {"label": "4xx"}], [".", "5xxErrorRate", ".", ".", ".", ".", {"label": "5xx"}]]}}]}
 
   WebBucket:
     Type: AWS::S3::Bucket
