@@ -821,6 +821,15 @@ status `0`), web build, online/visibility and browser-versus-installed state,
 run age/existence/state, and optional player context. It never stores account
 identity, email, either token, raw IP, raw user-agent, or transcript.
 
+Reports are data, not a queue (2026-11-02). Each accepted report also writes
+one `run-report.received` line to `/elixir-drop/api`, carrying only
+`kind` (the failure code), `httpStatus`, `build`, `mode` and `first` (whether
+this is the run's first report rather than a repeat or a context update). It
+never carries a run id or `#D…` reference, account, tag, name or the player's
+context. The Drop dashboard counts those lines; nobody triages the stored
+reports, and they carry no status. Reports from before the change keep the
+status they had.
+
 A terminal rejection (`400`, `403`, `404`, `409`, `410`, or an invalid run
 token) leaves the local result visible; its blocking notice shows automatic
 delivery state and offers a 1,000-character context field with explicit
@@ -1081,8 +1090,8 @@ This Mac owns the allowlisted CR API token for the manual card refresher:
   The separately retained result queue exists only for manual season repair.
 - Failure reports are queried only through the assumed
   `elixir-drop-run-reports` role, whose DynamoDB access is confined to the
-  identity-free `RUN_REPORTS` partition. Status changes are transactional and
-  append an immutable audit row. `drop@poapkings.com` is reviewed through the read-only JMAP intake script; it excludes
+  identity-free `RUN_REPORTS` partition. It can only `Query`; run-report
+  triage and its status writes were retired on 2026-11-02. `drop@poapkings.com` is reviewed through the read-only JMAP intake script; it excludes
   historical delivery-canary messages and cannot send, move, delete, or mark
   mail read.
 - CloudFront request health is read through `scripts/web-activity.mjs` under

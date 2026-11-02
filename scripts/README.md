@@ -13,7 +13,7 @@ API workspace's referee mirror tests.
 A merge reaches production through CI, whose deploy workflow serializes itself.
 The writes made to production from a checkout are serialized by
 `production-lock.mjs` instead: `referee-decide.mjs`,
-`referee-ranked-access.mjs`, `run-reports.mjs triage` and
+`referee-ranked-access.mjs` and
 `player-updates.mjs publish` take the lock themselves, for as long as the write
 runs, and any other out-of-band write runs under it:
 
@@ -65,25 +65,23 @@ funnel.
 Game-completion failures that survive the browser's bounded automatic recovery
 are stored without player identity under the single `RUN_REPORTS` DynamoDB
 partition. This includes terminal rejections and retryable transport/5xx
-failures; a later successful recording does not erase the diagnostic. They are listed
-and triaged through the dedicated `elixir-drop-run-reports` role:
+failures; a later successful recording does not erase the diagnostic. They are
+counted, not triaged (2026-11-02): the API logs one `run-report.received` line
+per report and the Drop dashboard charts it. `run-reports.mjs` is a read-only
+listing through the dedicated `elixir-drop-run-reports` role:
 
 ```sh
 AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node scripts/run-reports.mjs list --since 2026-08-01T00:00:00Z
-AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node scripts/run-reports.mjs triage '#D…' \
-  --status investigating --note "Reproduced against the current web build"
+  node scripts/run-reports.mjs list --since 2026-11-01T00:00:00Z
 ```
 
 The script verifies `sts:GetCallerIdentity` before creating a DynamoDB client
-and fails unless the caller is an assumed session for that exact role. It uses
-`Query` only on `RUN_REPORTS`; triage uses one transaction to update the report
-and append an immutable audit item. Output includes coarse diagnostics and
-labels player context as untrusted. It contains no player/account identity,
-email, token, raw request header, IP, user-agent, or transcript. Resolve only
-after the source fix is verified; dismiss only with evidence that the report is
-not actionable.
+and fails unless the caller is an assumed session for that exact role, which
+can only `Query` `RUN_REPORTS`. It has no write and takes no lock; the
+`triage` command and its statuses are retired. Output includes coarse
+diagnostics and labels player context as untrusted. It contains no
+player/account identity, email, token, raw request header, IP, user-agent, or
+transcript.
 
 User-submitted mail is a separate, read-only intake:
 

@@ -85,7 +85,9 @@ function clientFrom(value: unknown): {
 // account identity, request headers, or play transcripts. Repeating the request
 // for the same run updates the existing report. Terminal failures may attach
 // optional player context; retryable network/5xx reports remain operational
-// diagnostics and do not change the run's completion/retry behavior.
+// diagnostics and do not change the run's completion/retry behavior. Reports
+// are data, counted on the Drop dashboard from the log line below; nobody
+// triages them.
 export async function reportRunFailure({
   request,
   config,
@@ -157,6 +159,17 @@ export async function reportRunFailure({
       context,
       reportedAt: now.toISOString(),
       expiresAt: Math.floor(now.getTime() / 1_000) + REPORT_TTL_SECONDS,
+    });
+    // One countable line per accepted report, read by the Drop dashboard.
+    // Coarse fields only: never a run id or reference, player, account or
+    // tag, nor the player's context text.
+    console.info({
+      event: "run-report.received",
+      kind: failure.code,
+      httpStatus: failure.status,
+      build: client.buildId,
+      mode,
+      first: report.reportCount === 1,
     });
 
     return json(202, {

@@ -97,7 +97,7 @@ void test("one holder: a second acquisition is refused with who, what and since 
 
 void test("release is holder-only and idempotent", (t) => {
   const { lockPath } = scratch(t);
-  const lock = acquireProductionLock("run-report triage", { lockPath });
+  const lock = acquireProductionLock("referee decision", { lockPath });
   const held = readProductionLock(lockPath);
 
   assert.equal(
@@ -309,10 +309,6 @@ void test("every out-of-band production write takes the lock itself", () => {
   assert.match(
     read("_referee-lib.mjs"),
     /production_lock_held[\s\S]*finally \{\s*lock\.release\(\);/,
-  );
-  assert.match(
-    read("run-reports.mjs"),
-    /acquireProductionLock\([\s\S]*triageRunReport\(doc[\s\S]*finally \{\s*lock\.release\(\);/,
   );
   assert.match(
     read("player-updates.mjs"),

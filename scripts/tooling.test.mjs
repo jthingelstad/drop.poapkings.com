@@ -12,7 +12,6 @@ import {
   createVerifiedDocumentClient as createVerifiedRunReportsClient,
   RUN_REPORTS_ROLE_NAME,
   sanitizeRunReport,
-  triageRunReport,
 } from "./run-reports.mjs";
 import {
   fetchBugReports,
@@ -158,6 +157,12 @@ void test("operator tooling lives in scripts/ and the Fair Play policy keeps its
   // The Free Pass Challenge was retired 2026-11-02: no designation, rotation
   // or recipient duty survives in the operating guide.
   assert.doesNotMatch(operations, /Free\s+Pass|free-pass-mode|designat/i);
+  // Run-report triage was retired 2026-11-02: reports are dashboard counts,
+  // so the guide gives nobody a queue to work.
+  assert.doesNotMatch(
+    operations,
+    /run-reports\.mjs triage|--status investigating/,
+  );
   assert.match(operations, /never resized, re-encoded, or\s+otherwise altered/);
 
   const fairPlayPolicy = readFileSync(
@@ -397,7 +402,7 @@ void test("web activity reporting requires the read-only cloud auditor and stays
   }
 });
 
-void test("run-report output is identity-free and triage writes one immutable audit", async () => {
+void test("run-report output is identity-free and the script has no write", () => {
   const report = {
     pk: "RUN_REPORTS",
     sk: "REPORT#run-1",
@@ -405,7 +410,6 @@ void test("run-report output is identity-free and triage writes one immutable au
     runId: "run-1",
     runReference: "#DTEST",
     mode: "surge",
-    status: "new",
     firstReportedAt: "2026-08-21T20:00:00.000Z",
     lastReportedAt: "2026-08-21T20:00:00.000Z",
     reportCount: 1,
@@ -428,29 +432,26 @@ void test("run-report output is identity-free and triage writes one immutable au
   assert.equal("sk" in output, false);
   assert.equal("expiresAt" in output, false);
 
-  let command;
-  const doc = {
-    send: async (value) => {
-      command = value;
-      return {};
-    },
-  };
-  const updated = await triageRunReport(doc, report, {
-    nextStatus: "investigating",
-    note: "Reproducing the terminal completion failure",
-    now: new Date("2026-08-21T21:00:00.000Z"),
-    auditId: "audit-1",
+  // A report from before 2026-11-02 keeps its retired triage fields in the
+  // table; the listing no longer projects them.
+  const legacy = sanitizeRunReport({
+    ...report,
+    status: "investigating",
+    lastTriagedAt: "2026-09-16T17:00:00.000Z",
+    lastTriageNote: "Watching recurrence",
   });
-  assert.equal(updated.status, "investigating");
-  assert.deepEqual(
-    command.input.TransactItems.map((item) =>
-      item.Update ? item.Update.Key.pk : item.Put.Item.pk,
-    ),
-    ["RUN_REPORTS", "RUN_REPORTS"],
+  assert.equal("status" in legacy, false);
+  assert.equal("triageNote" in legacy, false);
+  assert.equal("lastTriagedAt" in legacy, false);
+
+  // Triage is retired: the script lists and never writes.
+  const source = readFileSync(
+    new URL("./run-reports.mjs", import.meta.url),
+    "utf8",
   );
-  assert.equal(
-    command.input.TransactItems[1].Put.Item.sk,
-    "AUDIT#report-1#2026-08-21T21:00:00.000Z#audit-1",
+  assert.doesNotMatch(
+    source,
+    /TransactWriteCommand|UpdateCommand|PutCommand|DeleteCommand|acquireProductionLock/,
   );
 });
 

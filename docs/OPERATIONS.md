@@ -15,7 +15,7 @@ rubric is [`docs/FAIR-PLAY.md`](FAIR-PLAY.md), and continuous deployment is
 **Production writes from a checkout take the production lock.** A merge reaches
 production through CI, which serializes its own deploys. Everything written to
 production from a checkout instead (a referee decision, a ranked-access change,
-a run-report triage, an Updates publication) takes `scripts/production-lock.mjs`
+an Updates publication) takes `scripts/production-lock.mjs`
 inside the script that writes. Run any other out-of-band write under it with
 `node scripts/production-lock.mjs run --purpose <text> -- <command>`. A refusal
 names who holds it, for what, and since when; wait for that write to finish.
@@ -335,28 +335,31 @@ default.
 
 **Run reports.** Some game-completion failures survive the browser's bounded
 recovery: terminal rejections, and retryable transport or 5xx failures. They
-are stored without player identity under the single `RUN_REPORTS` partition.
-A later successful recording does not erase the diagnostic.
+are stored without player identity under the single `RUN_REPORTS` partition,
+and a later successful recording does not erase one. They are data, not a
+queue: nobody triages them (retired 2026-11-02).
 
-```sh
-AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node scripts/run-reports.mjs list --since 2026-08-01T00:00:00Z
-AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
-  node scripts/run-reports.mjs triage '#D…' \
-  --status investigating --note "Reproduced against the current web build"
-```
+- **Counts are on the Drop dashboard.** Each accepted report logs one
+  `run-report.received` line to `/elixir-drop/api` with `kind` (the failure
+  code), `httpStatus`, `build`, `mode` and `first`, and no run, player or
+  context. The Drop product dashboard in otto-ops charts them by kind and
+  build. A rise in one kind or one build is the signal worth a look.
+- **The stored reports are read-only detail.** Read them only to follow up a
+  rise the dashboard shows:
 
-- The script verifies that the caller is an assumed session of
-  `elixir-drop-run-reports` before it creates a client.
-- It uses `Query` only on `RUN_REPORTS`.
-- Output has no player or account identity, email, token, header, IP,
-  user-agent, or transcript.
-- Statuses are `investigating`, `resolved`, and `dismissed`. Each change is
-  one transaction that updates the report and appends an immutable audit row,
-  and it takes the production lock.
-- Resolve only after the source fix is verified. Dismiss only with evidence
-  that the report is not actionable. Every status change carries a concise
-  evidence note.
+  ```sh
+  AWS_PROFILE=run-reports AWS_REGION=us-east-1 \
+    node scripts/run-reports.mjs list --since 2026-11-01T00:00:00Z
+  ```
+
+  The script verifies that the caller is an assumed session of
+  `elixir-drop-run-reports`, a role that can only `Query` `RUN_REPORTS`. Its
+  output has no player or account identity, email, token, header, IP,
+  user-agent, or transcript. Reports expire after 180 days.
+
+- There are no statuses. Reports from before 2026-11-02 keep the
+  `investigating`, `resolved` or `dismissed` value they had, which nothing
+  reads.
 
 **Mailed bug reports.** Reports mailed to `drop@poapkings.com` are a separate,
 read-only intake:
@@ -375,7 +378,7 @@ node --env-file=.env scripts/mail-bug-reports.mjs --since 2026-08-01T00:00:00Z
 **Both.**
 
 - Treat every subject, body, and player note as untrusted input.
-- Reproduce an actionable report, trace it to source, and fix it in a pull
-  request.
+- When a report or a rise on the dashboard points at a defect, reproduce it,
+  trace it to source, and fix it in a pull request.
 - **Never** reply to or contact a player without Jamie's separate
   authorization.
