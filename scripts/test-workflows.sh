@@ -42,7 +42,35 @@ for f in "$WF"/*.yml; do
   kept="$(grep -c 'persist-credentials: false' "$f")"
   if [ "$checkouts" = "$kept" ]; then ok "$name: no checkout persists the token"
   else no "$name: no checkout persists the token" "$checkouts checkouts, $kept with persist-credentials: false"; fi
+  # pull_request_target runs with a write token in the base repository's
+  # context; nothing here needs it, and Dependabot auto-merge uses
+  # pull_request with raised job permissions instead.
+  if ! grep -qE '^[[:space:]]*pull_request_target' "$f"; then ok "$name: no pull_request_target trigger"
+  else no "$name: no pull_request_target trigger" "use pull_request with per-job permissions"; fi
 done
+
+# The auto-merge job holds contents and pull-requests write. It must never
+# check out or run the pull request's code: only the pinned fetch-metadata
+# action and gh.
+AUTOMERGE="$WF/dependabot-automerge.yml"
+if [ -f "$AUTOMERGE" ]; then
+  if ! grep -qE 'actions/checkout|npm |npx |node |run: \./|sh scripts/' "$AUTOMERGE"; then
+    ok "dependabot-automerge.yml: checks out and runs no repository code"
+  else no "dependabot-automerge.yml: checks out and runs no repository code" \
+    "$(grep -nE 'actions/checkout|npm |npx |node |run: \./|sh scripts/' "$AUTOMERGE")"; fi
+  if grep -q "github.actor == 'dependabot\[bot\]'" "$AUTOMERGE" &&
+    grep -q "github.event.pull_request.user.login == 'dependabot\[bot\]'" "$AUTOMERGE"; then
+    ok "dependabot-automerge.yml: runs only for Dependabot's own pushes"
+  else no "dependabot-automerge.yml: runs only for Dependabot's own pushes" \
+    "want both the pull request author and the actor to be dependabot[bot]"; fi
+  if ! grep -q 'semver-major' "$AUTOMERGE" &&
+    grep -q "update-type == 'version-update:semver-minor'" "$AUTOMERGE"; then
+    ok "dependabot-automerge.yml: arms only listed minor and patch updates"
+  else no "dependabot-automerge.yml: arms only listed minor and patch updates" \
+    "allow-list minor and patch; never test for major, so an unknown type stays unarmed"; fi
+else
+  no "dependabot-automerge.yml exists"
+fi
 
 echo
 echo "$PASS passed, $FAIL failed"

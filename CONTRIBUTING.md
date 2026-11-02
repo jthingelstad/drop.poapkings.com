@@ -109,6 +109,8 @@ interrupting a CloudFormation or CloudFront deployment:
   and on a manual dispatch it runs the exhaustive four-project suite instead,
   one project per runner: the regression backstop for combinations
   intentionally left out of the per-change gate. It is fork-safe.
+- **`dependabot-automerge.yml`** arms auto-merge on Dependabot's minor and
+  patch pull requests ("Dependency updates" below).
 
 The classifier is tested code in `scripts/classify-ci-scope.mjs`. API and
 infrastructure changes deploy and smoke the Lambda without rebuilding or
@@ -188,6 +190,39 @@ bypasses it. Maintainers and scheduled runs branch, push and
 auto-merge (`AGENTS.md` → "Landing changes"). After the merge, `Validate Main`
 must succeed before the exact merged head can enter the serialized deployment
 workflow.
+
+### Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens weekly npm and monthly GitHub
+Actions pull requests. For a minor or patch update,
+`.github/workflows/dependabot-automerge.yml` arms
+`gh pr merge --auto --rebase --delete-branch` (Jamie, 2026-11-02). The same
+`validate` check and ruleset decide the merge. The workflow reads the update
+type with `dependabot/fetch-metadata`, which reports a group's highest semver
+change, so one major in the `minor-and-patch` or `vitest` group keeps the whole
+pull request out. A major, or a type it cannot read, is left for a person. The
+workflow runs on `pull_request` with `contents` and `pull-requests` write
+raised for its one job. It never uses `pull_request_target`, never checks out
+the pull request, and runs only for Dependabot's own pushes;
+`scripts/test-workflows.sh` enforces all three.
+
+Two consequences:
+
+- **Behind `main`, auto-merge waits.** The ruleset requires the branch to be up
+  to date, so an armed pull request stops at "behind" whenever `main` moves.
+  Dependabot rebases its own branch only on a conflict, on its next scheduled
+  run, or on a `@dependabot rebase` comment. Use the comment. Do not use
+  `gh pr update-branch`: Dependabot stops maintaining a branch that someone
+  else has pushed to, and the workflow ignores pushes that are not
+  Dependabot's.
+- **The merge does not deploy by itself.** GitHub attributes an auto-merge armed
+  with the workflow's `GITHUB_TOKEN` to that token, and events from that token
+  start no workflows. `Validate Main` and `Build and Deploy` therefore do not
+  run for a Dependabot merge commit. The next merge to `main` validates and
+  deploys the cumulative change since the last production head, or
+  `gh workflow run validate-main.yml --ref main` takes the full path now. A
+  GitHub App token stored as a Dependabot secret would close this gap; that is
+  a credential change for Jamie.
 
 If you do not have push access, the fork-and-pull-request path is the way in:
 
