@@ -145,7 +145,7 @@ is removed from history-backed counters, exact card-knowledge contributions,
 and run-timestamped hidden awards on the next owner or public profile read.
 Every ranked-run decision atomically increments a player-scoped revision in the
 `REFEREE#` partition, so bulk decisions cannot leave a seemingly current stale
-bag. Pending holds do not remove badges. A later audited restoration rebuilds
+bag. A later audited restoration rebuilds
 again and restores the run's contribution; canonical run, XP, learning, and
 evidence records remain unchanged.
 
@@ -171,8 +171,8 @@ Collector. `GET /me` and `GET /players/{id}` reconcile all already-earned badge
 markers and settle the finite Arena Climber cascade, so the badge migration is
 lazy, resumable, and needs no privileged bulk writer.
 
-Beginning with Season 135, the CR rollover result consumer uses final referee-aware standings
-with pending runs withheld. Each ranked mode's occupied top 20 pays
+Beginning with Season 135, the CR rollover result consumer uses final referee-aware standings,
+leaving out only runs a person removed. Each ranked mode's occupied top 20 pays
 500/350/250/150/100/50 by placement band, and a positive final score in all five
 ranked modes pays +100 Seasonal Circuit. The same SQS retry that protects the
 Podium badge protects these exact-once markers. Current XP is always the opening
@@ -237,7 +237,7 @@ returns the current or requested season board from the `LEADERBOARD#{seasonId}#{
 GSI partition. Seasonal reads start with 200 runs, then use up to 1,000 per
 continuation page within the existing 2,000-run/ten-page budget. Review reads
 check each unseen player's leading candidate first, and lower candidates only
-when needed for an excluded run or a pending final award. Decisions remain
+when needed for an excluded run. Decisions remain
 strongly consistent and are never cached between requests.
 `scope=all-time` returns the best-ever board: one item per player
 per ranked mode (`pk = PLAYER#{sub}`, `sk = ALLTIME#{mode}`) indexed under
@@ -347,13 +347,11 @@ On `/runs/complete`, the API writes best-effort **referee evidence** for every
 recorded **ranked** run (after `completeRun` and the learning-stats block) and
 for unscored signed-in attempts (before the 400). Timing, end-state, and other
 assumption-based scorer failures now return a deterministic candidate score plus
-machine-readable review signals. Such a run is recorded with an automatic
-`review`/`hidden` decision in the same transaction and returns
-`underReview: true`. **It still ranks.** The board reads
-`src/referee-status.ts`, where a pending decision ranks provisionally and only
-`excluded` removes a row; the one read that still withholds a pending run is
-`seasonPodiumFinishers`, because a provisional placement is reversible and a
-finalized podium is not. Only input from which no comparable score can be derived remains
+machine-readable review signals. Such a run is recorded and ranks at once, with
+the signals in its evidence and no decision, hold, or seal. The board reads
+`src/referee-status.ts`, where only a person's `hidden` decision (`excluded`)
+removes a row; older automatic integrity-gate holds and pending queue holds stay
+in the table and are ignored. Only input from which no comparable score can be derived remains
 unrecorded, while its evidence is retained without treating the automatic label
 as an integrity verdict. Practice (`ranked:false`) and guest runs write none.
 The evidence write is best-effort like learning stats: it is wrapped so it can

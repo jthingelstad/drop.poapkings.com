@@ -303,7 +303,7 @@ export function getSeasonHistory(
   filters: {
     season?: number | 'all'
     mode?: GameMode
-    status?: 'pending' | 'reviewed' | 'excluded' | 'unreviewed'
+    status?: 'excluded'
     // Board placements cost one leaderboard read per mode played, so they are
     // asked for rather than assumed.
     placements?: boolean

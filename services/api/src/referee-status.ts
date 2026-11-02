@@ -1,55 +1,38 @@
 import type { RefereeDecision, RunReviewStatus } from "./types.js";
 
-// One classifier for "what did the referee do to this run", shared by the
-// owner's history and the public boards so the two surfaces can never drift
-// into disagreeing about the same run.
+// One classifier for "did a hand investigation remove this run", shared by the
+// owner's history, the public boards, badges, shares, and season awards, so no
+// two surfaces can disagree about the same run.
 //
-// Both a neutral queue hold and a final exclusion are stored as
-// `visibility: "hidden"`. What separates them is who decided and whether the
-// decision is still open:
-//   - an automatic integrity signal, or a referee judgment reopened as a queue
-//     hold, is `pending` — awaiting a person, never a verdict
-//   - any other hidden decision is `excluded`
-//   - a fair-play-referee clear is `reviewed`
+// Since 2026-11-02 every run ranks when it finishes and carries no seal (Jamie:
+// "Drop retires the Awaiting hold and the Cleared seal; every run ranks on
+// finishing with no seal, and only a hand investigation can remove a run from
+// the boards"). A person removes a run with `scripts/referee-decide.mjs`
+// `--visibility hidden`, and a later `visible` decision restores it.
+//
+// Stored data is not rewritten. Two kinds of older record stay in the table
+// and are ignored here, because neither was a person's final call:
+//   - an automatic integrity-gate hold (`decidedBy: "integrity-gate"`), and
+//   - a referee judgment reopened as a queue hold (`queueState: "pending"`).
+// A `visible` referee decision (a "clear") changes nothing a player sees.
 //
 // The hidden branch fails closed on purpose. `decidedBy` is required on a
 // stored decision, but if one ever arrives without a recognized value, a run a
-// referee marked hidden must stay off the board rather than rank because its
+// person marked hidden must stay off the board rather than rank because its
 // record was malformed.
-//
-// Returns undefined only when no referee has touched the run at all; each
-// caller decides what an untouched run means on its own surface.
-export function refereeReviewStatus(
-  decision: RefereeDecision | undefined,
-): RunReviewStatus | undefined {
-  if (!decision) return undefined;
-  if (decision.visibility === "hidden")
-    return decision.queueState === "pending" ||
-      decision.decidedBy === "integrity-gate"
-      ? "pending"
-      : "excluded";
-  if (decision.decidedBy === "fair-play-referee") return "reviewed";
-  return undefined;
-}
-
-// Board-side reading of the same decision. A pending run now ranks
-// provisionally, so the only status that removes a run from a public board is
-// `excluded`.
-export type BoardReviewStatus = Exclude<RunReviewStatus, "excluded">;
-
 export function isExcludedFromBoards(
   decision: RefereeDecision | undefined,
 ): boolean {
-  return refereeReviewStatus(decision) === "excluded";
+  if (decision?.visibility !== "hidden") return false;
+  return (
+    decision.queueState !== "pending" && decision.decidedBy !== "integrity-gate"
+  );
 }
 
-// Undefined when no referee has touched the run — which is almost every run.
-// Those rows carry no status and no mark: "cleared" means a referee actually
-// looked, and a board that stamps every ordinary run with it is claiming a
-// review that never happened.
-export function boardReviewStatus(
+// The only status a run carries anywhere: `excluded`, owner-only. Undefined for
+// every other run, which is almost every run.
+export function runReviewStatus(
   decision: RefereeDecision | undefined,
-): BoardReviewStatus | undefined {
-  const status = refereeReviewStatus(decision);
-  return status === "pending" || status === "reviewed" ? status : undefined;
+): RunReviewStatus | undefined {
+  return isExcludedFromBoards(decision) ? "excluded" : undefined;
 }

@@ -242,7 +242,9 @@ export const recentRunSchema = z.object({
   xpAwards: z.optional(z.array(xpAwardSchema)),
   // The badge slugs whose rungs this run cleared — "Rungs moved" in the sheet.
   rungs: z.optional(z.array(nonEmptyString)),
-  reviewStatus: z.optional(z.enum(['pending', 'reviewed', 'excluded'])),
+  // Owner-only: present when a person investigated this run and removed it
+  // from the boards. No other status exists.
+  reviewStatus: z.optional(z.literal('excluded')),
   reviewExplanation: z.optional(nonEmptyString),
   // This run's rank on its season board, present only on the run that holds
   // the player's placement for its mode, and only when the caller asked.
@@ -377,11 +379,6 @@ const runCompletionFields = {
   season: seasonSchema,
   ranked: z.optional(z.boolean()),
   completedAt: isoDateTime,
-  // The run scored and recorded, but an automatic integrity signal holds it off
-  // the public board until the Fair Play Referee decides. The API has always
-  // sent this; the browser dropped it, which left a held player watching a
-  // recorded score never reach the leaderboard with nothing to explain why.
-  underReview: z.optional(z.boolean()),
   // Present only when the score beat the player's all-time best; the server
   // owns that comparison and the browser reports it to Tinylytics.
   personalBest: z.optional(z.literal(true)),
@@ -558,15 +555,6 @@ export const leaderboardEntrySchema = z.object({
   rank: safeInteger.positive(),
   score: z.number().finite(),
   achievedAt: isoDateTime,
-  // A run awaiting the referee ranks provisionally, so the row needs the run's
-  // status rather than a cleared/not-cleared boolean. 'excluded' never ships in
-  // a board response — an excluded run leaves the board entirely. Absent on the
-  // ordinary case, a run no referee has touched: there is no status to show and
-  // the row carries no mark.
-  reviewStatus: z.optional(z.enum(['pending', 'reviewed'])),
-  // Superseded by reviewStatus. Kept readable for one release so a browser on
-  // the new build still parses a response from an API that has not deployed yet.
-  refereeReviewed: z.optional(z.boolean()),
   // Survival: cumulative time (ms) — the tiebreak among equal streaks.
   timeMs: z.optional(nonNegativeInteger),
   player: publicPlayerSummarySchema

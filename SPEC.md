@@ -387,8 +387,9 @@ Player XP and the per-player arena:
   is an explicit no-XP recognition. Profile reads reconcile
   markers for every currently earned slug+rung and settle the finite Arena
   Climber cascade. Later badge/referee changes never subtract XP.
-- **Season-final XP (Season 135 onward):** the private result-queue finalizer reads referee-eligible,
-  positive, current-board standings with pending runs withheld and pays each
+- **Season-final XP (Season 135 onward):** the private result-queue finalizer reads the
+  positive, current-board standings players saw (only runs a person removed are
+  left out) and pays each
   mode's occupied top 20: #1 500, #2 350, #3 250, #4–5 150, #6–10 100,
   #11–20 50. A player with a final eligible positive score in all five ranked
   modes also gets 100 Seasonal Circuit XP. Practice is excluded. Placement,
@@ -616,7 +617,7 @@ excluded runs, subtracts their exact retained card outcomes, removes
 run-timestamped forward-only achievements, and preserves canonical runs, XP,
 learning history, and evidence. A later audited restoration invalidates the bag
 again and restores the run's contributions, including archived forward-only
-badge facts. Pending holds do not revoke badges. The ladder table and the 28 arena XP thresholds both live in
+badge facts. The ladder table and the 28 arena XP thresholds both live in
 `packages/contracts` because the browser and the Lambda cannot import each other.
 
 Profile history has three deliberately different reads. `GET /me` keeps the
@@ -635,8 +636,8 @@ rather than a guess when no clock can anchor it, and the UI omits the unresolved
 internal id rather than exposing it. `placements=1` additionally returns each run's board rank, but only for
 the run that actually holds the player's position for its mode — one leaderboard
 read per ranked mode played, so it is opt-in and never spans `season=all`. `mode` and `status` narrow further; `status`
-takes `pending`, `reviewed`, `excluded`, or `unreviewed` — the last of which is
-the absence of a decision, which is what most runs are. A recent-feed cap must
+takes only `excluded`, the one status a run can carry (a run a person removed
+from the boards). A recent-feed cap must
 never be used as a season total. `GET /me/xp` is the progression read described
 above: it returns daily aggregates rather than raw runs and markers.
 
@@ -860,43 +861,40 @@ terminal-state expectations, score floors, completion-rate ceilings, and other
 product assumptions produce machine-readable review signals. Current clients
 also provide verified display-to-input observations, allowing the gate to
 detect sustained subhuman response patterns without counting forced reveal or
-card-transition time. A strict new season or all-time number one is held as a
-neutral review queue entry even when no anomaly fired; an exact performance tie
-is not a new leader. A signal derived
+card-transition time. A strict new season or all-time number one is recorded
+as a review signal (`new_season_leader_pending_review`,
+`new_all_time_leader_pending_review`) even when no anomaly fired; an exact
+performance tie is not a new leader. A signal derived
 from a mode's own **difficulty curve** — Rain's minimum-time floor, the sum of
 the spawn gaps a score of N cannot have skipped — is review-only on _both_ paths
 and never rejects, not even the strict guest one: a difficulty model is the
-assumption most likely to be wrong about an exceptional player. A scoreable
-ranked run with any such signal is atomically recorded with a `review`/`hidden`
-decision before it can appear publicly. The response includes
-`underReview: true`; Discord promotion is suppressed. The Fair Play Referee can
-confirm the hide or approve a false positive by writing a new, audited visible
-decision. A run awaiting that decision **ranks provisionally**: the board shows
-it in rank order with an Awaiting seal and the row says so in place of its
-XP/games meta. Only an excluded run leaves the board, and only its owner sees
-the explanation; the decision category and private rationale stay private. The
-board row carries `reviewStatus: 'pending' | 'reviewed'` — `excluded` never
-ships in a board response — and the superseded `refereeReviewed` boolean keeps
-its narrower meaning (an actual referee clear) for one release so a browser on
-the previous build marks the same rows it always did. The exception is
-`seasonPodiumFinishers`, which still withholds a pending run: a provisional
-placement is reversible, a finalized podium is not.
-The three statuses are named **Cleared**, **Awaiting**, and **Excluded**, drawn
-as the CSS struck-wax seal in `components/ReviewStatus.tsx` (no emoji, no art
-file); `title`/`aria-label` carry the accessible name. A run no referee has
-touched has **no status and no seal** — neither `reviewStatus` nor
-`refereeReviewed` ships for it. Cleared means a referee examined that exact run,
-so it must never be the default for an unexamined one.
-`services/api/src/referee-status.ts` is the one classifier both the owner's
-history and the public boards read, and its hidden branch fails closed. The public Fair Play page defines prohibited
+assumption most likely to be wrong about an exceptional player.
+
+Every run ranks on finishing and wears no seal (Jamie, 2026-11-02: "Drop
+retires the Awaiting hold and the Cleared seal; every run ranks on finishing
+with no seal, and only a hand investigation can remove a run from the
+boards"). Completion records every signal in the evidence (`integrityOutcome`,
+`reviewSignals`), writes no referee decision, and returns no review flag. A
+person may investigate a run with the referee scripts and, if it is really
+wrong, remove it with an audited `review`/`hidden` decision; a later `visible`
+decision restores it at its correct rank. Only a removed run leaves the board,
+and only its owner sees that it was removed and the explanation; the decision
+category and private rationale stay private. No board row carries a review
+status, and nothing withholds a run, `seasonPodiumFinishers` included.
+`isExcludedFromBoards` in `services/api/src/referee-status.ts` is the one
+classifier the owner's history, the public boards, badges, shares and season
+awards read, and its hidden branch fails closed. Older records stay in the
+table and are ignored: an automatic integrity-gate hold
+(`decidedBy: "integrity-gate"`) and a reopened queue hold
+(`queueState: "pending"`) were never a person's final call.
+The public Fair Play page defines prohibited
 automation, allowed settings/accessibility tools, review, and re-review through
 `drop@poapkings.com`. A dispute should include the player-visible `#D…` run tag.
 Only incomplete or contradictory input from which no comparable score
 can be derived returns `400`; that attempt is still retained as referee evidence
 under the canonical server-issued run UUID and is not labeled fake. The client
-shows only its deterministic `#D…` Drop run tag. Scoreable holds use that tag to
-join the immediate pending notice and owner history to the UUID-keyed evidence and
-referee decision. The referee tools accept either form and fail closed if a short
+shows only its deterministic `#D…` Drop run tag. A scored run uses that tag to
+join its owner history to the UUID-keyed evidence and any referee decision. The referee tools accept either form and fail closed if a short
 tag is ever ambiguous. An unscored attempt has no
 history row or review-status badge because no ranked result exists. Practice is
 unranked and unscored; its validated online run feeds learning stats and Player
@@ -908,12 +906,6 @@ recorded. Completion and the public read endpoints are also IP rate-limited
 at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour;
 `share-mint` at 60/hour and `share-open` at 600/hour).
-
-With Jamie's explicit approval, materially changed player-level evidence can
-reopen an earlier referee judgment as a neutral hidden queue state. The owner
-sees the Awaiting seal, the run keeps ranking provisionally, and the previous
-judgment remains in immutable decision history; reopening does not label the run
-excluded.
 
 Authenticated public identity is centered on one favorite card:
 
@@ -1116,8 +1108,7 @@ reconciles it into public leaderboards.
 **What is captured.** On `/runs/complete`, best-effort (never failing or rolling
 back a recorded run), one evidence item is written for:
 
-- a **recorded ranked** run, whether accepted immediately or automatically
-  quarantined for review, and
+- a **recorded ranked** run, with or without automatic review signals, and
 - an **unscored signed-in** attempt for which the current scorer could not
   derive a comparable candidate score.
 
@@ -1155,15 +1146,13 @@ current-board runs far outside them to `/elixir-drop/run-analysis`, by `#D…`
 tag only. It writes nothing. Rules and line shapes: `docs/FAIR-PLAY.md`, "Run
 analysis".
 
-**What a player sees.** The overlay is not invisible. `referee-status.ts` is the
-single classifier the public board and the owner's run log both read, so the two
-cannot disagree about one run, and its hidden branch fails closed. The vocabulary
-is **Awaiting / Cleared / Excluded**, drawn as the struck-wax seal in
-`components/ReviewStatus.tsx`. Three rules govern it: a held run **ranks
-provisionally** rather than disappearing (only `excluded` leaves a board); **an
-unreviewed run wears no seal**, so a missing mark is never doubt; and **a summary
-keys no referee at all**, because every run that just ended is awaiting one. The
-reasoning behind the design is in `docs/referee-visibility.md`.
+**What a player sees.** Every run ranks on finishing and no run wears a seal.
+The one status is `excluded`: a run a person removed from the boards after a
+hand investigation, shown only to its owner in their run log, with a concise
+explanation and the dispute link. `referee-status.ts` is the single classifier
+the public board and the owner's run log both read, so the two cannot disagree
+about one run, and its hidden branch fails closed. The superseded seal design is
+in `docs/referee-visibility.md`.
 
 ### Connection correlation without storing IPs
 
@@ -1205,12 +1194,11 @@ email, a raw IP, or the pepper) and **fail closed** on missing or incomplete
 evidence. Each current decision records disposition, `visible`/`hidden`, a
 private reason, evidence digest, and timestamp, with immutable decision history.
 Season and all-time reads omit only excluded runs; if an excluded run was a
-player's best, the board uses that player's next-best rankable run. A run held
-for review still ranks. Approval restores an excluded run at its correct rank.
-An automatic hold is pending on both the owner's page and the board; a referee
-hide is owner-visible as excluded and appears on no board; and a referee-visible
-result is publicly marked as cleared. No public endpoint returns an excluded run
-or any private rationale.
+player's best, the board uses that player's next-best rankable run. Approval
+restores an excluded run at its correct rank. A referee hide is owner-visible as
+excluded and appears on no board; a referee-visible decision changes nothing a
+player sees. No public endpoint returns an excluded run or any private
+rationale.
 
 The private **Drop Control Room** is a separate Preact app in `apps/admin`,
 served by the loopback-only `services/admin` process on the managed host and
@@ -1220,8 +1208,9 @@ wide player workspace exposes filterable run history, profile/CR details,
 badges, ranked access, and deep run evidence. Run filters cover mode, review
 state, completion date, native result, active time, season/tag/UUID, and sort
 order. Operators can select individual ranked runs or all ranked runs in the
-current filter and apply one reviewed, excluded, insufficient-evidence, or
-reopened-pending decision to the selection. A second explicit confirmation is
+current filter and apply one reviewed, excluded, or insufficient-evidence
+decision to the selection. There is no review queue: the Review Queue cohort
+and the reopen action were retired with the Awaiting hold on 2026-11-02. A second explicit confirmation is
 required; the service then invokes the sanctioned decision command once per run
 so every result keeps its own immutable audit event. Batches are bounded to 200,
 and a partial failure returns the failed run IDs for selection and retry rather

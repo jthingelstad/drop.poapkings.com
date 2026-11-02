@@ -3496,7 +3496,6 @@ export class Repository {
     seasonId: number,
     xp: number | { practiceCards: number },
     tiebreaks?: RunTiebreaks,
-    automaticReviewReason?: string,
     recovery?: RunRecoveryOptions,
   ): Promise<{
     totalGames: number;
@@ -3511,7 +3510,6 @@ export class Repository {
         seasonId,
         xp,
         tiebreaks,
-        automaticReviewReason,
         recovery,
       );
 
@@ -3528,7 +3526,6 @@ export class Repository {
           seasonId,
           calculated.xp,
           tiebreaks,
-          automaticReviewReason,
           recovery,
           {
             expectedVersion: stored?.version,
@@ -3572,7 +3569,6 @@ export class Repository {
     seasonId: number,
     xp: number,
     tiebreaks?: RunTiebreaks,
-    automaticReviewReason?: string,
     recovery?: RunRecoveryOptions,
     practiceXp?: PracticeXpWrite,
   ): Promise<{
@@ -3733,10 +3729,9 @@ export class Repository {
 
     // Recent-activity feed: one ephemeral (TTL'd) row per recorded
     // ranked run, keyed newest-first in the main table (pk = FEED#{season}, sk =
-    // ISO ts). Pending runs rank provisionally, so they belong here too; the
-    // read path applies the same final-exclusion rule as public boards. The
-    // history Put's idempotency condition makes the whole transaction — feed
-    // row included — safe to replay. Name/card resolve on read.
+    // ISO ts). The read path applies the same exclusion rule as public boards.
+    // The history Put's idempotency condition makes the whole transaction —
+    // feed row included — safe to replay. Name/card resolve on read.
     if (ranked && !recovery) {
       transactionItems.push({
         Put: {
@@ -3754,61 +3749,6 @@ export class Repository {
           },
         },
       });
-    }
-
-    // A plausibility signal opens a neutral review state, not a verdict or
-    // destruction of the run. The decision is committed atomically with the
-    // score; public reads classify this integrity-gate hold as pending, so the
-    // result ranks and reaches activity provisionally until a referee records
-    // an audited clear or final exclusion. Both events stay in immutable
-    // DECISION history.
-    if (ranked && automaticReviewReason) {
-      const evidenceDigest = createHash("sha256")
-        .update(
-          JSON.stringify({
-            runId: run.runId,
-            mode: run.mode,
-            score,
-            startedAt: run.startedAt,
-            completedAt,
-            reason: automaticReviewReason,
-          }),
-        )
-        .digest("hex");
-      const decision = {
-        runId: run.runId,
-        subjectType: "ranked_run",
-        disposition: "review",
-        visibility: "hidden",
-        reason: automaticReviewReason,
-        evidenceDigest,
-        decidedAt: completedAt,
-        decidedBy: "integrity-gate",
-        schemaVersion: "1",
-      };
-      transactionItems.push(
-        {
-          Put: {
-            TableName: this.tableName,
-            Item: {
-              pk: `REFEREE#${run.runId}`,
-              sk: `DECISION#${completedAt}`,
-              ...decision,
-            },
-            ConditionExpression: "attribute_not_exists(pk)",
-          },
-        },
-        {
-          Put: {
-            TableName: this.tableName,
-            Item: {
-              pk: `REFEREE#${run.runId}`,
-              sk: "CURRENT",
-              ...decision,
-            },
-          },
-        },
-      );
     }
 
     // A repair is deliberately absent from the public activity feed and gets

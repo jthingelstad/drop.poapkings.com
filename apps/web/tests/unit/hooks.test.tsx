@@ -682,11 +682,12 @@ describe('useGameRun', () => {
     expect(recordingNotice.value).toMatchObject({ state: 'saved', message: 'Offline run complete — not saved' })
   })
 
-  it('joins a held-run notice and history status with the server run ID', async () => {
+  it('records every run the same way, with no hold and no review status', async () => {
     vi.mocked(startRun).mockResolvedValue(startedRun() as never)
+    // A stale API field from before the hold was retired changes nothing.
     vi.mocked(completeRun).mockResolvedValue({
       ...acceptedResult('surge', 3_100),
-      runId: 'review-run-uuid',
+      runId: 'signal-run-uuid',
       underReview: true
     } as never)
     const { api } = mountRun()
@@ -696,14 +697,10 @@ describe('useGameRun', () => {
       await api().complete({ answers: [1] })
     })
 
-    expect(recordRecentRun).toHaveBeenCalledWith(
-      expect.objectContaining({ runId: 'review-run-uuid', reviewStatus: 'pending' })
-    )
-    expect(recordingNotice.value).toMatchObject({
-      state: 'saved',
-      message: 'Game recorded — awaiting the referee',
-      detail: `Reference: ${runReference('review-run-uuid')}`
-    })
+    const recorded = vi.mocked(recordRecentRun).mock.calls.at(-1)?.[0]
+    expect(recorded).toMatchObject({ runId: 'signal-run-uuid' })
+    expect(recorded).not.toHaveProperty('reviewStatus')
+    expect(recordingNotice.value).toEqual({ state: 'saved', message: 'Game recorded' })
   })
 
   it('an expired (410) completion settles unrecorded and calls onUnrecorded', async () => {

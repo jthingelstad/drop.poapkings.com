@@ -166,7 +166,6 @@ describe("Practice completion", () => {
       expect.any(Number),
       { practiceCards: 40 },
       undefined,
-      undefined,
     );
     expect(repository.clearPracticeCheckpoint).toHaveBeenCalledWith(
       profile.sub,

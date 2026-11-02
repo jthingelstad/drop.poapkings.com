@@ -32,22 +32,17 @@ test('the You page is reachable and shows identity, the day-grouped log, and the
     contentType: 'image/png'
   })
 
-  // The Log scope is the default: recorded games grouped by day, and only a run
-  // a referee handled is sealed. The held and excluded runs are marked; the
-  // ordinary games around them wear nothing.
+  // The Log scope is the default: recorded games grouped by day. No row wears a
+  // seal; only the run a person removed from the boards says so, in words.
   const games = page.locator('.ed-games')
   const rows = games.locator('.ed-games__row')
-  await expect(rows.getByLabel('Awaiting referee')).toHaveCount(1)
-  await expect(rows.getByLabel('Not ranked')).toHaveCount(1)
-  await expect(rows.getByLabel('Referee cleared')).toHaveCount(0)
+  await expect(rows.locator('.ed-seal')).toHaveCount(0)
+  await expect(rows.filter({ hasText: 'EXCLUDED' })).toHaveCount(1)
+  await expect(games).not.toContainText('AWAITING')
   await expect(games.locator('.ed-games__day-head').first()).toContainText('game')
 
-  // The run reference and the dispute link live in the run detail; only a run a
-  // referee has touched carries one at all.
-  await rows
-    .filter({ has: page.getByLabel('Not ranked') })
-    .first()
-    .click()
+  // The dispute link lives in the run detail of a removed run.
+  await rows.filter({ hasText: 'EXCLUDED' }).first().click()
   const detail = page.getByRole('dialog')
   // An excluded run replaces the reference block with the referee's explanation
   // and the dispute link (whose mailto still carries the run reference).
@@ -198,7 +193,8 @@ test('Updates opens unread cards and links Markdown to the public history', asyn
 
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Updates' }).click()
-  await expect(page.locator('.ed-updates__referee-note')).toHaveText('Runs stay ranked while the referee checks them.')
+  // Updates has no referee block: nothing waits on a referee any more.
+  await expect(page.locator('.ed-updates__referee')).toHaveCount(0)
 
   const newCard = page.getByRole('button', { name: /Minion Giant drops into every game/ })
   const unread = page.getByRole('button', { name: /Three community badges enter the arena/ })
@@ -573,9 +569,9 @@ test('the Log groups games by day, filters flagged, and pages older games in', a
   await expect(games.locator('.ed-games__row')).toHaveCount(30)
   await expect(games.locator('.ed-games__day-head').first()).toContainText('game')
 
-  // One filter chip pair — Flagged narrows to the referee-touched runs.
-  await games.getByRole('button', { name: /Flagged/ }).click()
-  await expect(games.locator('.ed-games__row')).toHaveCount(2)
+  // One filter chip pair — Excluded narrows to the runs a person removed.
+  await games.getByRole('button', { name: /Excluded/ }).click()
+  await expect(games.locator('.ed-games__row')).toHaveCount(1)
   await games.getByRole('button', { name: 'All', exact: true }).click()
   await expect(games.locator('.ed-games__row')).toHaveCount(30)
 

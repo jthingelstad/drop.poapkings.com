@@ -895,7 +895,7 @@ describe("repository DynamoDB requests", () => {
     ]);
   });
 
-  it("ranks a run awaiting the referee and marks it pending", async () => {
+  it("ranks a run under a legacy integrity-gate hold with no seal", async () => {
     send
       .mockResolvedValueOnce({
         Items: [
@@ -951,19 +951,19 @@ describe("repository DynamoDB requests", () => {
       10,
     );
 
-    // The held run keeps its place; only its status says it is still waiting.
+    // A stored hold from before 2026-11-02 is ignored: the run keeps its place
+    // and no row on the board carries any review status.
     expect(entries).toMatchObject([
-      { rank: 1, score: 10_000, reviewStatus: "pending" },
+      { rank: 1, score: 10_000 },
       { rank: 2, score: 12_000 },
     ]);
-    // The pending row never claims a referee cleared it, and the ordinary row
-    // carries no status at all — no referee has looked at it.
-    expect(entries[0]?.refereeReviewed).toBeUndefined();
-    expect(entries[1]?.reviewStatus).toBeUndefined();
-    expect(entries[1]?.refereeReviewed).toBeUndefined();
+    for (const entry of entries) {
+      expect(entry).not.toHaveProperty("reviewStatus");
+      expect(entry).not.toHaveProperty("refereeReviewed");
+    }
   });
 
-  it("withholds a pending run from the season podium it could not take back", async () => {
+  it("places a run under a legacy hold on the season podium like any other", async () => {
     send
       .mockResolvedValueOnce({
         Items: [
@@ -1000,7 +1000,7 @@ describe("repository DynamoDB requests", () => {
       134,
     );
 
-    expect(finishers).toEqual(["player-b"]);
+    expect(finishers).toEqual(["player-a", "player-b"]);
   });
 
   it("restores an approved run to its correct leaderboard rank", async () => {
@@ -1061,14 +1061,12 @@ describe("repository DynamoDB requests", () => {
     );
 
     expect(entries).toMatchObject([
-      {
-        rank: 1,
-        score: 10_000,
-        refereeReviewed: true,
-        player: { publicName: "Ace" },
-      },
+      { rank: 1, score: 10_000, player: { publicName: "Ace" } },
       { rank: 2, score: 12_000, player: { publicName: "Bolt" } },
     ]);
+    // A clear changes nothing a player sees: no Cleared seal on the row.
+    expect(entries[0]).not.toHaveProperty("reviewStatus");
+    expect(entries[0]).not.toHaveProperty("refereeReviewed");
   });
 
   it("marks every claimed Clash Royale refresh as pending", async () => {
@@ -1233,7 +1231,6 @@ describe("repository DynamoDB requests", () => {
       135,
       84,
       { wrongGuesses: 8, avgLatencyMs: 700 },
-      undefined,
       {
         completedAt: "2026-08-07T02:00:36.821Z",
         recoveredAt: "2026-08-07T18:00:00.000Z",
@@ -1302,7 +1299,6 @@ describe("repository DynamoDB requests", () => {
       135,
       84,
       { wrongGuesses: 8, avgLatencyMs: 700 },
-      undefined,
       {
         completedAt: "2026-08-07T02:00:36.821Z",
         recoveredAt: "2026-08-07T18:00:00.000Z",
@@ -1396,7 +1392,10 @@ describe("repository DynamoDB requests", () => {
     });
   });
 
-  it("publishes and atomically holds an integrity-flagged ranked run", async () => {
+  // Retired 2026-11-02: completion no longer writes an integrity-gate hold.
+  // Automatic signals live only in the run's evidence; a ranked run is
+  // published with no referee decision at all.
+  it("publishes a ranked run without writing any referee decision", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Item: {
         sub: "player-sub",
@@ -1419,17 +1418,10 @@ describe("repository DynamoDB requests", () => {
       expiresAt: 1_800_000_000,
     };
 
-    await new Repository("test-table").completeRun(
-      run,
-      1_000,
-      134,
-      45,
-      undefined,
-      "score_below_ui_floor",
-    );
+    await new Repository("test-table").completeRun(run, 1_000, 134, 45);
 
     const items = send.mock.calls[0]?.[0].input.TransactItems;
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(5);
     expect(items[4]?.Put?.Item).toMatchObject({
       pk: "FEED#134",
       runId: "run-review",
@@ -1437,27 +1429,11 @@ describe("repository DynamoDB requests", () => {
       mode: "surge",
       score: 1_000,
     });
-    const history = items[5]?.Put;
-    const current = items[6]?.Put;
-    expect(history?.Item).toMatchObject({
-      pk: "REFEREE#run-review",
-      runId: "run-review",
-      disposition: "review",
-      visibility: "hidden",
-      reason: "score_below_ui_floor",
-      decidedBy: "integrity-gate",
-      schemaVersion: "1",
-    });
-    expect(history?.Item.sk).toMatch(/^DECISION#/);
-    expect(history?.Item.evidenceDigest).toMatch(/^[a-f0-9]{64}$/);
-    expect(history?.ConditionExpression).toBe("attribute_not_exists(pk)");
-    expect(current?.Item).toMatchObject({
-      pk: "REFEREE#run-review",
-      sk: "CURRENT",
-      runId: "run-review",
-      visibility: "hidden",
-    });
-    expect(current?.Item.decidedAt).toBe(history?.Item.decidedAt);
+    expect(
+      items.some((item: { Put?: { Item?: { pk?: string } } }) =>
+        item.Put?.Item?.pk?.startsWith("REFEREE#"),
+      ),
+    ).toBe(false);
   });
 
   it("records an unranked run's history without a leaderboard entry", async () => {

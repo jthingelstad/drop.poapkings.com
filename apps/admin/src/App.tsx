@@ -24,7 +24,7 @@ import type {
   UpdateKind,
 } from "./types";
 
-type Cohort = "all" | "pending" | "restricted";
+type Cohort = "all" | "restricted";
 type ControlView = "players" | "updates";
 type WorkspaceTab = "runs" | "profile" | "badges";
 type PlayerRun = PlayerDetail["progression"][string][number] & {
@@ -122,18 +122,30 @@ function CopyTag({ children }: { children: string }) {
   );
 }
 
-function runStatus(
-  run: PlayerRun,
-): "pending" | "reviewed" | "excluded" | "unreviewed" {
-  const decision = run.decision;
+// Mirrors isExcludedFromBoards in services/api/src/referee-status.ts. Since
+// 2026-11-02 every run ranks on finishing and only a hand investigation removes
+// one. A legacy automatic hold (decidedBy "integrity-gate") and a reopened
+// queue hold (queueState "pending") were never a person's final call, so they
+// count as unreviewed. A hidden decision with any other author stays excluded,
+// failing closed like the API.
+function decisionStatus(
+  decision: Record<string, unknown> | undefined,
+): "reviewed" | "excluded" | "unreviewed" {
   if (!decision) return "unreviewed";
-  if (decision.queueState === "pending") return "pending";
+  if (
+    decision.queueState === "pending" ||
+    decision.decidedBy === "integrity-gate"
+  )
+    return "unreviewed";
   if (decision.visibility === "hidden") return "excluded";
   return "reviewed";
 }
 
+function runStatus(run: PlayerRun): ReturnType<typeof decisionStatus> {
+  return decisionStatus(run.decision);
+}
+
 function statusLabel(status: ReturnType<typeof runStatus>): string {
-  if (status === "pending") return "🔎 Pending";
   if (status === "excluded") return "🚫 Excluded";
   if (status === "reviewed") return "✅ Reviewed";
   return "• Unreviewed";
@@ -167,10 +179,7 @@ export default function App() {
           next.players.some((player) => player.playerId === current)
         )
           return current;
-        const pendingId = next.players.find(
-          (player) => player.pendingRuns,
-        )?.playerId;
-        return pendingId ?? next.players[0]?.playerId;
+        return next.players[0]?.playerId;
       });
     } catch (reason) {
       setError(
@@ -235,7 +244,6 @@ export default function App() {
   const players = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (overview?.players ?? []).filter((player) => {
-      if (cohort === "pending" && player.pendingRuns === 0) return false;
       if (cohort === "restricted" && player.rankedAccess !== "restricted")
         return false;
       if (!query) return true;
@@ -257,11 +265,7 @@ export default function App() {
     setCohort(next);
     setSearch("");
     const candidate = (overview?.players ?? []).find((player) =>
-      next === "pending"
-        ? player.pendingRuns > 0
-        : next === "restricted"
-          ? player.rankedAccess === "restricted"
-          : true,
+      next === "restricted" ? player.rankedAccess === "restricted" : true,
     );
     if (candidate) setSelectedPlayerId(candidate.playerId);
   };
@@ -289,13 +293,6 @@ export default function App() {
             onClick={() => selectCohort("all")}
           />
           <NavButton
-            active={view === "players" && cohort === "pending"}
-            icon="🔎"
-            label="Review Queue"
-            count={overview?.totals.pending}
-            onClick={() => selectCohort("pending")}
-          />
-          <NavButton
             active={view === "players" && cohort === "restricted"}
             icon="🚫"
             label="Restricted"
@@ -315,9 +312,6 @@ export default function App() {
             <b>{overview?.totals.runs ?? "—"}</b> recorded runs
           </span>
           <span>
-            <b>{overview?.totals.pending ?? "—"}</b> awaiting review
-          </span>
-          <span>
             <b>{overview?.totals.restricted ?? "—"}</b> restricted
           </span>
         </div>
@@ -332,13 +326,7 @@ export default function App() {
           <header class="cr-directory__header">
             <div>
               <span class="cr-eyebrow">Player directory</span>
-              <h1>
-                {cohort === "pending"
-                  ? "Needs review"
-                  : cohort === "restricted"
-                    ? "Restricted"
-                    : "Everyone"}
-              </h1>
+              <h1>{cohort === "restricted" ? "Restricted" : "Everyone"}</h1>
             </div>
             <span class="cr-directory__count">{players.length}</span>
           </header>
@@ -689,7 +677,6 @@ function PlayerDirectory({
             <b>{player.runCount}</b> runs · <b>{player.earnedBadges}</b> badges
           </span>
           <span class="cr-player-list__state">
-            {player.pendingRuns > 0 && <em>🔎 {player.pendingRuns}</em>}
             {player.rankedAccess === "restricted" && <em>🚫</em>}
             <small>{formatDate(player.lastSeen)}</small>
           </span>
@@ -930,16 +917,9 @@ function RunsPanel({
   const filteredSelectedCount = selectableRuns.filter((run) =>
     selectedSet.has(run.runId),
   ).length;
-  const selectedRuns = allRuns.filter((run) => selectedSet.has(run.runId));
   const allFilteredSelected =
     selectableRuns.length > 0 &&
     selectableRuns.every((run) => selectedSet.has(run.runId));
-  const reopenBlocked =
-    bulkAction === "reopen" &&
-    selectedRuns.some((run) => {
-      const status = runStatus(run);
-      return status === "pending" || status === "unreviewed";
-    });
 
   useEffect(() => {
     const available = new Set(allRuns.map((run) => run.runId));
@@ -1068,7 +1048,6 @@ function RunsPanel({
               onChange={(event) => setReview(event.currentTarget.value)}
             >
               <option value="all">Any status</option>
-              <option value="pending">🔎 Pending</option>
               <option value="reviewed">✅ Reviewed</option>
               <option value="excluded">🚫 Excluded</option>
               <option value="unreviewed">Unreviewed</option>
@@ -1171,13 +1150,12 @@ function RunsPanel({
                 setBulkArmed(false);
               }}
             >
-              <option value="clear">✅ Reviewed — clear and rank</option>
+              <option value="clear">✅ Reviewed — clear</option>
               <option value="watch">✅ Reviewed — watch player</option>
               <option value="exclude">🚫 Excluded</option>
               <option value="insufficient">
                 ✅ Reviewed — insufficient evidence
               </option>
-              <option value="reopen">🔎 Pending — reopen review</option>
             </select>
           </label>
           {bulkAction === "exclude" && (
@@ -1214,12 +1192,6 @@ function RunsPanel({
               placeholder="Evidence-based reason applied to every selected run"
             />
           </label>
-          {reopenBlocked && (
-            <p class="cr-form-message cr-form-message--error">
-              Reopen can only target completed reviewed or excluded decisions.
-              Remove pending and unreviewed runs first.
-            </p>
-          )}
           {bulkArmed && (
             <p class="cr-bulk-action__confirm" role="alert">
               Confirm this status for all {selected.length} selected runs. This
@@ -1229,9 +1201,7 @@ function RunsPanel({
           <div class="cr-bulk-action__buttons">
             <button
               class={bulkArmed ? "cr-button cr-button--danger" : "cr-button"}
-              disabled={
-                bulkBusy || bulkReason.trim().length < 8 || reopenBlocked
-              }
+              disabled={bulkBusy || bulkReason.trim().length < 8}
             >
               {bulkBusy
                 ? "Applying…"
@@ -1869,13 +1839,7 @@ function RunInspector({
       {decision && (
         <div class="cr-current-decision">
           <strong>Current overlay</strong>
-          <span>
-            {decision.queueState === "pending"
-              ? "🔎 Pending"
-              : decision.visibility === "hidden"
-                ? "🚫 Excluded"
-                : "✅ Reviewed"}
-          </span>
+          <span>{statusLabel(decisionStatus(decision))}</span>
           <p>{scalar(decision.reason, "")}</p>
         </div>
       )}
@@ -1948,11 +1912,10 @@ function RunInspector({
               value={action}
               onChange={(event) => setAction(event.currentTarget.value)}
             >
-              <option value="clear">✅ Clear and rank</option>
+              <option value="clear">✅ Clear</option>
               <option value="watch">✅ Clear, watch player</option>
               <option value="exclude">🚫 Exclude</option>
-              <option value="insufficient">🔎 Insufficient evidence</option>
-              <option value="reopen">🔎 Reopen review</option>
+              <option value="insufficient">✅ Insufficient evidence</option>
             </select>
           </label>
           {action === "exclude" && (

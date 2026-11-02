@@ -214,10 +214,7 @@ describe('Leaderboards', () => {
     }
   }
 
-  const ROWS = [
-    { ...entry('p1', 1, 'Alice', 4_200), reviewStatus: 'reviewed' as const, refereeReviewed: true },
-    entry('p2', 2, 'Bob', 5_000)
-  ]
+  const ROWS = [entry('p1', 1, 'Alice', 4_200), entry('p2', 2, 'Bob', 5_000)]
 
   function build(mode: GameMode, scope: LeaderboardScope) {
     return {
@@ -265,18 +262,16 @@ describe('Leaderboards', () => {
     // The player's own row is flagged.
     expect(host.querySelector('.ed-lbrow--you')).not.toBeNull()
     expect(host.querySelector('.ed-lbrow--you')?.textContent).toContain('You')
-    // The seal is CSS, not a glyph, and rank 1 gets the watermark ring.
-    expect(host.querySelector('[aria-label="Referee cleared"]')).not.toBeNull()
-    expect(host.querySelector('[aria-label="Referee cleared"]')?.textContent).toBe('')
-    // Bob's run was never reviewed, so it wears no seal — exactly one row does.
-    expect(host.querySelectorAll('.ed-lbrow [aria-label="Referee cleared"]')).toHaveLength(1)
-    expect(host.querySelectorAll('.ed-lbrow__seal-slot')).toHaveLength(1)
+    // Every finished run ranks and no row wears a seal; rank 1 gets the crown.
+    expect(host.querySelectorAll('.ed-lbrow .ed-seal')).toHaveLength(0)
+    expect(host.querySelectorAll('.ed-lbrow__seal-slot')).toHaveLength(0)
     expect(host.querySelector('.ed-lbrow--crown')).not.toBeNull()
     expect(host.querySelector('.ed-board__review-key')).toBeNull()
-    expect(host.querySelector('.ed-board__key')?.textContent).toContain('ranks while it is checked')
+    expect(host.querySelector('.ed-board__key')?.textContent).toContain('Every finished run ranks.')
+    expect(host.querySelector('.ed-board__key')?.textContent).not.toContain('Cleared')
   })
 
-  it('ranks a run that is awaiting the referee and says so on its row', async () => {
+  it('draws a row with a stale review status like any other row', async () => {
     vi.mocked(getLeaderboard).mockImplementation(((mode: GameMode, scope: LeaderboardScope) => {
       const board = build(mode, scope)
       return Promise.resolve({
@@ -292,10 +287,11 @@ describe('Leaderboards', () => {
 
     const top = host.querySelector('.ed-lbrow')!
     expect(top.textContent).toContain('Alice')
-    expect(top.querySelector('[aria-label="Awaiting referee"]')).not.toBeNull()
-    expect(top.querySelector('.ed-lbrow__meta--awaiting')?.textContent).toBe('Awaiting the referee')
-    // A held row trades its XP/games meta for the reason it is held.
-    expect(top.textContent).not.toContain('1,200 XP')
+    // A field an older API sent is ignored: no seal, no Awaiting line, and the
+    // row keeps its XP and games meta.
+    expect(top.querySelector('.ed-seal')).toBeNull()
+    expect(top.textContent).not.toContain('Awaiting')
+    expect(top.textContent).toContain('1,200 XP')
   })
 
   it('opens the selected player and keeps the signed-in player on the private profile route', async () => {

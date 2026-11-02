@@ -96,7 +96,7 @@ describe("run integrity rejection", () => {
     repository.updateAllTimeBest.mockResolvedValue(undefined);
     repository.useRateLimit.mockResolvedValue(undefined);
   });
-  it("records an implausible run under hidden referee review", async () => {
+  it("ranks an implausible run and records the signal as evidence", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -128,20 +128,19 @@ describe("run integrity rejection", () => {
       completionEvent(runToken),
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-    // The deterministically scored run is retained but hidden atomically so the
-    // referee can either confirm the quarantine or restore a false positive.
+    // The deterministically scored run ranks on finishing. The signal stays in
+    // the evidence for a person who later investigates; nothing is held.
     expect(response.statusCode).toBe(201);
-    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(body).toMatchObject({ accepted: true });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-fast" }),
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
       undefined,
-      "score_below_ui_floor",
     );
-    // Recorded reviewed runs still refresh progression around exact-once
-    // non-competitive awards; only PB XP is withheld pending review.
+    // The run refreshes progression around its exact-once awards.
     expect(repository.getProfile).toHaveBeenCalledTimes(2);
     expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -151,7 +150,7 @@ describe("run integrity rejection", () => {
       }),
     );
   });
-  it("records a Rain run under the spawn-curve floor, scored and quarantined", async () => {
+  it("ranks a Rain run under the spawn-curve floor and records the signals", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -195,14 +194,14 @@ describe("run integrity rejection", () => {
       completionEvent(runToken, { answers }),
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-    // Scored, recorded, and held for a referee — never rejected. The score is
-    // real; what is in doubt is whether a human produced it.
+    // Scored, recorded and ranked, never rejected. The score is real; the
+    // signals stay in the evidence for a person who later investigates.
     expect(response.statusCode).toBe(201);
     expect(body).toMatchObject({
       accepted: true,
       score: 20,
-      underReview: true,
     });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-rain" }),
       20,
@@ -210,7 +209,13 @@ describe("run integrity rejection", () => {
       expect.any(Number),
       // The tiebreaks still ride onto the row: derived, not reported.
       { wrongGuesses: 2, avgLatencyMs: 0 },
-      "rain_answers_outrun_spawn_curve,completion_rate_above_ui_limit",
+    );
+    expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-rain",
+        integrityOutcome:
+          "rain_answers_outrun_spawn_curve,completion_rate_above_ui_limit",
+      }),
     );
   });
 });

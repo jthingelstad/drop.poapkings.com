@@ -222,7 +222,10 @@ export interface RunShareVisual {
   bad?: boolean[];
 }
 
-export type RunReviewStatus = "pending" | "reviewed" | "excluded";
+// The one run status any surface carries (owner-only): a hand investigation
+// removed the run from the boards. Awaiting and Cleared were retired on
+// 2026-11-02; `referee-status.ts` is the classifier.
+export type RunReviewStatus = "excluded";
 
 // Non-reversible connection-correlation signals derived from a request's IP and
 // user-agent. The raw IP/user-agent are NEVER stored — only these peppered
@@ -301,11 +304,14 @@ export interface RefereeDecision {
   // Safe, categorical owner explanation. The detailed reason above stays on
   // the private referee surface and is never copied into player responses.
   playerExplanationCode?: PlayerExplanationCode;
-  // A referee can reopen an earlier judgment as a neutral queue hold. This
-  // remains distinct from an excluded run even though both are hidden.
+  // Legacy only. Until 2026-11-02 a referee could reopen an earlier judgment as
+  // a neutral queue hold; such records stay in the table and the classifier
+  // ignores them. Nothing writes this any more.
   queueState?: "pending";
   evidenceDigest: string;
   decidedAt: string;
+  // `integrity-gate` is legacy: the automatic completion hold that wrote it
+  // was retired on 2026-11-02, and the classifier ignores those records.
   decidedBy: "fair-play-referee" | "integrity-gate";
   schemaVersion: "1";
 }

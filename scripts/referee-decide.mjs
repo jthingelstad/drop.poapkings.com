@@ -2,14 +2,19 @@
 // referee-decide.mjs <runId-or-reference> --disposition clear|watch|review|insufficient_evidence
 //   --visibility visible|hidden|not_ranked --reason <private concise rationale>
 //   [--player-reason <safe categorical explanation>]
-// referee-decide.mjs <runId-or-reference> --pending --reason <private concise rationale>
-// referee-decide.mjs <runId-or-reference> --reopen --approved-by jamie
-//   --reason <private concise rationale>
 //
-// The only sanctioned referee write path. It never edits a score, transcript,
-// player, or leaderboard row. It writes an independent current decision and an
-// immutable audit event under REFEREE#{runId}; public leaderboard reads apply
-// the current visibility as an overlay.
+// The only sanctioned referee write path, and how a person removes a run from
+// the boards after a hand investigation: `--disposition review --visibility
+// hidden` removes it (reversibly), and a later `visible` decision restores it.
+// A clear or watch decision changes nothing a player sees. It never edits a
+// score, transcript, player, or leaderboard row. It writes an independent
+// current decision and an immutable audit event under REFEREE#{runId}; public
+// leaderboard reads apply the current visibility as an overlay.
+//
+// `--pending` and `--reopen` were retired on 2026-11-02 with the Awaiting hold
+// (Jamie: "Drop retires the Awaiting hold and the Cleared seal; every run ranks
+// on finishing with no seal, and only a hand investigation can remove a run
+// from the boards"). They now fail closed and write nothing.
 
 import { createHash } from "node:crypto";
 import {
@@ -44,11 +49,8 @@ const PLAYER_EXPLANATION_CODES = new Set([
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
 const runIdentifier = positional[0];
-const automaticPending = flags.pending === true;
-const reopening = flags.reopen === true;
-const pending = automaticPending || reopening;
-const disposition = pending ? "review" : flags.disposition;
-const visibility = pending ? "hidden" : flags.visibility;
+const disposition = flags.disposition;
+const visibility = flags.visibility;
 const reason = typeof flags.reason === "string" ? flags.reason.trim() : "";
 const playerExplanationCode =
   typeof flags["player-reason"] === "string"
@@ -58,27 +60,17 @@ const playerExplanationCode =
 if (!runIdentifier)
   failClosed(
     "missing_run_id",
-    "usage: referee-decide.mjs <runId-or-reference> (--pending | --reopen --approved-by jamie | --disposition <value> --visibility <value>) --reason <text> [--player-reason <code>]",
+    "usage: referee-decide.mjs <runId-or-reference> --disposition <value> --visibility <value> --reason <text> [--player-reason <code>]",
   );
-if (automaticPending && reopening)
+if (flags.pending !== undefined || flags.reopen !== undefined)
   failClosed(
-    "conflicting_pending_flags",
-    "--pending and --reopen are mutually exclusive",
+    "pending_hold_retired",
+    "--pending and --reopen were retired on 2026-11-02: every run ranks on finishing, and only a hidden decision after a hand investigation removes one",
   );
-if (pending && (flags.disposition || flags.visibility))
-  failClosed(
-    "invalid_pending_flags",
-    "--pending/--reopen cannot be combined with --disposition or --visibility",
-  );
-if (reopening && flags["approved-by"] !== "jamie")
-  failClosed(
-    "approval_required",
-    "--reopen requires --approved-by jamie from the current task",
-  );
-if (!reopening && flags["approved-by"])
+if (flags["approved-by"] !== undefined)
   failClosed(
     "unexpected_approval",
-    "--approved-by is only valid with --reopen",
+    "--approved-by is not a referee-decide flag",
   );
 if (!DISPOSITIONS.has(disposition))
   failClosed(
@@ -99,14 +91,13 @@ if (reason.length < 8 || reason.length > 1_000)
   failClosed("invalid_reason", "--reason must contain 8..1000 characters");
 if (
   visibility === "hidden" &&
-  !pending &&
   !PLAYER_EXPLANATION_CODES.has(playerExplanationCode)
 )
   failClosed(
     "player_reason_required",
     "A referee-excluded run requires --player-reason automated_input, response_timing, altered_play_record, ranked_rules, or combined_evidence",
   );
-if ((pending || visibility !== "hidden") && playerExplanationCode)
+if (visibility !== "hidden" && playerExplanationCode)
   failClosed(
     "unexpected_player_reason",
     "--player-reason is only valid for a referee-excluded hidden run",
@@ -142,20 +133,6 @@ await withProductionLockOrFail(
         error instanceof Error ? error.message : "unknown",
       );
     }
-    if (automaticPending && previous?.decidedBy === "fair-play-referee")
-      failClosed(
-        "referee_decision_is_authoritative",
-        "An automatic pending hold cannot replace an existing referee decision",
-      );
-    if (
-      reopening &&
-      (previous?.decidedBy !== "fair-play-referee" ||
-        previous.queueState === "pending")
-    )
-      failClosed(
-        "referee_decision_not_reopenable",
-        "--reopen requires an existing completed referee judgment that is not already pending",
-      );
     const subjectType =
       evidence.runType === "ranked" && Number.isFinite(evidence.score)
         ? "ranked_run"
@@ -220,10 +197,9 @@ await withProductionLockOrFail(
       visibility,
       reason,
       ...(playerExplanationCode ? { playerExplanationCode } : {}),
-      ...(reopening ? { queueState: "pending" } : {}),
       evidenceDigest,
       decidedAt,
-      decidedBy: automaticPending ? "integrity-gate" : "fair-play-referee",
+      decidedBy: "fair-play-referee",
       schemaVersion: "1",
     };
     const current = { pk: `REFEREE#${runId}`, sk: "CURRENT", ...fields };
@@ -239,7 +215,6 @@ await withProductionLockOrFail(
           runId,
           decidedAt,
           visibility,
-          ...(reopening ? { queueState: "pending" } : {}),
           decidedBy: fields.decidedBy,
           schemaVersion: "1",
         }

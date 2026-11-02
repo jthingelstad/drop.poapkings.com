@@ -26,14 +26,13 @@ export async function awardRunBonuses(
     score: number;
     completedAt: string;
     personalBest: boolean;
-    underReview: boolean;
   },
 ): Promise<XpAward[]> {
   const awards: XpAward[] = [];
   const run = { runId: input.runId, completedAt: input.completedAt };
   const day = input.completedAt.slice(0, 10);
 
-  if (input.personalBest && !input.underReview) {
+  if (input.personalBest) {
     const award: XpAward = {
       source: "personal-best",
       label: "New personal best",

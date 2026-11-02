@@ -1,4 +1,4 @@
-export type ReviewQueueItem = {
+export type RecentRun = {
   runId: string;
   runReference: string;
   playerId?: string;
@@ -31,13 +31,10 @@ export type PlayerSummary = {
   runCount: number;
   modes: Record<string, number>;
   reviewedRuns: number;
-  pendingRuns: number;
   excludedRuns: number;
   earnedBadges: number;
   rankedAccess: "allowed" | "restricted";
 };
-
-export type RecentRun = ReviewQueueItem;
 
 export type Overview = {
   status: "ok";
@@ -47,11 +44,9 @@ export type Overview = {
   totals: {
     players: number;
     runs: number;
-    pending: number;
     restricted: number;
   };
   players: PlayerSummary[];
-  reviewQueue: ReviewQueueItem[];
   recentRuns: RecentRun[];
 };
 

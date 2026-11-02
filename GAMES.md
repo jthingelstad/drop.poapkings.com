@@ -62,10 +62,11 @@ game card selection. Historical `ranked: false` runs remain readable for
 compatibility only.
 Ranked attempts that score zero still record to history and earn Player XP, but
 only a score above zero earns a seasonal or all-time leaderboard entry.
-A strict new season or all-time leader is recorded under a neutral Fair Play hold
-and **ranks provisionally** while it waits — only an excluded run leaves a board.
-Exact ties do not trigger that leader hold. Technical integrity signals use the
-same reversible path. Repeated
+Every ranked run ranks as soon as it finishes and wears no seal. Drop checks runs
+statistically: a strict new season or all-time leader, and any technical
+integrity signal, is recorded in the run's evidence and holds nothing (exact
+ties are not a new leader). Only a person's hand investigation can remove a run
+from the boards, and a removal is reversible. Repeated
 confirmed automation can separately restrict future ranked starts after Jamie's
 explicit approval, while Practice and account access remain available.
 
@@ -100,20 +101,15 @@ never part of it and stay. Three standing consequences apply to every ranked
 board:
 
 - **The board does not certify itself.** An automatic integrity flag
-  (`automaticReviewReason` / `underReview`) is a review _signal_, never a
-  verdict — and it is treated as one. The flag writes a `review`/`hidden`
-  decision inside the same transaction that records the score
-  (`services/api/src/repository.ts`), but the run **still ranks**: the board
-  reads `services/api/src/referee-status.ts`, where a pending decision ranks
-  provisionally and only `excluded` removes a row. The run scores, records,
-  earns XP, keeps its place, and wears the Awaiting seal while it waits. How
-  commentary and review treat a held run is in `docs/OPERATIONS.md` ("Seasons"
-  and "Fair Play").
-- **A strict new season or all-time leader goes to the referee, and ranks while
-  it waits.** The completion is recorded, retains XP and history, and takes its
-  real placement provisionally under the Awaiting seal. The one read that still
-  withholds a pending run is `seasonPodiumFinishers`: a provisional placement is
-  reversible and a finalized podium is not. Forced 280ms correct-card
+  (`automaticReviewReason`) is a review _signal_, never a verdict — and it is
+  treated as one. It is recorded in the run's evidence and writes no decision:
+  the run scores, records, earns XP and ranks. The board reads
+  `services/api/src/referee-status.ts`, where only a person's `hidden` decision
+  removes a row. How review treats a signal is in `docs/OPERATIONS.md`
+  ("Fair Play").
+- **A strict new season or all-time leader is a signal, not a hold.** The
+  completion is recorded, retains XP and history, and takes its real placement
+  at once; nothing withholds it, `seasonPodiumFinishers` included. Forced 280ms correct-card
   transitions are excluded from the active response budget, so reduced motion
   does not make an honest run look mechanically fast.
 - **Attempt volume is legitimate and stays that way.** Best-single-run scoring
@@ -420,12 +416,11 @@ per-tile component.
 
 The floor is checked twice: against the transcript's own `atMs` stamps per card,
 and against the server's wall clock, which no client can write. A run under it,
-by more than a 2s tolerance, is **sent to referee review — never rejected**. It
-still scores, still records, still earns XP, and it still ranks: the hold is a
-queue state, so the run takes its real placement provisionally under the Awaiting
-seal until a referee decides. The floor is a difficulty model, and a model is
-exactly the kind of thing that false-positives on an exceptional player — which
-is precisely why it no longer costs that player their rank while they wait.
+by more than a 2s tolerance, is **recorded as a review signal — never rejected**.
+It still scores, still records, still earns XP, and it ranks at once with no
+seal. The floor is a difficulty model, and a model is exactly the kind of thing
+that false-positives on an exceptional player — which is precisely why it never
+costs that player their rank.
 
 ### "Elixir Rain" screensaver
 
@@ -489,13 +484,10 @@ unit — do not force it into this grammar.
 
 ### The summary never keys a referee
 
-A summary shows what happened, not what is pending. There is no "Awaiting a
-referee" line and no awaiting seal on a summary head: at the moment a run ends
-_every_ recorded run is awaiting, so a mark every run carries tells a player
-nothing. A cleared seal is never drawn there either — a referee reads input
-evidence and takes minutes. The verdict is met later, on the boards, in the run
-log, and in Updates. The one seal a summary still draws is **not recorded**,
-because that is what happened.
+A summary shows what happened. A recorded run ranks the moment it ends, so a
+summary has no referee line and no seal. An offline or guest run the board never
+saw gets one plain line saying it was not recorded, because that is what
+happened.
 
 ---
 

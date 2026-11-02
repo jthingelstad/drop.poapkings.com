@@ -505,12 +505,12 @@ export async function currentDecision(doc, runId) {
   return result.Item;
 }
 
-// Mirror of referee-status.ts#isExcludedFromBoards. A neutral integrity-gate
-// hold (or an explicitly reopened pending judgment) ranks provisionally; only
-// a final referee exclusion is removed from the public board and replaced by a
-// player's next eligible run. Keeping this distinction here is essential:
-// referee-cohort and referee-feed must surface pending runs first, not silently
-// hide the exact queue cases they exist to review.
+// Mirror of referee-status.ts#isExcludedFromBoards. Every run ranks on
+// finishing; only a person's hidden decision after a hand investigation removes
+// one from the public board, where the player's next eligible run replaces it.
+// Legacy records stay in the table and are ignored: an automatic integrity-gate
+// hold and a reopened queue hold (queueState "pending") were never a person's
+// final call, so both runs rank. An unrecognized author fails closed.
 export function isExcludedFromBoards(decision) {
   if (decision?.visibility !== "hidden") return false;
   return (

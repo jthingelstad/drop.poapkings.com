@@ -189,8 +189,7 @@ test('the surge summary is the one-frame layout without the accuracy chart', asy
   await expect(page.locator('.ed-sum__headline')).toBeVisible()
   await expect(page.locator('.ed-sum-bands')).toHaveCount(0)
   await expect(page.locator('.ed-sum-tiles')).toHaveCount(0)
-  // A summary keys no referee at all: every run that just ended is awaiting one,
-  // and a referee cannot have cleared a run that ended two seconds ago.
+  // A summary carries no referee mark: every finished run ranks as it ends.
   await expect(page.locator('.ed-sum [aria-label="Referee cleared"]')).toHaveCount(0)
   await expect(page.locator('.ed-sum [aria-label="Awaiting referee"]')).toHaveCount(0)
   await expect(page.locator('.ed-sum')).not.toContainText('Awaiting the referee')

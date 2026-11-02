@@ -4634,37 +4634,6 @@ html.reduce-motion .ed-game__bar-fill {
   color: var(--ink);
 }
 
-/* Held-for-review is information, not a penalty: it reads calm and muted, never
-   in the error red the run-recording toast uses for a real failure. The run
-   scored and counted; only its board placement is pending. */
-.ed-sum__review {
-  margin: 12px auto 0;
-  max-width: 34rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid rgba(215, 200, 255, 0.22);
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  text-align: left;
-}
-.ed-sum__review strong {
-  color: var(--ink);
-}
-.ed-sum__review-reference {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.68rem;
-}
-.ed-sum__review .ed-review-status {
-  flex: none;
-  margin-top: 0.15em;
-}
 .ed-sum-tiles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5507,24 +5476,13 @@ html.reduce-motion .ed-duel__card {
   color: var(--gold);
   font-size: 0.7rem;
 }
-.ed-lbrow__meta--awaiting {
-  color: #ffe99a;
-}
+
 .ed-lbrow__result {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.ed-lbrow__result .ed-review-status {
-  margin-inline-start: 0;
-}
 
-/* Holds the seal's column on an unreviewed row so scores stay in one line. */
-.ed-lbrow__seal-slot {
-  display: block;
-  flex: none;
-  width: 26px;
-}
 .ed-lbrow__score {
   font-family: var(--font-display);
   font-size: 0.9rem;
@@ -5532,156 +5490,6 @@ html.reduce-motion .ed-duel__card {
   text-align: right;
 }
 
-.ed-review-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-inline-start: 0.35rem;
-  vertical-align: 0.06em;
-  white-space: nowrap;
-}
-.ed-review-status__word {
-  color: var(--muted);
-  font-family: var(--font-body);
-  font-size: 0.62rem;
-  font-weight: 800;
-  line-height: 1.15;
-}
-
-/* ── The referee seal ────────────────────────────────────────────
-   Struck wax, built from gradients and borders — no art file, and it scales
-   from the 18px history row to the 92px Fair Play specimen off one custom
-   property. Cleared is a filled disc, awaiting is an unlanded ring, excluded
-   is a barred disc. */
-.ed-seal {
-  position: relative;
-  flex: none;
-  display: inline-block;
-  width: var(--seal-size, 26px);
-  height: var(--seal-size, 26px);
-  border-radius: 50%;
-  transform: rotate(var(--seal-rotation, 0deg));
-}
-.ed-seal--reviewed {
-  border: 2px solid rgba(245, 200, 76, 0.9);
-  background: radial-gradient(circle at 36% 28%, #6ee7a0, #16a34a 56%, #0d5227 100%);
-  box-shadow:
-    inset 0 0 0 1.4px rgba(255, 255, 255, 0.22),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.45);
-}
-
-/* The check is pressed into the wax rather than drawn on it: two borders of a
-   rotated box, with the stroke weight scaled off the seal's own size so it
-   stays legible at 18px and does not turn into a slab at 92px. */
-.ed-seal--reviewed::after {
-  content: '';
-  position: absolute;
-  top: 24%;
-  left: 34%;
-  width: 24%;
-  height: 46%;
-  border: solid #07300f;
-  border-width: 0 calc(var(--seal-size, 26px) / 11) calc(var(--seal-size, 26px) / 11) 0;
-  transform: rotate(42deg);
-}
-.ed-seal--pending {
-  border: 2px dashed rgba(245, 200, 76, 0.82);
-  background: none;
-  animation: ed-seal-pulse 2.4s ease-in-out infinite;
-}
-.ed-seal--pending::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 22%;
-  height: 22%;
-  border-radius: 50%;
-  background: #f5c84c;
-  transform: translate(-50%, -50%);
-}
-.ed-seal--excluded {
-  border: 1.8px solid rgba(252, 165, 165, 0.75);
-  background: radial-gradient(circle at 36% 28%, #b8354a, #7f1d29 60%);
-}
-.ed-seal--excluded::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 12%;
-  width: 76%;
-  height: 2px;
-  background: #fca5a5;
-  transform: translateY(-50%) rotate(-45deg);
-}
-
-/* NOT RECORDED: a dotted lavender ring, no fill and no rotation. Dotted, not
-   dashed — gold dashed already means "a decision is coming"; dotted means no
-   decision was ever pending, because the board never saw this run. */
-.ed-seal--not-recorded {
-  border: 1.5px dotted rgba(185, 170, 255, 0.72);
-  background: none;
-}
-@keyframes ed-seal-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.42;
-  }
-}
-.ed-seal--struck {
-  animation: ed-seal-strike 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 1;
-}
-
-/* The summary's seal is both: it lands once, then keeps waiting. */
-.ed-seal--pending.ed-seal--struck {
-  animation:
-    ed-seal-strike 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 1,
-    ed-seal-pulse 2.4s ease-in-out 320ms infinite;
-}
-@keyframes ed-seal-strike {
-  from {
-    opacity: 0;
-    transform: rotate(var(--seal-rotation, 0deg)) scale(1.5);
-  }
-  to {
-    opacity: 1;
-    transform: rotate(var(--seal-rotation, 0deg)) scale(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ed-seal--pending,
-  .ed-seal--struck,
-  .ed-seal--pending.ed-seal--struck {
-    animation: none;
-  }
-}
-html.reduce-motion .ed-seal--pending,
-html.reduce-motion .ed-seal--struck,
-html.reduce-motion .ed-seal--pending.ed-seal--struck {
-  animation: none;
-}
-.ed-fair-play-statuses {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0;
-  list-style: none;
-}
-.ed-fair-play-statuses li {
-  display: grid;
-  grid-template-columns: minmax(6.4rem, auto) 1fr;
-  align-items: start;
-  gap: 0.75rem;
-}
-.ed-fair-play-statuses .ed-review-status {
-  margin-inline-start: 0;
-  padding-top: 0.15rem;
-}
-.ed-fair-play-statuses .ed-review-status__word {
-  font-size: 0.72rem;
-}
 .ed-profile__ranked-restriction {
   display: grid;
   gap: 0.3rem;
@@ -5787,9 +5595,6 @@ html.reduce-motion .ed-seal--pending.ed-seal--struck {
 }
 .ed-desktop__main .ed-board__key {
   padding-bottom: 0;
-}
-.ed-board__key .ed-review-status {
-  margin-inline-start: 0;
 }
 
 /* The link rides inline at the end of the sentence. Pushing it right with an
@@ -6224,53 +6029,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   width: auto;
   padding: 0;
 }
-.ed-games__tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.ed-games__tile {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 9px 6px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: rgba(18, 13, 40, 0.5);
-  color: var(--muted);
-  cursor: pointer;
-}
-.ed-games__tile-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.ed-games__tile-count .ed-review-status {
-  margin-inline-start: 0;
-}
-.ed-games__tile strong {
-  font-family: var(--font-display);
-  font-size: 1rem;
-}
-.ed-games__tile span {
-  font-size: 0.64rem;
-  font-weight: 800;
-}
-.ed-games__tile--reviewed strong {
-  color: var(--green);
-}
-.ed-games__tile--pending strong {
-  color: #ffe99a;
-}
-.ed-games__tile--excluded strong {
-  color: var(--red-3);
-}
-.ed-games__tile--on {
-  border-color: rgba(245, 200, 76, 0.6);
-  background: rgba(245, 200, 76, 0.12);
-  color: var(--ink);
-}
+
 .ed-games__month + .ed-games__month {
   margin-top: 12px;
 }
@@ -6303,11 +6062,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
   list-style: none;
 }
 
-/* One line, always. The note column is the flexible one, so a long status
-   never pushes the score or the seal onto a second row. */
+/* One line, always. The note column is the flexible one, so a long note
+   never pushes the score onto a second row. */
 .ed-games__row {
   display: grid;
-  grid-template-columns: 42px 22px auto minmax(0, 1fr) 18px;
+  grid-template-columns: 42px 22px auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -6344,15 +6103,11 @@ html.reduce-motion .ed-profile-guest__halo::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ed-games__note--pending {
-  color: #ffe99a;
-}
+
 .ed-games__note--excluded {
   color: var(--red-3);
 }
-.ed-games__row .ed-review-status {
-  margin-inline-start: 0;
-}
+
 .ed-games__more {
   width: 100%;
   margin-top: 12px;
@@ -7875,12 +7630,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   border-color: rgba(139, 92, 246, 0.5);
   color: #efeaff;
 }
-.ed-filterchip__ring {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.5px dashed rgba(245, 200, 76, 0.85);
-}
+
 .ed-games__day-group {
   margin-bottom: 16px;
 }
@@ -7908,64 +7658,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   text-align: center;
 }
 
-/* ── Updates ──────────────────────────────────────────────────── */
-.ed-updates__referee {
-  margin-bottom: 16px;
-  padding: 13px 14px;
-  border: 1.5px dashed rgba(245, 200, 76, 0.55);
-  border-radius: 14px;
-  background: rgba(245, 200, 76, 0.06);
-}
-.ed-updates__referee-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: #ffe9b3;
-}
-.ed-updates__referee-ring {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  border: 1.5px dashed rgba(245, 200, 76, 0.9);
-  animation: ed-seal-pulse 2.4s ease-in-out infinite;
-}
-.ed-updates__referee-list {
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.ed-updates__referee-run {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: 10px;
-  background: rgba(18, 13, 40, 0.5);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.ed-updates__referee-score {
-  margin-left: auto;
-  font-family: var(--font-display);
-  color: var(--gold);
-  font-size: 0.8rem;
-}
-.ed-updates__referee-note {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
 .ed-updates__list {
   margin: 0;
   padding: 0;
@@ -8179,9 +7871,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 15px;
   color: var(--muted);
 }
-.ed-run-modal__scorerow .ed-review-status {
-  margin-left: auto;
-}
+
 .ed-run-modal__ref {
   display: flex;
   align-items: center;

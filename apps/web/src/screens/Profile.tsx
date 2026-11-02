@@ -15,7 +15,6 @@ import Icon from '../components/Icon'
 import ScopeRow from '../components/ScopeRow'
 import CauseChip from '../components/CauseChip'
 import AccountTags from '../components/AccountTags'
-import ReviewStatusMark from '../components/ReviewStatus'
 import BadgeMedallion from '../components/BadgeMedallion'
 import {
   accountStatus,
@@ -23,7 +22,6 @@ import {
   deleteAccount,
   markUpdatesOpened,
   player,
-  recentRuns,
   refreshAccount,
   sessionToken,
   signOut,
@@ -615,7 +613,6 @@ function LogScope({ playerId }: { playerId: string }) {
   function noteFor(run: RecentRun): string {
     const place = run.placement === undefined ? '' : ` · #${run.placement}`
     if (run.reviewStatus === 'excluded') return 'EXCLUDED'
-    if (run.reviewStatus === 'pending') return `AWAITING${place}`
     return bestByMode.get(run.mode) === run.score ? `BEST${place}` : ''
   }
 
@@ -641,8 +638,7 @@ function LogScope({ playerId }: { playerId: string }) {
           aria-pressed={flaggedOnly.value}
           onClick={() => (flaggedOnly.value = !flaggedOnly.value)}
         >
-          <span class="ed-filterchip__ring" aria-hidden="true" />
-          Flagged {flaggedCount}
+          Excluded {flaggedCount}
         </button>
       </div>
 
@@ -655,10 +651,10 @@ function LogScope({ playerId }: { playerId: string }) {
       ) : !visibleRuns.length ? (
         <EmptyState
           art="empty-runs"
-          heading={flaggedOnly.value ? 'No flagged games' : 'Nothing played yet'}
+          heading={flaggedOnly.value ? 'No excluded games' : 'Nothing played yet'}
           line={
             flaggedOnly.value
-              ? 'Games a referee has looked at show up here.'
+              ? 'A game a person removed from the boards would show up here.'
               : 'Your finished games land here, newest first.'
           }
           actionLabel={flaggedOnly.value ? 'Show all games' : 'Play Surge'}
@@ -679,7 +675,7 @@ function LogScope({ playerId }: { playerId: string }) {
                   </small>
                 </div>
                 <ul class="ed-games__rows">
-                  {day.runs.map((run, index) => {
+                  {day.runs.map((run) => {
                     const note = noteFor(run)
                     return (
                       <li key={run.runId}>
@@ -695,7 +691,6 @@ function LogScope({ playerId }: { playerId: string }) {
                           <span class="sr-only">{gameDisplay(run.mode).name}</span>
                           <span class="ed-games__score">{scoreLabel(run.mode, run.score)}</span>
                           <span class={`ed-games__note ed-games__note--${run.reviewStatus ?? 'none'}`}>{note}</span>
-                          {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={18} index={index} />}
                         </button>
                       </li>
                     )
@@ -728,11 +723,8 @@ function LogScope({ playerId }: { playerId: string }) {
 // ── Updates scope ────────────────────────────────────────────────────────────
 
 function UpdatesScope() {
-  const openRun = useSignal<RecentRun | null>(null)
-  const rowTriggerRef = useRef<HTMLElement | null>(null)
   const lastOpened = player.value?.lastOpenedUpdates
   const entries = editorialEntries()
-  const withReferee = recentRuns.value.filter((run) => run.reviewStatus === 'pending')
   // Rungs cleared: the badges the player has earned, strongest first, as pointer
   // rows. No per-rung timestamp exists, so these are shown but not time-merged.
   const earnedViews = badgeViews(badges.value)
@@ -761,33 +753,6 @@ function UpdatesScope() {
           <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate('/profile?edit=player-tag')}>
             Add tag
           </button>
-        </div>
-      )}
-
-      {withReferee.length > 0 && (
-        <div class="ed-updates__referee">
-          <div class="ed-updates__referee-head">
-            <span class="ed-updates__referee-ring" aria-hidden="true" />
-            With the referee
-          </div>
-          <ul class="ed-updates__referee-list">
-            {withReferee.map((run) => (
-              <li key={run.runId}>
-                <button
-                  class="ed-updates__referee-run"
-                  onClick={(event) => {
-                    rowTriggerRef.current = event.currentTarget
-                    openRun.value = run
-                  }}
-                >
-                  <ModeIcon mode={run.mode} size={24} />
-                  <span>{gameDisplay(run.mode).name}</span>
-                  <span class="ed-updates__referee-score">{scoreLabel(run.mode, run.score)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p class="ed-updates__referee-note">Runs stay ranked while the referee checks them.</p>
         </div>
       )}
 
@@ -822,10 +787,6 @@ function UpdatesScope() {
             ))}
           </ul>
         </div>
-      )}
-
-      {openRun.value && (
-        <RunDetail run={openRun.value} onClose={() => (openRun.value = null)} returnFocus={rowTriggerRef.current} />
       )}
     </section>
   )
@@ -1130,7 +1091,7 @@ function RunDetail({
       <div class="ed-run-modal__scorerow">
         <span class="ed-run-modal__score">{scoreLabel(run.mode, run.score)}</span>
         {placement && <span class="ed-run-modal__place">{placement}</span>}
-        {run.reviewStatus && <ReviewStatusMark status={run.reviewStatus} size={32} label />}
+        {run.reviewStatus === 'excluded' && <span class="ed-run-modal__place">Excluded</span>}
       </div>
 
       {run.xp !== undefined && run.xp > 0 && (

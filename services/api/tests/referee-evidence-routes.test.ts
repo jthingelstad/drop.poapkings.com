@@ -166,7 +166,7 @@ describe("referee evidence write path", () => {
     expect(serialized).not.toContain("Mozilla");
     expect(serialized).not.toContain("player@example.com");
   });
-  it("holds a new all-time leader until the referee reviews it", async () => {
+  it("ranks a new all-time leader at once and records the signal as evidence", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -199,14 +199,14 @@ describe("referee evidence write path", () => {
       signedInEvent({ runToken, transcript: surgeTranscript(350) }),
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(body).toMatchObject({ accepted: true });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-leader" }),
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
       undefined,
-      "new_all_time_leader_pending_review",
     );
     expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -215,7 +215,7 @@ describe("referee evidence write path", () => {
       }),
     );
   });
-  it("holds a new season leader until the referee reviews it", async () => {
+  it("ranks a new season leader at once and records the signal as evidence", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -248,14 +248,14 @@ describe("referee evidence write path", () => {
       signedInEvent({ runToken, transcript: surgeTranscript(350) }),
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
-    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(body).toMatchObject({ accepted: true });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-new-season-leader" }),
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
       undefined,
-      "new_season_leader_pending_review",
     );
     expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -295,7 +295,7 @@ describe("referee evidence write path", () => {
     expect(response.statusCode).toBe(200);
     expect(repository.putRefereeEvidence).not.toHaveBeenCalled();
   });
-  it("writes ranked evidence for an automatically quarantined completion", async () => {
+  it("ranks a run under the UI floor and records the signal as evidence", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -329,14 +329,14 @@ describe("referee evidence write path", () => {
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
     expect(response.statusCode).toBe(201);
-    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(body).toMatchObject({ accepted: true });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-rejected" }),
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
       undefined,
-      "score_below_ui_floor",
     );
     expect(repository.putRefereeEvidence).toHaveBeenCalledTimes(1);
     const item = repository.putRefereeEvidence.mock.calls[0]?.[0];
@@ -346,7 +346,7 @@ describe("referee evidence write path", () => {
       integrityOutcome: "score_below_ui_floor",
     });
   });
-  it("quarantines a scoreable scorer assumption for referee authority", async () => {
+  it("ranks a scoreable run whose clock signal is recorded as evidence", async () => {
     const runToken = signToken(
       {
         type: "run",
@@ -381,14 +381,14 @@ describe("referee evidence write path", () => {
     )) as HttpResponse;
     const body = JSON.parse(response.body || "{}");
     expect(response.statusCode).toBe(201);
-    expect(body).toMatchObject({ accepted: true, underReview: true });
+    expect(body).toMatchObject({ accepted: true });
+    expect(body).not.toHaveProperty("underReview");
     expect(repository.completeRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-scorer-flag" }),
       36000,
       expect.any(Number),
       expect.any(Number),
       undefined,
-      "end_time_outside_wall_clock",
     );
     expect(repository.putRefereeEvidence).toHaveBeenCalledWith(
       expect.objectContaining({

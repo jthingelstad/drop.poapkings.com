@@ -142,7 +142,7 @@ describe("leaderboard read bounds", () => {
     expect(reviewed).toEqual(["run-0"]);
   });
 
-  it("keeps excluded-run fallback and pending podium policy in rank order", async () => {
+  it("keeps excluded-run fallback in rank order and podiums the same board", async () => {
     const rows = [
       historyRow(1),
       historyRow(2),
@@ -155,6 +155,7 @@ describe("leaderboard read bounds", () => {
         disposition: "review",
         decidedBy: "fair-play-referee",
       },
+      // A legacy integrity-gate hold: ignored, so this run ranks.
       "run-2": {
         visibility: "hidden",
         disposition: "review",
@@ -168,16 +169,14 @@ describe("leaderboard read bounds", () => {
     };
     serveSeasonHistory(rows, decisions);
     const entries = await seasonLeaderboard("test-table", "surge", 135);
-    expect(
-      entries.map(({ score, reviewStatus }) => ({ score, reviewStatus })),
-    ).toEqual([
-      { score: 50_002, reviewStatus: "pending" },
-      { score: 50_003, reviewStatus: undefined },
-    ]);
+    expect(entries.map(({ score }) => score)).toEqual([50_002, 50_003]);
+    for (const entry of entries)
+      expect(entry).not.toHaveProperty("reviewStatus");
     serveSeasonHistory(rows, decisions);
+    // The podium is the board players saw: nothing waiting is withheld.
     expect(await seasonPodiumFinishers("test-table", "surge", 135)).toEqual([
-      "other",
       "grinder",
+      "other",
     ]);
   });
 

@@ -7,7 +7,7 @@ import { publicCrProfile } from "../cr-refresh.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
 import { levelForGames } from "../progression.js";
-import { refereeReviewStatus } from "../referee-status.js";
+import { runReviewStatus } from "../referee-status.js";
 import type { Repository } from "../repository.js";
 import { signToken, verifyToken } from "../signing.js";
 import type {
@@ -169,10 +169,9 @@ export function profileResponse(
 export function ownerRunReviewStatus(
   decision: RefereeDecision | undefined,
 ): RunReviewStatus | undefined {
-  // The owner's history is the one surface that distinguishes "no referee has
-  // looked at this" from "a referee cleared it", so it keeps the classifier's
-  // undefined rather than defaulting to reviewed the way the boards do.
-  return refereeReviewStatus(decision);
+  // Only a removal is ever shown, and only to the owner. A run nobody removed
+  // carries no status, whatever older referee records say about it.
+  return runReviewStatus(decision);
 }
 const PLAYER_REVIEW_EXPLANATIONS = {
   automated_input:

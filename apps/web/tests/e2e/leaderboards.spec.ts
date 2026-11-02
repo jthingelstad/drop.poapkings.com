@@ -40,21 +40,16 @@ test('leaderboards are season-scoped, not week-scoped', { tag: '@deploy' }, asyn
   await expect(page.locator('.ed-lbrow--you')).toContainText('You')
   await expect(page.locator('.ed-board__list')).toContainText('XP')
 
-  // The mark is a CSS seal, not a glyph, and the old review-key aside is gone.
-  const seal = page.getByLabel('Referee cleared').first()
-  await expect(seal).toBeVisible()
-  await expect(seal).toHaveText('')
+  // Every finished run ranks, and no row wears a seal or an Awaiting line.
+  await expect(page.locator('.ed-lbrow .ed-seal')).toHaveCount(0)
+  await expect(page.locator('.ed-board__list')).not.toContainText('Awaiting')
   await expect(page.locator('.ed-board__review-key')).toHaveCount(0)
-  await expect(page.locator('.ed-board__key')).toContainText('ranks while it is checked')
+  await expect(page.locator('.ed-board__key')).toContainText('Every finished run ranks.')
+  await expect(page.locator('.ed-board__key')).not.toContainText('Cleared')
   await expect(page.locator('.ed-board__key').getByRole('link', { name: 'Fair Play' })).toHaveAttribute(
     'href',
     '/fair-play/'
   )
-
-  // A run awaiting the referee ranks in place and says so on its own row.
-  const awaiting = page.locator('.ed-lbrow').nth(1)
-  await expect(awaiting.getByLabel('Awaiting referee')).toBeVisible()
-  await expect(awaiting.locator('.ed-lbrow__meta--awaiting')).toHaveText('Awaiting the referee')
 
   // Three bands above the first row at 390px: header, scopes, mode strip.
   const firstRow = page.locator('.ed-lbrow').first()

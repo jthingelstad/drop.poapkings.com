@@ -157,7 +157,7 @@ const ABOUT_BODY = pageSections([
     `${paragraph(
       'Every mode works without an account. Sign in when you want to save progress, <a href="/badges/">earn badge milestones</a>, and post eligible ranked scores to seasonal and all-time leaderboards.'
     )}${paragraph(
-      'Leading results may rank provisionally while <a href="/fair-play/">Fair Play</a> reviews them. The review process is designed to protect honest competition without treating an automated signal as a verdict.'
+      'Every finished ranked run posts to the boards straight away. <a href="/fair-play/">Fair Play</a> explains how Drop checks results and when a person may remove one.'
     )}`
   ),
   section(
@@ -190,11 +190,11 @@ const FAQ_ITEMS = [
   ],
   [
     'What counts for the leaderboards?',
-    'Signed-in online scores from ranked modes are eligible for season and all-time boards. Guest, Practice, and offline runs never rank. Leading or technically unusual results may rank provisionally while Fair Play reviews them.'
+    'Signed-in online scores from ranked modes are eligible for season and all-time boards. Guest, Practice, and offline runs never rank. Every finished ranked run ranks as soon as it ends.'
   ],
   [
-    'What do the Fair Play seals mean?',
-    'Most games are never reviewed and carry no seal. Awaiting means a referee is checking the run while it ranks provisionally. Cleared means a referee checked that exact run and it remains eligible. Excluded means the run leaves the board. Automatic checks start review but never decide it.'
+    'Can a run be removed from the boards?',
+    'Drop checks runs statistically. A person may investigate a run and, if it is really wrong, remove it from the boards. A removal can be reversed. Runs carry no review mark.'
   ],
   [
     'How do badges work?',
@@ -225,17 +225,17 @@ ${pageSections([
     )
   ),
   section(
-    'How review works',
+    'How checking works',
     `${paragraph(
-      'Leading or technically unusual results may be reviewed. A referee reviews the exact run, including its signed challenge, answer sequence, active response timing, rules version, and relevant play history. An automatic signal starts review; it is never a verdict by itself. A run ranks provisionally while it waits.'
+      'Drop checks runs statistically. Every finished ranked run ranks as soon as it ends, and an automatic check never removes one or marks it.'
     )}${paragraph(
-      '<strong>Most games are never reviewed, and they carry no mark at all.</strong> A seal appears only where a referee has handled the run.'
-    )}<ul class="static-statuses"><li><strong>Awaiting</strong><span>A referee is checking the run. It ranks provisionally and its placement can still change.</span></li><li><strong>Cleared</strong><span>A referee checked this exact run and it remains eligible for its correct placement.</span></li><li><strong>Excluded</strong><span>The run leaves the board. The player&rsquo;s next eligible result can still rank, and a later re-review can restore the run.</span></li></ul>`
+      'A person may investigate a run, looking at its signed challenge, answer sequence, response timing, rules version, and relevant play history. If the run is really wrong, they can remove it from the boards. Its owner sees it marked <strong>Excluded</strong> in their game history, and the player&rsquo;s next eligible result can still rank. A removal can be reversed.'
+    )}`
   ),
   section(
-    'Recorded holds and unrecorded attempts',
+    'Recorded and unrecorded attempts',
     paragraph(
-      'When Drop can reproduce a score but needs an authenticity review, it records the game, ranks it, and marks that run Awaiting. If incomplete or contradictory input leaves no reproducible score, Drop cannot record a ranked result; the on-screen notice provides a short run tag for referee lookup while evidence remains available.'
+      'When Drop can reproduce a score, it records the game and ranks it. If incomplete or contradictory input leaves no reproducible score, Drop cannot record a ranked result; the on-screen notice provides a short run tag for referee lookup while evidence remains available.'
     )
   ),
   section(
@@ -291,7 +291,7 @@ ${pageSections([
     )}${paragraph(
       'Ranked games also record coarse input evidence: when each answer became available, when it was submitted, whether it came from a pointer or keyboard-like action, and whether the browser marked the event as trusted. Drop does not record pointer coordinates, pressure, pointer identity, or the key pressed.'
     )}${paragraph(
-      'Automatic checks may start review of a leading or technically unusual result. They never make the final decision. Review evidence and private reasons are not published.'
+      'Drop checks runs statistically. Automatic checks never remove a run from the boards; only a person who has investigated it can. Review evidence and private reasons are not published.'
     )}`
   ),
   section(
@@ -665,7 +665,7 @@ function xpBody(): string {
     section(
       'Season rollover',
       `${paragraph(
-        `Beginning with Season ${XP_FIRST_SEASON_ID}, each of the five ranked modes pays its final referee-eligible top 20 at rollover. A pending result is withheld until it can be finalized, a score must be above zero, and a sparse board still pays the positions it actually contains. Placement XP stacks across modes.`
+        `Beginning with Season ${XP_FIRST_SEASON_ID}, each of the five ranked modes pays its final top 20 at rollover, leaving out any run a person removed from the boards. A score must be above zero, and a sparse board still pays the positions it actually contains. Placement XP stacks across modes.`
       )}<div class="static-table-wrap" role="region" aria-label="Season placement XP table" tabindex="0"><table><thead><tr><th>Final position</th><th>XP per mode</th></tr></thead><tbody>${seasonRows}</tbody></table></div>${paragraph(
         `<strong>Seasonal Circuit: +${SEASON_CIRCUIT_XP} XP.</strong> Earned once at rollover by recording at least one final eligible positive score in every ranked mode that season. Practice is not part of the circuit. A #1 finish, a first copper Podium rung, and the Circuit stack to 500 + 5 + 100 = 605 XP.`
       )}`
@@ -791,7 +791,7 @@ const PAGES: Record<StaticPageSlug, StaticPage> = {
     eyebrow: 'Competitive integrity',
     title: 'Elixir Drop Fair Play',
     description:
-      'How Elixir Drop reviews ranked results, treats automated signals, protects evidence, and handles re-review requests.',
+      'How Elixir Drop checks ranked results, when a person may remove one, how evidence is protected, and how to ask for a re-review.',
     body: FAIR_PLAY_BODY
   },
   privacy: {

@@ -120,14 +120,9 @@ export async function getMe({ request, config, repository }: RouteContext) {
   });
 }
 
-// `unreviewed` is not a stored decision — it is the absence of one, and the
-// filter needs a name for it because it is what most runs are.
-const REVIEW_STATUSES = [
-  "pending",
-  "reviewed",
-  "excluded",
-  "unreviewed",
-] as const;
+// A run nobody removed carries no status, so `excluded` is the only status a
+// history can be narrowed to. Awaiting and Cleared were retired on 2026-11-02.
+const REVIEW_STATUSES = ["excluded"] as const;
 
 function isReviewStatus(
   value: string | undefined,
@@ -150,9 +145,8 @@ function isReviewStatus(
 //   season=<id>   that season
 //   season=all    every season — explicit opt-in, never the default
 //
-// `mode` and `status` narrow further. A run no referee has touched has no
-// status at all, so it answers `status=reviewed` only in the sense that it is
-// eligible; it is matched by the dedicated `unreviewed` value instead.
+// `mode` and `status` narrow further; `status=excluded` lists the runs a hand
+// investigation removed from the boards.
 export async function getMySeasons({
   request,
   config,
@@ -206,8 +200,7 @@ export async function getMySeasons({
     .filter(
       (run) =>
         statusFilter === undefined ||
-        (ownerRunReviewStatus(decisions.get(run.runId)) ?? "unreviewed") ===
-          statusFilter,
+        ownerRunReviewStatus(decisions.get(run.runId)) === statusFilter,
     )
     .map((run) => {
       const decision = decisions.get(run.runId);
