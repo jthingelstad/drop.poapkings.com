@@ -122,8 +122,9 @@ board:
   product. Do not cap ranked attempts or move the board to recent-form ranking
   to "fix" it.
 
-Season commentary may report the public race. Awarding any prize or broad
-communication needs Jamie; there is no automated award pipeline, and one should
+Season posts are automatic, two a season: an opening bell and final results
+naming each game's #1 at the close (`docs/OPERATIONS.md`, "Seasons"); there is
+no weekly standings post. Awarding any prize or broad communication needs Jamie; there is no automated award pipeline, and one should
 not be built without a fresh product decision.
 
 ---

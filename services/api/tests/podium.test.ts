@@ -19,6 +19,8 @@ function repository(overrides: Record<string, unknown> = {}): Repository {
     grantXpOnce: vi.fn().mockResolvedValue(false),
     saveBadges: vi.fn().mockResolvedValue(true),
     savePodiumAward: vi.fn().mockResolvedValue(true),
+    leaderboard: vi.fn().mockResolvedValue([]),
+    createSeasonPosts: vi.fn().mockResolvedValue(true),
     ...overrides,
   } as unknown as Repository;
 }
@@ -160,13 +162,60 @@ describe("podium finalization", () => {
     expect(grantXpOnce).toHaveBeenCalledTimes(6);
   });
 
+  it("freezes the closing boards for the season posts before any award", async () => {
+    const createSeasonPosts = vi.fn().mockResolvedValue(true);
+    const seasonFinalists = vi.fn().mockResolvedValue([]);
+    const leaderboard = vi
+      .fn()
+      .mockImplementation((mode: string) =>
+        Promise.resolve(
+          mode === "rain"
+            ? [{ rank: 1, score: 190, player: { publicName: "Log" } }]
+            : [],
+        ),
+      );
+    const repo = repository({
+      getCrWarClock: vi.fn().mockResolvedValue({
+        crSeasonId: 137,
+        observedAt: "2026-12-07T09:05:00.000Z",
+      }),
+      leaderboard,
+      createSeasonPosts,
+      seasonFinalists,
+    });
+
+    await finalizePreviousSeasonIfNeeded(repo, {
+      crSeasonId: 138,
+      observedAt: "2026-12-07T10:05:00.000Z",
+      seasonEndsAt: "2027-01-04T10:00:00.000Z",
+    });
+
+    expect(leaderboard).toHaveBeenCalledWith("rain", 137, 1);
+    expect(createSeasonPosts).toHaveBeenCalledWith({
+      closedSeasonId: 137,
+      openingSeasonId: 138,
+      closedAt: "2026-12-07T10:05:00.000Z",
+      openingSeasonEndsAt: "2027-01-04T10:00:00.000Z",
+      leaders: [{ mode: "rain", publicName: "Log", score: 190 }],
+      posted: {},
+    });
+    expect(createSeasonPosts.mock.invocationCallOrder[0]).toBeLessThan(
+      seasonFinalists.mock.invocationCallOrder[0]!,
+    );
+  });
+
   it("does not finalize on same-season or stale out-of-order clock results", async () => {
     const getCrWarClock = vi.fn().mockResolvedValue({
       crSeasonId: 135,
       observedAt: "2026-08-03T10:12:48.768Z",
     });
     const seasonFinalists = vi.fn();
-    const repo = repository({ getCrWarClock, seasonFinalists });
+    const createSeasonPosts = vi.fn();
+    const repo = repository({
+      getCrWarClock,
+      seasonFinalists,
+      createSeasonPosts,
+    });
 
     await expect(
       finalizePreviousSeasonIfNeeded(repo, {
@@ -181,5 +230,6 @@ describe("podium finalization", () => {
       }),
     ).resolves.toBeUndefined();
     expect(seasonFinalists).not.toHaveBeenCalled();
+    expect(createSeasonPosts).not.toHaveBeenCalled();
   });
 });

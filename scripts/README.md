@@ -102,8 +102,10 @@ separate authorization.
 
 ## Public season briefing
 
-`season-brief.mjs` gives season commentary one sanitized snapshot of all five public
-season boards. It calls only the same unauthenticated `/seasons` and `/leaderboards`
+`season-brief.mjs` gives an operator one sanitized snapshot of all five public
+season boards. It feeds no post: season posts are automatic, two a season, published
+by the API when it finalizes a season (`docs/OPERATIONS.md`, "Seasons"), and there is
+no weekly standings post. It calls only the same unauthenticated `/seasons` and `/leaderboards`
 routes available to players, then emits public names, scores, times, and public review
 status. It deliberately strips player ids, tags, profile fields, and any non-board
 data; it has no AWS, referee, account, or write access.

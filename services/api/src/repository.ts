@@ -28,6 +28,12 @@ import {
   type UpdateEntry,
 } from "./player-updates.js";
 import {
+  SEASON_POST_KINDS,
+  type SeasonPostKind,
+  type SeasonPostLeader,
+  type SeasonPostsRecord,
+} from "./season-posts.js";
+import {
   FIRST_DROP_LEGACY_COUNT,
   FIRST_DROP_LIMIT,
   hasFirstDropBadge,
@@ -594,6 +600,86 @@ export class Repository {
         "update_conflict",
       );
     return { entry: stored, created: false };
+  }
+
+  // The season-posts outbox (season-posts.ts): one record per closed season,
+  // created once by finalization and never overwritten, so the frozen closing
+  // boards survive any retry.
+  async createSeasonPosts(record: SeasonPostsRecord): Promise<boolean> {
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: "SEASON_POSTS",
+            sk: `SEASON#${record.closedSeasonId}`,
+            ...record,
+            schemaVersion: 1,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (
+        (error as { name?: string }).name !== "ConditionalCheckFailedException"
+      )
+        throw error;
+      return false;
+    }
+  }
+
+  // One small partition (a record a season), so a full read stays trivial.
+  async pendingSeasonPosts(): Promise<SeasonPostsRecord[]> {
+    const records: SeasonPostsRecord[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :season)",
+          ExpressionAttributeValues: {
+            ":pk": "SEASON_POSTS",
+            ":season": "SEASON#",
+          },
+          ConsistentRead: true,
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+      for (const item of result.Items ?? []) {
+        const posted = (item.posted ?? {}) as SeasonPostsRecord["posted"];
+        if (SEASON_POST_KINDS.every((kind) => posted[kind])) continue;
+        records.push({
+          closedSeasonId: Number(item.closedSeasonId),
+          openingSeasonId: Number(item.openingSeasonId),
+          closedAt: String(item.closedAt),
+          ...(typeof item.openingSeasonEndsAt === "string"
+            ? { openingSeasonEndsAt: item.openingSeasonEndsAt }
+            : {}),
+          leaders: (item.leaders ?? []) as SeasonPostLeader[],
+          posted,
+        });
+      }
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+    return records.sort((a, b) => a.closedSeasonId - b.closedSeasonId);
+  }
+
+  async markSeasonPostPublished(
+    closedSeasonId: number,
+    kind: SeasonPostKind,
+    at: string,
+  ): Promise<void> {
+    await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: "SEASON_POSTS", sk: `SEASON#${closedSeasonId}` },
+        UpdateExpression: "SET posted.#kind = if_not_exists(posted.#kind, :at)",
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeNames: { "#kind": kind },
+        ExpressionAttributeValues: { ":at": at },
+      }),
+    );
   }
 
   async useRateLimit(

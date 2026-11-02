@@ -192,24 +192,30 @@ It calls only the public `/seasons` and `/leaderboards` routes and strips
 player ids, tags, and profile fields. It has no AWS, referee, account, or write
 access. Its default endpoint comes from `apps/web/public/api-config.json`.
 
-**Season commentary.** Commentary is published with the Updates CLI
-(`--kind season`) and follows these rules:
+**Season posts are automatic, two a season** (Jamie, 2026-11-02). No agent or
+operator writes them, and there is no weekly standings post.
 
-- Use only public names, scores, season timing, and the public `Awaiting` or
-  `Cleared` status. **Never** use referee evidence, private rationale, account
-  identity, email, correlation data, player tags, or excluded runs. Never say
-  why a run disappeared.
-- During a season, a leader "leads", is the "front-runner", or "provisionally
-  leads". Never call anyone a "winner". An Awaiting leader may be called
-  provisional, without speculation.
-- Name a champion only from a Cleared winning run. If the winner is Awaiting,
-  hold a watch and make no final claim for that game.
-- Post an opening bell, final results, and at most one standings report per
-  calendar week. Post a standings report only when a leader changed or several
-  boards moved. Never manufacture a race or a checkpoint.
-- Each entry is one paragraph naming all five leaders and linking
-  `/#/leaderboards`.
-- Awarding any prize or broad communication needs Jamie.
+- When the war-clock job finalizes a season, it freezes each ranked game's
+  public #1 as the board stood at the close into one `SEASON_POSTS` record
+  (`services/api/src/season-posts.ts`), before the clock advances.
+- After every clock job the API publishes what that record still owes,
+  in-process through its own Updates write path: **final results** for the
+  closed season (`season-<n>-final-results`), then the **opening bell** for
+  the new one (`season-<n>-opening-bell`). No CLI, no bearer token.
+- The copy is a fixed template in code: the public display name (escaped) and
+  the score in the game's own format, nothing else. No model, no player text,
+  no seal or prize language. A game nobody ranked in is named as
+  such; a season with no results says so.
+- Exactly once: the Update id is deterministic per season and kind, and the
+  record keeps a posted marker for each. A post that fails stays owed and
+  retries on the next hourly clock job, from the frozen closing boards, until
+  it lands. Posting never rolls back finalization or the saved clock.
+- Logs: `season-post.published` and `season-post.failed` (kind, season).
+- The first automatic posts are the Season 138 close on 2026-12-07. Seasons
+  that closed before this shipped have no record and get no backfill.
+
+`season-brief.mjs` is still the sanitized way to read all five boards; it no
+longer feeds a post.
 
 ## Fair Play
 
@@ -277,8 +283,8 @@ and visibility rubric. Apply it exactly.
 - **Never** publish identities or evidence, contact a player, accuse anyone
   publicly, decide a prize, collect a new privacy signal, or delete canonical
   data.
-- Season commentary sees only the public `Awaiting` and `Cleared` status,
-  never private evidence or rationale.
+- Season posts read only the public boards, never private evidence or
+  rationale.
 
 ## Player Updates
 
@@ -329,7 +335,8 @@ default.
 
 - One card covers one player outcome; related work folds into it.
 - Never backfill copy, layout, discovery, feed, diagnostic, or polish details.
-- Routine, source-backed season commentary follows Seasons above.
+- Season posts are automatic, two a season (Seasons above). Never publish a
+  season standings or results entry by hand.
 - Awarding any prize, other player messages, and broad communication need
   Jamie. So do email and Discord sends; Drop has no
   newsletter of its own (Elixir's one list is Elixir's).
