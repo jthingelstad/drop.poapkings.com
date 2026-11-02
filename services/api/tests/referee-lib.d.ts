@@ -24,9 +24,6 @@ declare module "*/scripts/_referee-lib.mjs" {
   }): boolean;
   export function runReference(runId: string): string;
   export function playerReference(playerId: string): string;
-  export function loadTagClusters(
-    doc: import("@aws-sdk/lib-dynamodb").DynamoDBDocumentClient,
-  ): Promise<Array<{ playerTag: string; accounts: string[] }>>;
   export function findEvidenceByRunId(
     doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
     runIdentifier: string,

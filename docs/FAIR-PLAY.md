@@ -1,11 +1,11 @@
 # Fair Play evidence and decision policy
 
-This is the durable adjudication rubric for Drop's Fair Play review (the tools and how to
-run them are in `docs/OPERATIONS.md` and `scripts/README.md`). Apply it to the exact
-run that earned a leaderboard position, with enough bounded player history to
-interpret that run. Do not repeatedly evaluate unchanged evidence: use the stable
-evidence digest and durable watermark. If the required cohort is incomplete, report
-the exact backlog and do not call the review complete.
+Drop checks runs statistically and investigates by hand. Every run ranks on
+finishing; the daily run analysis (below) surfaces what looks really wrong, and a
+person may investigate that run and, only if the evidence supports it, remove it
+from the boards. There is no routine review and no queue. The scripts and how to
+run them are in `scripts/README.md`; the operating notes are in
+`docs/OPERATIONS.md`, "Fair Play".
 
 Practice and guest play can provide benign context but can never be ranked violations.
 Top players are expected to look exceptional. Exceptional is not the same as automated.
@@ -19,10 +19,32 @@ each choice. (The Speedrun keyboard setting no longer exists: its two-row keypad
 became the only keypad in the 2026 refresh, so it is not a setting anyone can
 have on or off.)
 
-## Required evidence
+## The evidence and how it is sanitized
 
-A responsible decision requires exact server-side evidence, never a reconstructed
-summary or client claim:
+`/runs/complete` writes one evidence item, best-effort, for every recorded ranked
+run and every unscored signed-in attempt, never for Practice or a guest
+(`SPEC.md` §11). It holds the server-issued signed challenge, the full transcript
+with per-event timing, server start/completion times and wall-clock duration, the
+recomputed score and tiebreaks, the scoring and build versions, the scorer and
+integrity outcome (`integrityOutcome`, `reviewSignals`), the normalized unverified
+player tag, and connection correlation.
+
+It is sanitized at both ends:
+
+- **Never a raw IP or user-agent.** The API reads them, derives peppered HMAC
+  hashes (`ipHash`, `ipSubnetHash`, `uaHash`) and a coarse `uaFamily`, and
+  discards the raw values. `TELEMETRY_PEPPER` is Lambda-only: never in the
+  referee scripts, the referee role, CI, or the browser.
+- **Never `sub` or email on the way out.** The referee scripts emit only the
+  pseudonymous `playerId`, deep-strip `FORBIDDEN_KEYS` (`sub`, `playerSub`,
+  `owner`, `dropSub`, `email`, `pk`, `GSI1SK`) from every item, and run as the
+  bounded `elixir-drop-referee-read` role, which IAM denies any read naming an
+  identity attribute and lets write only `REFEREE#` decision partitions.
+- **Fail closed.** Missing credentials, a missing run or player, a deleted
+  account, or expired evidence print `insufficient_evidence` and exit non-zero.
+
+A responsible decision requires that exact server-side evidence, never a
+reconstructed summary or client claim:
 
 - stable run ID and pseudonymous Drop player ID;
 - mode, season, leaderboard scope, rank, score, and ordered tiebreaks;
@@ -30,159 +52,18 @@ summary or client claim:
 - server start/completion times, wall-clock duration, recomputed score, and the
   scorer/integrity outcome;
 - build, board epoch, and scoring/rules version needed to interpret the run;
-- a direct link from the leaderboard entry to its earning run;
 - bounded profile age, activity, ranked history, cross-mode history, and progression;
 - a normalized Clash Royale player tag, when present, labeled unverified; and
 - only privacy-minimized correlation signals Jamie has explicitly approved.
 
 If required evidence is missing, incomplete, expired, or contradictory, use
 `insufficient_evidence`. Absence of telemetry proves neither innocence nor abuse.
-
-## Signals and counter-evidence
-
-Judge patterns in context. No single soft signal supports an adverse action.
-
-Run-level signals include sustained implausible response times across different
-prompts; mechanical or repeated exact-millisecond cadence; extreme accuracy and speed
-without human-like variation across multiple runs; duplicated answer, correction, or
-timing sequences; transcript times clustering at client/server boundaries; conflict
-with the signed challenge, UI mechanics, rules version, or wall time; and impossible
-concurrent play by a strongly linked account cluster.
-
-Player-level signals include elite results without a progression trail; abrupt changes
-in speed, accuracy, volume, or mode behavior; coordinated bursts or highly regular
-schedules; many accounts sharing behavioral signatures; many Drop accounts attached
-to one unverified player tag; one account cycling rapidly through tags; and material
-cross-mode inconsistencies. Specialization alone is benign.
-
-Always weigh counter-evidence: gradual improvement; plausible timing, error,
-correction, session, and fatigue variation; similar practice and ranked behavior;
-stable mode strengths and weaknesses; lucky taps or learned sequences; accessibility
-tools; and shared households, schools, workplaces, VPNs, carrier NAT, or devices.
-Correlation is context, never identity proof.
-
-Jamie-confirmed direct playtesting and known competitive human play are strong benign
-calibration for the range of skilled human performance when they are consistent with
-the player's exact retained evidence and broad progression.
-They are never a blanket exemption: each run still requires its signed challenge,
-transcript, timing, and scoring evidence.
 Every run with missing or contradictory evidence remains fail-closed.
-
-For the current Surge rules, input surfaces, and card catalog, direct playtesting
-supports **11.000 seconds as the working lower bound** for a human 15-card clear. A
-sub-11.000-second score is therefore a strong, technically specific review signal. It
-is not an automatic verdict or sufficient by itself for `hidden`: verify the exact
-build and scoring version, signed challenge, transcript, observed input timing, and
-server wall clock; investigate a possible source defect with sanitized synthetic
-evidence; and seek corroborating mechanical or repeated cross-challenge evidence.
-Recalibrate the bound after any material Surge, input, timing, or catalog change, or
-when new Jamie-confirmed human evidence establishes a faster range.
-
-## Dispositions
-
-- `clear`: no material integrity concern in the available evidence. This does not
-  certify that the player is human.
-- `watch`: one or more soft anomalies merit comparison with future evidence, but the
-  current record does not justify intervention.
-- `review`: multiple independent signals, or one strong technically specific signal,
-  create a material concern after benign explanations are considered.
-- `insufficient_evidence`: required evidence is missing, incomplete, expired, or
-  internally inconsistent.
-
-For `watch` or `review`, record the exact evidence, benign explanations considered,
-why the remaining concern crosses the selected threshold, what evidence could confirm
-or reduce it, and whether the weakness is player-specific or systemic.
-
-## Visibility
-
-Every run ranks on finishing and wears no seal (Jamie, 2026-11-02: "Drop
-retires the Awaiting hold and the Cleared seal; every run ranks on finishing
-with no seal, and only a hand investigation can remove a run from the boards").
-Drop checks runs statistically: completion records the automatic timing and
-scoring signals, and the leader checks, in the evidence (`integrityOutcome`,
-`reviewSignals`) and writes no decision. A signal is a reason a person might
-look, never a hold and never a verdict.
-
-A person may investigate a run with the referee scripts and, if it is really
-wrong, remove it from the boards with a `review`/`hidden` decision. That is the
-only action that moves a board, so it carries the whole weight of the threshold
-below. A removal is reversible. `isExcludedFromBoards` in
-`services/api/src/referee-status.ts` is the one classifier the boards, the
-owner's history, badges, shares and season awards share.
-
-Older records stay in the table and are ignored by that classifier: an
-automatic integrity-gate hold (`decidedBy: "integrity-gate"`) and a judgment
-reopened as a queue hold (`queueState: "pending"`) were never a person's final
-call, so those runs rank. `referee-decide.mjs` no longer writes either; its
-`--pending` and `--reopen` flags fail closed. When materially new evidence
-changes the context of an earlier judgment, a person records a new `visible` or
-`hidden` decision; both stay in the audit history.
-
-- `visible`: the scored run remains eligible for public boards. This includes normal
-  `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
-  remain visible while evidence is gathered when the hidden threshold is not met.
-- `hidden`: allowed only with `review`, and only when strong evidence supports that
-  the exact performance was likely fabricated or gamed the rules. Exceptional speed,
-  an automatic flag, a shared tag, or a soft anomaly is never sufficient alone.
-  This is the only disposition that takes a run off a board, so it carries the
-  whole weight of that decision.
-- `not_ranked`: no reproducible candidate score exists, so leaderboard visibility does
-  not apply. Any disposition may accompany it. A `clear`/`not_ranked` decision means
-  the play appears genuine but scoreability needs product reconciliation.
-
-Hiding is immediate but reversible. It never deletes or changes a run, score,
-transcript, evidence, unrelated result, or account. A later audited `visible` decision
-restores the exact run at its correct rank. A final referee exclusion also makes
-the run ineligible for derived badges: the API lazily reconciles the player's
-badge bag from eligible history after the audited decision, while leaving
-canonical XP and learning records intact. A later audited restoration restores
-the run's badge contribution.
-
-No run carries a review mark on any public surface. The one player-visible
-status is `Excluded`, shown only to the run's owner in their history: the run
-stays owner-visible and leaves every public board. A `clear` or `watch` decision
-changes nothing a player sees. Private dispositions, signals, and reasons never
-leave the referee surface. Every referee-excluded run also requires one approved
-player-reason category. The API turns that category into a concise owner-only sentence
-beneath the run; arbitrary referee notes are never exposed.
-
-## Ranked-access enforcement and re-review
-
-Run adjudication and account enforcement are separate decisions. A hidden run never
-restricts an account by itself. Repeated confirmed automation across reviewed runs, or
-one decisive case of challenge/timing tampering, may justify a reversible restriction on
-future ranked starts. That action requires Jamie's explicit approval through the
-sanctioned ranked-access script; the scheduled referee may not infer or apply it. Practice,
-account access, history, and the evidence required for re-review remain available.
-
-Do not delete an account as enforcement. Deletion destroys the active evidence and audit
-context and makes reversal impossible. A player may request re-review through
-`drop@poapkings.com`; a later approved `visible` decision restores the run, and a
-separate approved `allowed` decision restores ranked access. Public surfaces describe the
-status and process without publishing accusations or private evidence.
-
-Automatic scorer or integrity output is triage, not authority. A flagged run with a
-deterministic score ranks like any other; a person may investigate it from its
-evidence and remove or restore it. An unscoreable attempt can be judged without
-inventing a rank. Both use the server-issued run UUID internally and its
-deterministic `#D…` Drop run tag on player surfaces. A scored run joins its history
-row, evidence, and any decision; an unscoreable attempt joins the unrecorded notice
-to retained evidence but has no scored history row or leaderboard status. Referee tools
-accept either identifier and fail closed on an ambiguous short tag.
-Never treat words such as “invalid,” “impossible,” or “implausible” as a verdict.
-
-When a case exposes a systemic defect, persist its evidence-grounded decision first.
-Any later source repair must use sanitized synthetic fixtures and may not change the
-stored case, canonical evidence, or a threshold to obtain a preferred result.
-
-Use probabilistic, technical language in private rationale: “behavior consistent with
-automation,” not “bot”; “linked-account pattern,” not “fake players.” Never turn an
-inference into a public accusation.
 
 ## Run analysis
 
-A daily statistical pass over the retained evidence replaces scheduled referee
-review as the way a problem surfaces. The `elixir-drop-prod-run-analysis` Lambda
+A daily statistical pass over the retained evidence is the way a problem
+surfaces. The `elixir-drop-prod-run-analysis` Lambda
 runs at 11:15 UTC. It reads every scored ranked run's sanitized evidence and the
 run history, and builds score and first-read distributions for each mode and
 board epoch. It then logs the current-board runs that fall far outside them.
@@ -223,8 +104,172 @@ rules that fired with their measures. It never carries a name, CR tag, player
 id, `sub`, email, hash or IP. Every run re-emits every current flag, so the
 newest `analysisRunAt` is the whole picture.
 
-**Investigating a flag.** Look up the logged tag with the read-only referee
-tools, quoting it because of the `#`:
-`AWS_PROFILE=referee-read AWS_REGION=us-east-1 node scripts/referee-run.mjs '#D…'`.
-Apply this rubric to what the evidence shows. Only a hand investigation can
-remove a run from the boards.
+## Investigating a flag by hand
+
+Run the scripts from a drop.poapkings.com checkout as
+`AWS_PROFILE=referee-read AWS_REGION=us-east-1`, quoting a `#D…` tag because of
+the `#`:
+
+1. **Read the run.** `node scripts/referee-run.mjs '#D…'` prints the run's full
+   annotated evidence and any current decision.
+2. **Read the player.** `node scripts/referee-player.mjs <playerId>`, with the
+   `playerId` from that output, prints the bounded run history and per-mode
+   progression, pseudonymously.
+3. **Judge it** against the signals, counter-evidence and thresholds below. Most
+   flags need nothing: a flag that does not hold up is left alone, and a run that
+   ranks needs no decision to keep ranking.
+4. **Record a removal or a restore** with `scripts/referee-decide.mjs`, which takes
+   Drop's production lock:
+   - remove: `--disposition review --visibility hidden --reason "<private
+rationale>" --player-reason <code>`;
+   - restore an earlier removal: `--disposition clear --visibility visible
+--reason "<why>"`.
+
+The Control Room's run and player views and its decision action run these same
+scripts. A ranked-access restriction is a separate decision (below).
+
+## Signals and counter-evidence
+
+Judge patterns in context. No single soft signal supports an adverse action.
+
+Run-level signals include sustained implausible response times across different
+prompts; mechanical or repeated exact-millisecond cadence; extreme accuracy and speed
+without human-like variation across multiple runs; duplicated answer, correction, or
+timing sequences; transcript times clustering at client/server boundaries; conflict
+with the signed challenge, UI mechanics, rules version, or wall time; and impossible
+concurrent play by a strongly linked account cluster.
+
+Player-level signals include elite results without a progression trail; abrupt changes
+in speed, accuracy, volume, or mode behavior; coordinated bursts or highly regular
+schedules; many accounts sharing behavioral signatures; many Drop accounts attached
+to one unverified player tag; one account cycling rapidly through tags; and material
+cross-mode inconsistencies. Specialization alone is benign.
+
+Always weigh counter-evidence: gradual improvement; plausible timing, error,
+correction, session, and fatigue variation; similar practice and ranked behavior;
+stable mode strengths and weaknesses; lucky taps or learned sequences; accessibility
+tools; and shared households, schools, workplaces, VPNs, carrier NAT, or devices.
+Correlation is context, never identity proof.
+
+Jamie-confirmed direct playtesting and known competitive human play are strong benign
+calibration for the range of skilled human performance when they are consistent with
+the player's exact retained evidence and broad progression.
+They are never a blanket exemption: each run still requires its signed challenge,
+transcript, timing, and scoring evidence.
+
+For the current Surge rules, input surfaces, and card catalog, direct playtesting
+supports **11.000 seconds as the working lower bound** for a human 15-card clear. A
+sub-11.000-second score is therefore a strong, technically specific review signal. It
+is not an automatic verdict or sufficient by itself for `hidden`: verify the exact
+build and scoring version, signed challenge, transcript, observed input timing, and
+server wall clock; investigate a possible source defect with sanitized synthetic
+evidence; and seek corroborating mechanical or repeated cross-challenge evidence.
+Recalibrate the bound after any material Surge, input, timing, or catalog change, or
+when new Jamie-confirmed human evidence establishes a faster range.
+
+Automatic scorer or integrity output is triage, not authority. Never treat words
+such as “invalid,” “impossible,” or “implausible” as a verdict.
+
+## Dispositions
+
+- `clear`: no material integrity concern in the available evidence. This does not
+  certify that the player is human.
+- `watch`: one or more soft anomalies merit comparison with future evidence, but the
+  current record does not justify intervention.
+- `review`: multiple independent signals, or one strong technically specific signal,
+  create a material concern after benign explanations are considered.
+- `insufficient_evidence`: required evidence is missing, incomplete, expired, or
+  internally inconsistent.
+
+For `watch` or `review`, record the exact evidence, benign explanations considered,
+why the remaining concern crosses the selected threshold, what evidence could confirm
+or reduce it, and whether the weakness is player-specific or systemic.
+
+## Visibility
+
+Every run ranks on finishing and wears no seal (Jamie, 2026-11-02: "Drop
+retires the Awaiting hold and the Cleared seal; every run ranks on finishing
+with no seal, and only a hand investigation can remove a run from the boards").
+Completion records the automatic timing and scoring signals, and the leader
+checks, in the evidence and writes no decision. A signal is a reason a person
+might look, never a hold and never a verdict.
+
+A person's `review`/`hidden` decision after a hand investigation is the only
+action that moves a board, so it carries the whole weight of the threshold below.
+`isExcludedFromBoards` in `services/api/src/referee-status.ts` is the one
+classifier the boards, the owner's history, badges, shares and season awards
+share.
+
+Older records stay in the table and are ignored by that classifier: an
+automatic integrity-gate hold (`decidedBy: "integrity-gate"`) and a judgment
+reopened as a queue hold (`queueState: "pending"`) were never a person's final
+call, so those runs rank. `referee-decide.mjs` no longer writes either; its
+`--pending` and `--reopen` flags fail closed. When materially new evidence
+changes the context of an earlier judgment, a person records a new `visible` or
+`hidden` decision; both stay in the audit history.
+
+- `visible`: the scored run remains eligible for public boards. This includes normal
+  `clear`/`watch` decisions and an approval restoring an earlier hide. A `review` may
+  remain visible while evidence is gathered when the hidden threshold is not met.
+- `hidden`: allowed only with `review`, and only when strong evidence supports that
+  the exact performance was likely fabricated or gamed the rules. Exceptional speed,
+  an automatic flag, a shared tag, or a soft anomaly is never sufficient alone.
+- `not_ranked`: no reproducible candidate score exists, so leaderboard visibility does
+  not apply. Any disposition may accompany it. A `clear`/`not_ranked` decision means
+  the play appears genuine but scoreability needs product reconciliation.
+
+Hiding is immediate but reversible. It never deletes or changes a run, score,
+transcript, evidence, unrelated result, or account. A later audited `visible` decision
+restores the exact run at its correct rank. A final referee exclusion also makes
+the run ineligible for derived badges: the API lazily reconciles the player's
+badge bag from eligible history after the audited decision, while leaving
+canonical XP and learning records intact. A later audited restoration restores
+the run's badge contribution.
+
+No run carries a review mark on any public surface. The one player-visible
+status is `Excluded`, shown only to the run's owner in their history: the run
+stays owner-visible and leaves every public board. A `clear` or `watch` decision
+changes nothing a player sees. Private dispositions, signals, and reasons never
+leave the referee surface. Every referee-excluded run also requires one approved
+player-reason category (`automated_input`, `response_timing`,
+`altered_play_record`, `ranked_rules`, or `combined_evidence`). The API turns that
+category into a concise owner-only sentence beneath the run; arbitrary referee
+notes are never exposed.
+
+Both decisions use the server-issued run UUID internally and its deterministic
+`#D…` Drop run tag on player surfaces. A scored run joins its history row,
+evidence, and any decision; an unscoreable attempt can be judged without
+inventing a rank, but has no scored history row or leaderboard status. Referee
+tools accept either identifier and fail closed on an ambiguous short tag.
+
+## Ranked-access enforcement and re-review
+
+Run adjudication and account enforcement are separate decisions. A hidden run never
+restricts an account by itself. Repeated confirmed automation across investigated
+runs, or one decisive case of challenge/timing tampering, may justify a reversible
+restriction on future ranked starts. That action requires Jamie's explicit approval
+through the sanctioned `referee-ranked-access.mjs` script; no agent may infer or
+apply it. Practice, account access, history, and the evidence required for re-review
+remain available.
+
+Do not delete an account as enforcement. Deletion destroys the active evidence and audit
+context and makes reversal impossible.
+
+**Disputes.** A player may dispute a removal or request re-review at
+`drop@poapkings.com`. A later approved `visible` decision restores the run, and a
+separate approved `allowed` decision restores ranked access.
+
+## What a referee never does
+
+- **Never accuse.** Use probabilistic, technical language in private rationale:
+  “behavior consistent with automation,” not “bot”; “linked-account pattern,” not
+  “fake players.” Never turn an inference into a public accusation.
+- **Never publish.** No player's identity, evidence, signals or rationale leaves
+  the referee surface. Public surfaces describe the status and process only.
+- **Never contact a player.** Replying to a dispute or reaching out to a player
+  is Jamie's call.
+- **Never change a threshold, canonical run, transcript, or score** to influence
+  a case. When a case exposes a systemic defect, persist its evidence-grounded
+  decision first; any later source repair uses sanitized synthetic fixtures and
+  may not change the stored case or canonical evidence.
+- Never decide a prize, collect a new privacy signal, or delete canonical data.

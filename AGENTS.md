@@ -23,21 +23,21 @@ player API; **Elixir MCP** is the only sanctioned source of Clash Royale data
 
 Every other doc points back here instead of keeping its own copy of this list.
 
-| Doc                                                           | What it owns                                                                                                      |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **`SPEC.md`**                                                 | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.   |
-| **`GAMES.md`**                                                | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                         |
-| **`CONTRIBUTING.md`**                                         | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                       |
-| **`README.md`**                                               | Public overview + local-development entry point.                                                                  |
-| **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                             |
-| **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                |
+| Doc                                                           | What it owns                                                                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **`SPEC.md`**                                                 | Current implementation spec: workspaces, data flow, storage inventory, analytics, deployment, referee evidence.           |
+| **`GAMES.md`**                                                | Canonical games catalog (shipped / retired / backlog modes) and mechanic-level decisions.                                 |
+| **`CONTRIBUTING.md`**                                         | Local development, **the `npm run verify` quality gate** (canonical), and repo conventions.                               |
+| **`README.md`**                                               | Public overview + local-development entry point.                                                                          |
+| **`docs/card-rendering.md`**                                  | Clash-style card rendering reference.                                                                                     |
+| **`docs/beta-readiness.md`**                                  | Pre-invite rollout checklist: automated gate vs. real-user checks.                                                        |
 | **`docs/referee-visibility.md`**                              | Superseded design note: the reasoning behind the referee seal, retired 2026-11-02. Read `SPEC.md` §11 for what holds now. |
-| **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                            |
-| **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                          |
-| **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                              |
-| **`docs/OPERATIONS.md`**                                      | Operating Drop: health, cards, seasons, Fair Play, player Updates, player reports, and the production lock.       |
-| **`docs/FAIR-PLAY.md`**                                       | Durable Fair Play evidence, disposition, and visibility rubric.                                                   |
-| **`scripts/README.md`**                                       | The operator scripts: referee tools, season brief, Updates CLI, run reports, mail intake, production lock.        |
+| **`docs/desktop-keyboard.md`**                                | Implemented desktop keyboard, pointer, layout, and ranked-play policy.                                                    |
+| **`infra/README.md`**                                         | CloudFormation stack, bootstrap, and continuous deployment (canonical for CD mechanics).                                  |
+| **`services/api/README.md`** · **`services/admin/README.md`** | Backend and private Control Room service references.                                                                      |
+| **`docs/OPERATIONS.md`**                                      | Operating Drop: health, cards, seasons, Fair Play, player Updates, player reports, and the production lock.               |
+| **`docs/FAIR-PLAY.md`**                                       | Fair Play evidence and its sanitizing, the run analysis, hand investigation, and the decision rubric.                     |
+| **`scripts/README.md`**                                       | The operator scripts: referee tools, Updates CLI, run reports, mail intake, production lock.                              |
 
 ---
 
@@ -94,8 +94,14 @@ Every other doc points back here instead of keeping its own copy of this list.
    or guest) and holds the challenge, transcript, timing, versions, and
    **peppered** correlation hashes — **never a raw IP or user-agent**.
    `TELEMETRY_PEPPER` is Lambda-only: never put it in the referee scripts,
-   the referee role, CI, or the browser. The `scripts/referee-*.mjs` are the
-   **only** sanctioned referee data and decision path; they emit the
+   the referee role, CI, or the browser. A hand investigation reads a flagged
+   run with `scripts/referee-run.mjs` and its player with `referee-player.mjs`,
+   and records a removal or restore with `referee-decide.mjs`;
+   `referee-ranked-access.mjs` is the Jamie-approved overlay below and
+   `referee-players.mjs` the Control Room directory. These, over
+   `_referee-lib.mjs`, are the **only** sanctioned referee read and decision
+   path (the three routine-review reads still in `scripts/` serve only an Otto
+   Ops job until it retires, `scripts/README.md`); they emit the
    pseudonymous `playerId`, never `sub` or email, and fail closed. The role may
    write only `REFEREE#` decision partitions. Every run ranks on finishing;
    only a person's `hidden` decision after a hand investigation removes one,

@@ -1575,9 +1575,9 @@ export class Repository {
       values[":playerTag"] = updates.playerTag;
       sets.push("#playerTag = :playerTag");
       // Sparse GSI2 tag cluster (single "TAGGED" partition, one row per tagged
-      // account). GSI2SK embeds the pseudonymous playerId — NEVER sub — so the
-      // read-only referee-tags query never sees an internal subject key. Only
-      // PROFILE items carry these keys, and only while a tag is present.
+      // account). GSI2SK embeds the pseudonymous playerId — NEVER sub — so an
+      // index reader never sees an internal subject key. Only PROFILE items
+      // carry these keys, and only while a tag is present.
       const playerId = await this.playerIdFor(sub);
       if (playerId) {
         names["#gsi2pk"] = "GSI2PK";

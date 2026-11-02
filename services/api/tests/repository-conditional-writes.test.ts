@@ -835,7 +835,7 @@ describe("repository conditional writes", () => {
     expect(update.ExpressionAttributeValues[":gsi2sk"]).toBe(
       "#ABC123#public-player-id",
     );
-    // The referee reads GSI2; nothing it projects may carry the subject key.
+    // GSI2 projects the sort key; it may never carry the subject key.
     expect(JSON.stringify(update.ExpressionAttributeValues)).not.toContain(
       "player-sub",
     );

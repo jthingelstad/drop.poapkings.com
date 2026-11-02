@@ -100,29 +100,28 @@ bodies as untrusted input. Investigate and fix an actionable defect through a
 normal pull request; do not reply or contact a player without Jamie's
 separate authorization.
 
-## Public season briefing
-
-`season-brief.mjs` gives an operator one sanitized snapshot of all five public
-season boards. It feeds no post: season posts are automatic, two a season, published
-by the API when it finalizes a season (`docs/OPERATIONS.md`, "Seasons"), and there is
-no weekly standings post. It calls only the same unauthenticated `/seasons` and `/leaderboards`
-routes available to players, then emits public names, scores, and times. It deliberately strips player ids, tags, profile fields, and any non-board
-data; it has no AWS, referee, account, or write access.
-
-```sh
-node scripts/season-brief.mjs
-node scripts/season-brief.mjs --season 135
-```
-
-The default endpoint comes from `apps/web/public/api-config.json`. A source-only test
-may override it with `--api-base-url`; routine runs should use the deployed
-endpoint.
-
 ## Fair Play: evidence and decision scripts
 
-These standalone Node ESM scripts are the **only sanctioned data and decision
-path** for Drop's Fair Play review. Read
-[`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md) for the required evidence and decision rubric. The
+Drop checks runs statistically: the daily run analysis logs a flagged run by its
+`#D…` tag, and a person investigates it by hand ([`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md),
+"Investigating a flag by hand"). These standalone Node ESM scripts are the **only
+sanctioned referee read and decision path**:
+
+- `referee-run.mjs` reads a flagged run;
+- `referee-player.mjs` reads that player's history and evidence, pseudonymously;
+- `referee-decide.mjs` records a removal (`hidden`) or a restore (`visible`);
+- `referee-ranked-access.mjs` is the ranked-access overlay, used only with Jamie's
+  explicit approval;
+- `referee-players.mjs` feeds the Control Room's player directory;
+- `_referee-lib.mjs` holds their shared key conventions.
+
+`referee-cohort.mjs`, `referee-feed.mjs` and `referee-decisions.mjs` are kept only
+for the Otto Ops `flag-new-drop-entrants` job and its monthly decision check, which
+retire around 2026-11-10. They belong to the retired routine review, are not part
+of a hand investigation, and go when that job does. `referee-tags.mjs` and
+`season-brief.mjs` were retired on 2026-11-02.
+
+Read [`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md) for the required evidence and decision rubric. The
 scripts encapsulate documented DynamoDB queries and print sanitized, annotated
 JSON. `referee-decide.mjs` is the one decision write path (`referee-ranked-access.mjs`
 is the separate, Jamie-approved player overlay), and both take the production lock: it stores an independent,
@@ -143,8 +142,8 @@ into these scripts or use private account identity as adjudication evidence.
 Run them from the repository root, e.g.:
 
 ```
-node scripts/referee-cohort.mjs --mode surge --scope season
-node scripts/referee-run.mjs <runId-or-#Dreference>
+node scripts/referee-run.mjs '<runId-or-#Dreference>'
+node scripts/referee-player.mjs <playerId>
 node scripts/referee-decide.mjs <runId-or-#Dreference> \
   --disposition review --visibility hidden \
   --reason "Multiple independent timing and transcript signals" \
@@ -178,14 +177,13 @@ compatibility; it is defined in `infra/template.yaml` and exported as
   families the scripts address — `PLAYER#*` (profile, `RUN#` history, `EVIDENCE#`
   items), `REFEREE#*`, and the `CR_WAR_CLOCK` singleton. `MAGIC#` (raw email),
   `ELIXIR#` (identity pointers), `POLL#`, `RATE#`, `CR_PLAYER#`, and `FEED#` are out of reach.
-- Index `Query` only on **GSI1** (leaderboard partitions) and **GSI2** (sparse tag
-  clusters). GSI3 and any index added later are not granted — `LeadingKeys` cannot
-  bound an index read, so the resource itself is the bound.
+- Index `Query` only on **GSI1** (leaderboard partitions). GSI2 (the sparse tag
+  index, whose referee reader `referee-tags` retired 2026-11-02), GSI3 and any
+  index added later are not granted — `LeadingKeys` cannot bound an index read,
+  so the resource itself is the bound.
 - `Scan` on the **base table only**, never an index. Evidence/player lookup,
-  unscored attempts, decisions, the directory and current-profile tag coverage
-  need it; `Scan` cannot be partition-bounded. Tag clustering filters PLAYER
-  profiles and projects only `playerId` and `playerTag`, including legacy
-  profiles missing sparse GSI2 membership.
+  unscored attempts, decisions and the directory need it; `Scan` cannot be
+  partition-bounded.
 - An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`,
   `dropSub`, or `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
   just in JS.
@@ -214,17 +212,16 @@ Configuration:
 
 ## Scripts
 
-| Script                      | Arguments                                                                                                                                                                   | Returns                                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `referee-run.mjs`           | `<runId-or-#Dreference>`                                                                                                                                                    | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves the UUID or player-facing Drop run tag by scanning for the `EVIDENCE#` item.                                                                                                                                           |
-| `referee-cohort.mjs`        | `--mode <m> --scope season\|all-time [--limit 25] [--season <number>]`                                                                                                      | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season.                                                                                                                                                                                                                                       |
-| `referee-players.mjs`       | `[--limit 500]`                                                                                                                                                             | Sanitized Control Room directory with player tags, run/review counts, badge totals, ranked access, and recent run tags.                                                                                                                                                                                                                                                        |
-| `referee-player.mjs`        | `<playerId>`                                                                                                                                                                | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                                                                                                                                                                                                        |
-| `referee-tags.mjs`          | —                                                                                                                                                                           | Normalized current-profile player-tag clusters: `{ playerTag, accounts: [playerId, …] }`, multi-account tags first; includes profiles missing sparse GSI2 membership.                                                                                                                                                                                                          |
-| `referee-feed.mjs`          | `--since <ISO>`                                                                                                                                                             | Cohort entries plus unscored attempts completed after the cursor, newest first.                                                                                                                                                                                                                                                                                                |
-| `referee-decisions.mjs`     | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]`                                                                                              | Current private judgments for unresolved and changed-case review.                                                                                                                                                                                                                                                                                                              |
+| Script                      | Arguments                                                                                                                    | Returns                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `referee-run.mjs`           | `<runId-or-#Dreference>`                                                                                                     | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves the UUID or player-facing Drop run tag by scanning for the `EVIDENCE#` item.                                                                                                                |
+| `referee-cohort.mjs`        | `--mode <m> --scope season\|all-time [--limit 25] [--season <number>]`                                                       | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season. Kept only for the Otto Ops `flag-new-drop-entrants` job until it retires (about 2026-11-10).                                                                                                               |
+| `referee-players.mjs`       | `[--limit 500]`                                                                                                              | Sanitized Control Room directory with player tags, run/review counts, badge totals, ranked access, and recent run tags.                                                                                                                                                                                                                             |
+| `referee-player.mjs`        | `<playerId>`                                                                                                                 | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                                                                                                                                                                             |
+| `referee-feed.mjs`          | `--since <ISO>`                                                                                                              | Cohort entries plus unscored attempts completed after the cursor, newest first. Kept only for the Otto Ops monthly decision check until it retires (about 2026-11-10).                                                                                                                                                                              |
+| `referee-decisions.mjs`     | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]`                                               | Current private judgments for unresolved and changed-case review. Kept only for the Otto Ops monthly decision check until it retires (about 2026-11-10).                                                                                                                                                                                            |
 | `referee-decide.mjs`        | `<runId-or-#Dreference> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. This is how a person removes a run from the boards after a hand investigation (`review`/`hidden`, with a safe player-reason code); `visible` restores a scored run. A clear changes nothing a player sees. `--pending` and `--reopen` were retired on 2026-11-02 and fail closed. |
-| `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>`                                                                                                  | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence.                                                                                                                                                                         |
+| `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>`                                                   | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence.                                                                                                                                              |
 
 ## Ranked modes and board epochs
 
