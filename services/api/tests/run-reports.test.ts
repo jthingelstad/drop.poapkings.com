@@ -103,8 +103,79 @@ describe("run failure reports", () => {
         ...input,
         reportId: "report-1",
         runReference: runReference(input.runId),
+        reportCount: 1,
       }),
     );
+  });
+  it("logs one countable line per report with no run, player or context", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      const response = await invoke(
+        reportBody({
+          failure: { code: "request_timeout", status: 0 },
+          context: "My tag is #ABC123 and my name is Pat.",
+        }),
+        sessionToken(),
+      );
+      expect(response.statusCode).toBe(202);
+      const lines = info.mock.calls
+        .map(([line]) => line as Record<string, unknown>)
+        .filter((line) => line?.event === "run-report.received");
+      expect(lines).toEqual([
+        {
+          event: "run-report.received",
+          kind: "request_timeout",
+          httpStatus: 0,
+          build: "abc123",
+          mode: "surge",
+          first: true,
+        },
+      ]);
+      const text = JSON.stringify(lines);
+      for (const forbidden of [
+        "run-report-1",
+        runReference("run-report-1"),
+        "player-sub",
+        "#ABC123",
+        "Pat",
+        "127.0.0.1",
+      ])
+        expect(text).not.toContain(forbidden);
+    } finally {
+      info.mockRestore();
+    }
+  });
+  it("logs a repeat report for the same run as not first", async () => {
+    repository.upsertRunReport.mockImplementation((input) =>
+      Promise.resolve({
+        ...input,
+        reportId: "report-1",
+        runReference: runReference(input.runId),
+        reportCount: 2,
+      }),
+    );
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      await invoke(reportBody(), sessionToken());
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "run-report.received", first: false }),
+      );
+    } finally {
+      info.mockRestore();
+    }
+  });
+  it("logs nothing for a refused report", async () => {
+    repository.getRun.mockResolvedValue(undefined);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      const response = await invoke(reportBody({ runToken: "invalid-token" }));
+      expect(response.statusCode).toBe(403);
+      expect(info).not.toHaveBeenCalledWith(
+        expect.objectContaining({ event: "run-report.received" }),
+      );
+    } finally {
+      info.mockRestore();
+    }
   });
   it("stores a run-bound, identity-free report and optional player context", async () => {
     const response = await invoke(

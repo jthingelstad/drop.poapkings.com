@@ -725,16 +725,17 @@ void describe("deployment parameters", () => {
     assert.doesNotMatch(refereeRole, /dynamodb:(?:DeleteItem|BatchWriteItem)/);
   });
 
-  void it("separates identity-free run report triage behind its own role", () => {
+  void it("separates identity-free run report reads behind their own role", () => {
     const reportsRole = template.match(
       /  RunReportsRole:[\s\S]*?\n  DropControlRole:/,
     )?.[0];
     assert.ok(reportsRole);
     assert.match(reportsRole, /RoleName: elixir-drop-run-reports/);
     assert.match(reportsRole, /Action: dynamodb:Query/);
-    assert.match(
+    // Run-report triage was retired 2026-11-02: the role reads and never writes.
+    assert.doesNotMatch(
       reportsRole,
-      /Action:\s+- dynamodb:PutItem\s+- dynamodb:TransactWriteItems\s+- dynamodb:UpdateItem/,
+      /dynamodb:(?:PutItem|UpdateItem|TransactWriteItems)/,
     );
     assert.match(reportsRole, /dynamodb:LeadingKeys:\s+- RUN_REPORTS/);
     assert.doesNotMatch(

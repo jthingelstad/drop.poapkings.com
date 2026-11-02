@@ -2,8 +2,8 @@
 // Drop's production lock (docs/OPERATIONS.md). Merges deploy through CI,
 // whose workflow serializes itself; this lock serializes the writes made to
 // production from a checkout instead: a referee decision, a ranked-access
-// change, a run-report triage, an Updates publication, and anything run
-// through `production-lock.mjs run`. The scripts that write take it
+// change, an Updates publication, and anything run through
+// `production-lock.mjs run`. The scripts that write take it
 // themselves, for exactly as long as the write runs.
 //
 // One holder at a time, recorded in the clone's git common directory so the

@@ -333,6 +333,9 @@ describe("repository DynamoDB requests", () => {
     );
     expect(first.UpdateExpression).not.toContain("context = :context");
     expect(first.ExpressionAttributeValues).not.toHaveProperty(":context");
+    // Triage is retired: a report carries no queue status.
+    expect(first.UpdateExpression).not.toContain("#status");
+    expect(first.ExpressionAttributeNames).not.toHaveProperty("#status");
     expect(second.UpdateExpression).toContain("context = :context");
     expect(second.ExpressionAttributeValues[":context"]).toBe(
       "Final button froze",

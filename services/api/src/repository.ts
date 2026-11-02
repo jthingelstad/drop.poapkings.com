@@ -302,7 +302,9 @@ export interface RunReportItem extends Omit<RunReportInput, "reportedAt"> {
   pk: "RUN_REPORTS";
   sk: `REPORT#${string}`;
   reportId: string;
-  status: "new" | "investigating" | "resolved" | "dismissed";
+  // Retired 2026-11-02 with run-report triage: reports are counted, not
+  // worked. New reports carry no status; older ones keep the one they had.
+  status?: "new" | "investigating" | "resolved" | "dismissed";
   firstReportedAt: string;
   lastReportedAt: string;
   reportCount: number;
@@ -3388,17 +3390,15 @@ export class Repository {
       new UpdateCommand({
         TableName: this.tableName,
         Key: { pk: "RUN_REPORTS", sk: `REPORT#${input.runId}` },
-        UpdateExpression: `SET reportId = if_not_exists(reportId, :reportId), runId = :runId, runReference = :runReference, #mode = :mode, #status = if_not_exists(#status, :newStatus), firstReportedAt = if_not_exists(firstReportedAt, :reportedAt), lastReportedAt = :reportedAt, failureCode = :failureCode, failureStatus = :failureStatus, clientBuildId = :clientBuildId, clientOnline = :clientOnline, clientVisibility = :clientVisibility, clientDisplayMode = :clientDisplayMode, runFound = :runFound, runState = :runState, guest = :guest, runAgeSeconds = :runAgeSeconds, expiresAt = :expiresAt${contextUpdate} ADD reportCount :one`,
+        UpdateExpression: `SET reportId = if_not_exists(reportId, :reportId), runId = :runId, runReference = :runReference, #mode = :mode, firstReportedAt = if_not_exists(firstReportedAt, :reportedAt), lastReportedAt = :reportedAt, failureCode = :failureCode, failureStatus = :failureStatus, clientBuildId = :clientBuildId, clientOnline = :clientOnline, clientVisibility = :clientVisibility, clientDisplayMode = :clientDisplayMode, runFound = :runFound, runState = :runState, guest = :guest, runAgeSeconds = :runAgeSeconds, expiresAt = :expiresAt${contextUpdate} ADD reportCount :one`,
         ExpressionAttributeNames: {
           "#mode": "mode",
-          "#status": "status",
         },
         ExpressionAttributeValues: {
           ":reportId": randomUUID(),
           ":runId": input.runId,
           ":runReference": input.runReference,
           ":mode": input.mode,
-          ":newStatus": "new",
           ":reportedAt": input.reportedAt,
           ":failureCode": input.failureCode,
           ":failureStatus": input.failureStatus,

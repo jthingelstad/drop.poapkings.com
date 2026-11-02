@@ -686,9 +686,10 @@ Resources:
                       - REFEREE#*
 
   # Failure-report intake is deliberately separate from player accounts and
-  # Fair Play evidence. Run Drop can query and triage only the RUN_REPORTS
-  # partition; the reports themselves contain no player identity, token, raw
-  # request header, or transcript.
+  # Fair Play evidence. Run Drop can only query the RUN_REPORTS partition
+  # (triage was retired 2026-11-02; reports are counted from the API log); the
+  # reports themselves contain no player identity, token, raw request header,
+  # or transcript.
   RunReportsRole:
     Type: AWS::IAM::Role
     Properties:
@@ -707,19 +708,6 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: dynamodb:Query
-                Resource: !GetAtt DataTable.Arn
-                Condition:
-                  ForAllValues:StringEquals:
-                    dynamodb:LeadingKeys:
-                      - RUN_REPORTS
-              - Effect: Allow
-                # DynamoDB authorizes each operation inside TransactWriteItems
-                # against its corresponding item action as well as the
-                # transaction API. Triage uses exactly one Update + one Put.
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:TransactWriteItems
-                  - dynamodb:UpdateItem
                 Resource: !GetAtt DataTable.Arn
                 Condition:
                   ForAllValues:StringEquals:
@@ -1962,7 +1950,7 @@ Outputs:
     Description: Bounded referee role for evidence reads and REFEREE# decision writes.
   RunReportsRoleArn:
     Value: !GetAtt RunReportsRole.Arn
-    Description: Bounded Run Drop role for identity-free failure-report triage.
+    Description: Bounded read-only Run Drop role for identity-free failure reports.
   DropControlRoleArn:
     Value: !GetAtt DropControlRole.Arn
     Description: Tailnet-only account support role with audited public-profile corrections.

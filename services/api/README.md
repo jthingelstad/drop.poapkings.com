@@ -133,7 +133,9 @@ reference server-side, and idempotently upserts one `RUN_REPORTS/REPORT#{runId}`
 item. Repeating the request attaches context to the same report. Reports expire
 after 180 days and never contain email, account subject, session/run tokens, a
 raw IP/user-agent, or a transcript. The per-IP `run-report` rate limit is
-120/hour.
+120/hour. Each accepted report logs one `run-report.received` line
+(`kind`, `httpStatus`, `build`, `mode`, `first`) for the Drop dashboard's
+counts; reports carry no triage status.
 
 Signed-in completions aggregate validated card outcomes into the player's
 server-owned `CARDSTATS` item and copy only the validated answer count—not the
