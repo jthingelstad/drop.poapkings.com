@@ -976,6 +976,10 @@ Resources:
     Properties:
       QueueName: !Sub ${AWS::StackName}-refresh.fifo
       FifoQueue: true
+      # EventBridge Scheduler cannot set a deduplication id, so a FIFO target
+      # needs content-based deduplication. The API's explicit ids are the same
+      # sha256 of the body (refresh-jobs.ts), so request-path jobs dedupe as before.
+      ContentBasedDeduplication: true
       MessageRetentionPeriod: 345600
       VisibilityTimeout: 720
       SqsManagedSseEnabled: true
@@ -1071,6 +1075,62 @@ Resources:
         - ReportBatchItemFailures
       ScalingConfig:
         MaximumConcurrency: 2
+
+  # A season closes at the policy clock's 10:00 UTC boundary. Without a visitor
+  # nothing queued the clock refresh that finalizes it, so an hourly run does.
+  WarClockScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-war-clock-schedule
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: send-war-clock-job
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt RefreshQueue.Arn
+
+  WarClockSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-war-clock
+      Description: Hourly season clock refresh so a Clan Wars season closes without waiting for a visitor
+      ScheduleExpression: cron(5 * * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      State: ENABLED
+      Target:
+        Arn: !GetAtt RefreshQueue.Arn
+        RoleArn: !GetAtt WarClockScheduleRole.Arn
+        Input: '{"version":1,"type":"war-clock"}'
+        SqsParameters:
+          MessageGroupId: war-clock
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3000
+          MaximumRetryAttempts: 10
+
+  WarClockSavedMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref RefreshLogGroup
+      FilterPattern: '{ $.message.event = "war-clock.saved" }'
+      MetricTransformations:
+        - MetricNamespace: ElixirDrop/Refresh
+          MetricName: WarClockSaved
+          MetricValue: "1"
+          Unit: Count
 
   RefreshDeadLetterAlarm:
     Type: AWS::CloudWatch::Alarm

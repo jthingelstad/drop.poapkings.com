@@ -19,8 +19,13 @@ as one CloudFormation stack:
   denies requests from outside the distribution. The HTTP server owns CORS;
 - DynamoDB on-demand table with point-in-time recovery, encryption, TTL, and a
   seasonal leaderboard index;
-- an encrypted FIFO refresh queue with a dead-letter queue and worker Lambda,
-  plus the retained season-repair queue, dead-letter queue, and consumer; and
+- an encrypted FIFO refresh queue (content-based deduplication) with a
+  dead-letter queue and worker Lambda, plus the retained season-repair queue,
+  dead-letter queue, and consumer;
+- an hourly EventBridge Scheduler run (`elixir-drop-war-clock`, :05 UTC) that
+  queues the season clock job through its own send-only role, so a season
+  finalizes without a visitor, and a `WarClockSaved` metric from the worker's
+  `war-clock.saved` log line; and
 - a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
   generation.
 
