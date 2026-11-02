@@ -88,9 +88,14 @@ API build identity, never viewer IPs, raw paths, identities, tokens, or OAuth
 queries. The stack owns no CloudWatch dashboard: since 2026-11-02 the `drop`
 dashboard in Grafana on Otto (otto-ops) charts CloudFront, DynamoDB, and Web
 Function requests/errors, CPU, active time, memory and concurrency, with route
-counts and p95 queried from application logs. A log metric filter provides existing
-p95/p99 latency alarms through `ElixirDrop/HTTP`; native Web metrics drive HTTP
-error and capacity alarms. Workers retain their Event Function alarms.
+counts and p95 queried from application logs. A log metric filter provides the
+sustained p95 latency alarm through `ElixirDrop/HTTP`; native Web metrics drive
+the HTTP 5xx alarm and the capacity alarm, which fires on an actual throttle
+(endpoint request, active-environment, or account), not on the active-environment
+count. The endpoint's `MaxEnvironments` is 3 and ordinary page-load bursts reach
+it with no throttle, so the count alarm and the overlapping p99 alarm were retired
+on 2026-11-01 (`docs/monitoring-retirement.md`, issues #94 and #95). Workers retain
+their Event Function alarms.
 
 CloudFront standard logging v2 writes JSON access records to the 24-month (731-day)
 `/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
