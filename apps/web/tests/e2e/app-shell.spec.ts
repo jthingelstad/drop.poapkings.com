@@ -1,12 +1,11 @@
 import {
   allowExpectedApiErrors,
   expect,
+  fulfillSupportData,
   leaderboardEntries,
   test,
-  testActivity,
   testApiRoute,
   testSeason,
-  testStats,
   useSignedOutState
 } from './fixtures'
 
@@ -35,7 +34,6 @@ test('treats an API outage as offline and recovers without a retry panel', { tag
   let available = false
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
-    const path = new URL(route.request().url()).pathname
     if (!available) {
       await route.fulfill({
         status: 503,
@@ -44,31 +42,11 @@ test('treats an API outage as offline and recovers without a retry panel', { tag
       })
       return
     }
-    if (path === '/stats') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(testStats)
-      })
-      return
-    }
-    if (path === '/leaderboards') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          mode: 'surge',
-          seasonId: testSeason.id,
-          currentSeason: testSeason,
-          entries: leaderboardEntries('surge')
-        })
-      })
-      return
-    }
-    if (path === '/activity') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testActivity) })
-      return
-    }
+    // Once the API is back the shell refetches whatever it mounts, the
+    // updates feed included, at a time the test does not control. The shared
+    // backstop answers every one of those reads, so a late request cannot
+    // reach the 404 below and fail the console guard (it did, on webkit).
+    if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 
