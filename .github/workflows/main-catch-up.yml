@@ -1,13 +1,18 @@
 name: Main catch-up
 
 # A merge made by an auto-merge that dependabot-automerge.yml armed with
-# GITHUB_TOKEN raises no push event, so Validate Main (and the deploy that
-# follows it) never starts for that commit. Once an hour this looks at the
-# head of main: if no Validate Main run exists for it and it landed more than
-# ten minutes ago, it dispatches one. A dispatch takes the full path and
-# deploys on success like any validation (workflow_dispatch is the one
-# GITHUB_TOKEN event that still starts a workflow). It reads and dispatches
-# only; it checks out nothing.
+# GITHUB_TOKEN raises no push event, so Validate Main never starts for that
+# commit. And a run GITHUB_TOKEN started raises no workflow_run event when it
+# completes, so even a dispatched validation does not start Build and Deploy
+# (seen 2026-11-02 on b4b7811). workflow_dispatch is the one GITHUB_TOKEN
+# event that still starts a workflow, so once an hour this looks at the head
+# of main and takes the next step it is missing:
+#   - no Validate Main run, landed ten minutes ago or more: dispatch one;
+#   - Validate Main passed ten minutes ago or more and no Build and Deploy run
+#     exists for the head: dispatch the deploy, which itself refuses a SHA
+#     Validate Main has not passed.
+# A head that failed validation, or is still running, waits for a person or
+# the next hour. It reads and dispatches only; it checks out nothing.
 on:
   schedule:
     - cron: "41 * * * *"
@@ -21,7 +26,7 @@ concurrency:
 
 jobs:
   dispatch:
-    name: Validate an unvalidated main head
+    name: Validate and deploy an unattended main head
     if: github.repository == 'jthingelstad/drop.poapkings.com'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -29,19 +34,36 @@ jobs:
       actions: write
       contents: read
     steps:
-      - name: Dispatch Validate Main when the head has no run
+      - name: Dispatch the step the head of main is missing
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          head=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
-          landed=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${head}" --jq .commit.committer.date)
-          runs=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/validate-main.yml/runs" -f head_sha="${head}" --jq .total_count)
-          age=$(( $(date -u +%s) - $(date -u -d "${landed}" +%s) ))
-          echo "main ${head} landed ${landed} (${age}s ago); Validate Main runs: ${runs}"
-          if [ "${runs}" -gt 0 ] || [ "${age}" -lt 600 ]; then
+          api() { gh api --method GET "repos/${GITHUB_REPOSITORY}/$@"; }
+          since() { echo $(( $(date -u +%s) - $(date -u -d "$1" +%s) )); }
+          head=$(api commits/main --jq .sha)
+          landed=$(api "commits/${head}" --jq .commit.committer.date)
+          validations=$(api actions/workflows/validate-main.yml/runs -f head_sha="${head}" --jq .total_count)
+          echo "main ${head} landed ${landed} ($(since "${landed}")s ago); Validate Main runs: ${validations}"
+          if [ "${validations}" -eq 0 ]; then
+            if [ "$(since "${landed}")" -lt 600 ]; then
+              echo "Landed under ten minutes ago; its push may still start one."
+              exit 0
+            fi
+            gh workflow run validate-main.yml --repo "${GITHUB_REPOSITORY}" --ref main
+            echo "::notice::Dispatched Validate Main for ${head}, which had no run."
+            exit 0
+          fi
+          passed=$(api actions/workflows/validate-main.yml/runs -f head_sha="${head}" -f status=success --jq '.workflow_runs[0].updated_at // ""')
+          if [ -z "${passed}" ]; then
+            echo "Validate Main has not passed on ${head} (running or failed); nothing to deploy."
+            exit 0
+          fi
+          deploys=$(api actions/workflows/deploy.yml/runs -f head_sha="${head}" --jq .total_count)
+          echo "Validate Main passed ${passed} ($(since "${passed}")s ago); Build and Deploy runs: ${deploys}"
+          if [ "${deploys}" -gt 0 ] || [ "$(since "${passed}")" -lt 600 ]; then
             echo "Nothing to catch up."
             exit 0
           fi
-          gh workflow run validate-main.yml --repo "${GITHUB_REPOSITORY}" --ref main
-          echo "::notice::Dispatched Validate Main for ${head}, which had no run."
+          gh workflow run deploy.yml --repo "${GITHUB_REPOSITORY}" --ref main
+          echo "::notice::Dispatched Build and Deploy for ${head}, which passed Validate Main with no deploy."
