@@ -73,6 +73,18 @@ if (!TOKEN) {
   process.exit(1)
 }
 
+// A write re-dates the sitemap, and sitemap.ts imports the @elixir-drop/contracts
+// workspace. Refuse before fetching or writing anything when it is not installed,
+// so a fresh worktree never ends half-written with no changed_files= line.
+if (
+  !DRY_RUN &&
+  (await fileExists(join(WEB_ROOT, 'scripts/sitemap-dates.mjs'))) &&
+  !(await fileExists(join(REPO_ROOT, 'node_modules/@elixir-drop/contracts/package.json')))
+) {
+  console.error('Error: the workspace is not installed (run npm ci); the sitemap dates need @elixir-drop/contracts')
+  process.exit(1)
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 console.log('Fetching /cards from CR API…')
