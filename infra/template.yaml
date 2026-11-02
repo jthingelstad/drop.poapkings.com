@@ -452,6 +452,23 @@ Resources:
               - !Sub arn:${AWS::Partition}:s3:::elixir-drop-share-${AWS::AccountId}-${AWS::Region}
               - !Sub arn:${AWS::Partition}:s3:::elixir-drop-share-${AWS::AccountId}-${AWS::Region}/*
 
+  # The distribution uses the account's shared web ACL (the projects-sysadmin
+  # edge-waf stack). CloudFront reads that web ACL as the caller whenever the
+  # distribution is updated, so the execution role needs to read it. Bootstrap
+  # writes the same scope for fresh environments.
+  CloudFormationEdgeWebAclPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: elixir-drop-edge-web-acl
+      Roles:
+        - elixir-drop-cloudformation-execution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: wafv2:GetWebACL
+            Resource: !Sub arn:${AWS::Partition}:wafv2:us-east-1:${AWS::AccountId}:global/webacl/edge/*
+
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -1516,6 +1533,7 @@ Resources:
 
   WebDistribution:
     Type: AWS::CloudFront::Distribution
+    DependsOn: CloudFormationEdgeWebAclPolicy
     Properties:
       DistributionConfig:
         Aliases:
@@ -1647,6 +1665,9 @@ Resources:
               OriginSSLProtocols:
                 - TLSv1.2
         PriceClass: PriceClass_100
+        # The shared web ACL (projects-sysadmin config/edge-waf-stack.yaml); its
+        # rules count only until tuned.
+        WebACLId: !ImportValue edge-waf-WebAclArn
         ViewerCertificate:
           AcmCertificateArn: !Ref WebCertificateArn
           MinimumProtocolVersion: TLSv1.2_2021

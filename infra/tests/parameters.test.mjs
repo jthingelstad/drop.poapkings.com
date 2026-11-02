@@ -613,6 +613,32 @@ void describe("deployment parameters", () => {
     assert.match(roleManagementPolicy, /"iam:UpdateAssumeRolePolicy"/);
   });
 
+  void it("attaches the shared edge web ACL with read access for the deploy role", () => {
+    const distribution = template.match(
+      /  WebDistribution:[\s\S]*?\n  WebAccessLogDeliverySource:/,
+    )?.[0];
+    assert.ok(distribution);
+    assert.match(distribution, /DependsOn: CloudFormationEdgeWebAclPolicy/);
+    assert.match(distribution, /WebACLId: !ImportValue edge-waf-WebAclArn/);
+
+    const edgePolicy = template.match(
+      /  CloudFormationEdgeWebAclPolicy:[\s\S]*?\n  ApiLogGroup:/,
+    )?.[0];
+    assert.ok(edgePolicy);
+    assert.match(edgePolicy, /PolicyName: elixir-drop-edge-web-acl/);
+    assert.match(edgePolicy, /- elixir-drop-cloudformation-execution/);
+    assert.match(edgePolicy, /Action: wafv2:GetWebACL/);
+    assert.match(
+      edgePolicy,
+      /arn:\$\{AWS::Partition\}:wafv2:us-east-1:\$\{AWS::AccountId\}:global\/webacl\/edge\/\*/,
+    );
+    assert.doesNotMatch(edgePolicy, /wafv2:\*/);
+    assert.match(
+      bootstrap,
+      /arn:aws:wafv2:us-east-1:\$\{accountId\}:global\/webacl\/edge\/\*/,
+    );
+  });
+
   void it("does not recreate the retired Clash Royale bridge identity", () => {
     assert.doesNotMatch(bootstrap, /bridgeUserName/);
     assert.doesNotMatch(bootstrap, /elixir-drop-cr-bridge/);

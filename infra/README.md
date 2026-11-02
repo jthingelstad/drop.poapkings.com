@@ -199,6 +199,13 @@ every static response receives HSTS, content-type, framing, and referrer
 protections; `/api/*`, `/share/*`, and `/share-assets/*` keep the API's own
 response and cache policy.
 
+The distribution uses the account's shared AWS WAF web ACL (`edge`, owned by
+projects-sysadmin's `edge-waf` stack) through
+`WebACLId: !ImportValue edge-waf-WebAclArn`; its rules count only until tuned.
+CloudFront reads the web ACL as the caller on every distribution update, so the
+stack-owned `elixir-drop-edge-web-acl` policy (and bootstrap, for a fresh
+environment) grants the execution role `wafv2:GetWebACL` on that one web ACL.
+
 ## Background refresh
 
 The HTTP deployment ZIP contains bundled `index.js` and its package metadata.

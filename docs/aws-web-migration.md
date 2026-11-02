@@ -58,10 +58,16 @@ prior API/web state. A DNS rollback to GitHub Pages is no longer maintained.
 
 ## Cost and protection
 
-The distribution uses CloudFront pay-as-you-go, S3 Standard, Lambda Web Functions, and ACM. It adds no Route 53 hosted zone, load balancer, NAT gateway, WAF,
+The distribution uses CloudFront pay-as-you-go, S3 Standard, Lambda Web Functions, and ACM. It adds no Route 53 hosted zone, load balancer, NAT gateway,
 Lambda@Edge, or CodePipeline. Web endpoint rate/environment limits, application rate limits, and AWS Shield Standard
 bound the initial risk.
 
-AWS WAF is the first optional upgrade if measured abuse justifies its standing
-cost. Start with one CloudFront rate-based rule; do not add a broad managed
-ruleset without evidence that it addresses a real Drop traffic pattern.
+Since 2026-11-02 the distribution sits behind the account's one shared AWS WAF
+web ACL (`edge`, in projects-sysadmin's `config/edge-waf-stack.yaml`), which
+every CloudFront site uses so its standing cost is paid once. Its rules (IP
+reputation, known bad inputs, the core rule set, and a per-address per-site
+rate rule) only count requests; none blocks until the counted traffic has been
+read and Jamie decides. The template attaches it with
+`WebACLId: !ImportValue edge-waf-WebAclArn`, and the stack-owned
+`elixir-drop-edge-web-acl` policy lets the execution role read it, which
+CloudFront requires whenever the distribution is updated.
