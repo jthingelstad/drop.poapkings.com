@@ -383,6 +383,31 @@ describe('refresh cards', () => {
       expect(readFileSync(specPath, 'utf8')).toContain(`- \`version\`: \`${written.version}\``)
     })
 
+    it('refuses to write in an uninstalled worktree before touching anything', () => {
+      const root = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-'))
+      tempDirectories.push(root)
+      const scriptPath = join(root, 'apps/web/scripts/refresh-cards.mjs')
+      const cardsPath = join(root, 'packages/game-data/cards.json')
+      mkdirSync(dirname(scriptPath), { recursive: true })
+      mkdirSync(dirname(cardsPath), { recursive: true })
+      copyFileSync(join(process.cwd(), 'scripts/refresh-cards.mjs'), scriptPath)
+      // The real checkout's sitemap step, with no node_modules beside it.
+      writeFileSync(join(root, 'apps/web/scripts/sitemap-dates.mjs'), '')
+      const before = JSON.stringify({ version: '2026-08-01', count: 1, cards: [knight] })
+      writeFileSync(cardsPath, before)
+      const preload = `globalThis.fetch = async () => { throw new Error('fetched before the install check') };`
+      const env = { ...process.env, CR_API_TOKEN: 'test-token' }
+      const result = spawnSync(
+        process.execPath,
+        ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, scriptPath, '--write', '--exit-code'],
+        { encoding: 'utf8', env }
+      )
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('the workspace is not installed (run npm ci)')
+      expect(result.stdout).not.toContain('changed_files=')
+      expect(readFileSync(cardsPath, 'utf8')).toBe(before)
+    })
+
     it('refuses an env file it cannot read', () => {
       const root = mkdtempSync(join(tmpdir(), 'drop-refresh-cards-'))
       tempDirectories.push(root)
