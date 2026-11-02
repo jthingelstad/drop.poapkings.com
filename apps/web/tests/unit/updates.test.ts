@@ -21,7 +21,7 @@ const entries = [
     kind: 'season' as const,
     publishedAt: '2026-09-08T12:00:00Z',
     title: 'Newer season',
-    body: 'Higher / Lower carries the Free Pass.'
+    body: 'Higher / Lower leads the season.'
   }
 ]
 

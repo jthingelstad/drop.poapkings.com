@@ -61,7 +61,7 @@ describe("repository DynamoDB requests", () => {
       kind: "season" as const,
       publishedAt: "2026-10-05T10:00:00Z",
       title: "Season 137 opens",
-      body: "Higher / Lower carries the Free Pass.",
+      body: "Higher / Lower leads the season.",
     };
 
     await expect(
@@ -86,7 +86,7 @@ describe("repository DynamoDB requests", () => {
       kind: "season" as const,
       publishedAt: "2026-10-05T10:00:00Z",
       title: "Season 137 opens",
-      body: "Higher / Lower carries the Free Pass.",
+      body: "Higher / Lower leads the season.",
     };
     send
       .mockRejectedValueOnce({ name: "ConditionalCheckFailedException" })

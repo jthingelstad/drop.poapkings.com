@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildSeasonBrief,
+  parseArgs as parseSeasonBriefArgs,
   RANKED_MODES as RANKED_MODE_FIXTURES,
 } from "./season-brief.mjs";
 import {
@@ -80,7 +81,7 @@ void test("player Updates CLI lists publicly and uses a bearer token to publish"
       {
         kind: "season",
         title: "Season 137 opens",
-        body: "Higher / Lower carries the Free Pass.",
+        body: "Higher / Lower leads the season.",
       },
       new Date("2026-10-05T12:00:00Z"),
     ),
@@ -89,7 +90,7 @@ void test("player Updates CLI lists publicly and uses a bearer token to publish"
       kind: "season",
       publishedAt: "2026-10-05T12:00:00.000Z",
       title: "Season 137 opens",
-      body: "Higher / Lower carries the Free Pass.",
+      body: "Higher / Lower leads the season.",
     },
   );
 
@@ -163,10 +164,9 @@ void test("operator tooling lives in scripts/ and the Fair Play policy keeps its
   );
   assert.match(operations, /docs\/FAIR-PLAY\.md/);
   assert.match(operations, /production-lock\.mjs/);
-  assert.match(
-    operations,
-    /Rain is current for Season 136; Higher \/ Lower is\s+explicitly next for Season 137/,
-  );
+  // The Free Pass Challenge was retired 2026-11-02: no designation, rotation
+  // or recipient duty survives in the operating guide.
+  assert.doesNotMatch(operations, /Free\s+Pass|free-pass-mode|designat/i);
   assert.match(operations, /never resized, re-encoded, or\s+otherwise altered/);
 
   const fairPlayPolicy = readFileSync(
@@ -237,11 +237,10 @@ void test("season brief contains all five public boards and strips identity fiel
   const brief = await buildSeasonBrief({
     apiBaseUrl: "https://drop.example.test",
     fetchImpl,
-    freePassMode: "rain",
     now: new Date("2026-09-10T13:00:00.000Z"),
   });
   assert.equal(brief.status, "ok");
-  assert.equal(brief.freePassMode, "rain");
+  assert.equal("freePassMode" in brief, false);
   assert.equal(brief.season.phase, "active");
   assert.deepEqual(
     brief.boards.map((board) => board.mode),
@@ -253,6 +252,17 @@ void test("season brief contains all five public boards and strips identity fiel
   assert.doesNotMatch(
     serialized,
     /private-|#PRIVATE|private@example|playerTag/,
+  );
+});
+
+void test("season brief needs no Free Pass mode and refuses the retired flag", () => {
+  assert.deepEqual(parseSeasonBriefArgs([]), {});
+  assert.deepEqual(parseSeasonBriefArgs(["--season", "137"]), {
+    seasonId: 137,
+  });
+  assert.throws(
+    () => parseSeasonBriefArgs(["--free-pass-mode", "rain"]),
+    /unknown argument "--free-pass-mode"/,
   );
 });
 

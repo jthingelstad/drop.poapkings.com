@@ -13,7 +13,6 @@ export type TinyEvent =
   | 'game.personal_best'
   | 'game.shared'
   | 'home.shared'
-  | 'campaign.opened'
   | 'badge.shared'
   | 'profile.shared'
   | 'install.suggestion_shown'

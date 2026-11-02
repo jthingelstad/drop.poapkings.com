@@ -108,13 +108,9 @@ routes available to players, then emits public names, scores, times, and public 
 status. It deliberately strips player ids, tags, profile fields, and any non-board
 data; it has no AWS, referee, account, or write access.
 
-Choose the Free Pass mode from the explicit designation in `GAMES.md`. Rain is
-current for Season 136, and Higher / Lower is explicitly next for Season 137;
-never infer a later designation.
-
 ```sh
-node scripts/season-brief.mjs --free-pass-mode rain
-node scripts/season-brief.mjs --free-pass-mode surge --season 135
+node scripts/season-brief.mjs
+node scripts/season-brief.mjs --season 135
 ```
 
 The default endpoint comes from `apps/web/public/api-config.json`. A source-only test

@@ -181,26 +181,11 @@ winner. A held (Awaiting) run ranks provisionally. Only an Excluded run leaves
 a board. `seasonPodiumFinishers` is the one read that still withholds a
 pending run.
 
-**Free Pass.** The Free Pass rotates among ranked games by explicit
-designation in [`GAMES.md`](../GAMES.md). Rain is current for Season 136; Higher / Lower is
-explicitly next for Season 137. A later designation must be written in
-`GAMES.md`; **never** infer it from the previous season.
-
-At each rollover, before the opening bell:
-
-1. Promote the queued game to current in `GAMES.md`.
-2. Make the Home Free Pass hero name and open that same game (`home-games.ts`).
-   This is a code release.
-
-If no following game is named, ask Jamie for that designation only. Complete
-the designated game's Fair Play closing review before Jamie selects the
-recipient.
-
 **Season brief.** Build one sanitized public snapshot of all five boards:
 
 ```sh
-node scripts/season-brief.mjs --free-pass-mode <mode from GAMES.md>
-node scripts/season-brief.mjs --free-pass-mode surge --season 135
+node scripts/season-brief.mjs
+node scripts/season-brief.mjs --season 135
 ```
 
 It calls only the public `/seasons` and `/leaderboards` routes and strips
@@ -220,14 +205,11 @@ access. Its default endpoint comes from `apps/web/public/api-config.json`.
 - Name a champion only from a Cleared winning run. If the winner is Awaiting,
   hold a watch and make no final claim for that game.
 - Post an opening bell, final results, and at most one standings report per
-  calendar week. Post a standings report only when a leader changed, several
-  boards moved, or the Free Pass race tightened. Never manufacture a race or a
-  checkpoint.
+  calendar week. Post a standings report only when a leader changed or several
+  boards moved. Never manufacture a race or a checkpoint.
 - Each entry is one paragraph naming all five leaders and linking
-  `/#/leaderboards`. Link the Free Pass rules; do not copy them.
-- Ask Jamie one yes or no question before naming the Free Pass recipient.
-  Winner selection, award, delivery, eligibility exceptions, and prize
-  communication are Jamie's.
+  `/#/leaderboards`.
+- Awarding any prize or broad communication needs Jamie.
 
 ## Fair Play
 
@@ -348,8 +330,8 @@ default.
 - One card covers one player outcome; related work folds into it.
 - Never backfill copy, layout, discovery, feed, diagnostic, or polish details.
 - Routine, source-backed season commentary follows Seasons above.
-- Naming the Free Pass recipient, any prize, other player messages, and broad
-  communication need Jamie. So do email and Discord sends; Drop has no
+- Awarding any prize, other player messages, and broad communication need
+  Jamie. So do email and Discord sends; Drop has no
   newsletter of its own (Elixir's one list is Elixir's).
 
 ## Player reports

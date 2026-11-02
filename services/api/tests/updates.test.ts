@@ -18,7 +18,7 @@ const entry: UpdateEntry = {
   kind: "season",
   publishedAt: "2026-10-05T10:00:00Z",
   title: "Season 137 opens on Higher / Lower",
-  body: "The next Free Pass race is live in **Higher / Lower**. [Play now](/#/higher-lower).",
+  body: "The new season is live in **Higher / Lower**. [Play now](/#/higher-lower).",
 };
 function event(
   method: string,

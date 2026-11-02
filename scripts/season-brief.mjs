@@ -29,10 +29,7 @@ export function parseArgs(args) {
   const options = {};
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
-    if (option === "--free-pass-mode") {
-      options.freePassMode = valueAfter(args, index, option);
-      index += 1;
-    } else if (option === "--season") {
+    if (option === "--season") {
       const season = valueAfter(args, index, option);
       options.seasonId = SEASON_NUMBER_PATTERN.test(season)
         ? Number(season)
@@ -46,11 +43,6 @@ export function parseArgs(args) {
     } else {
       throw new Error(`unknown argument ${JSON.stringify(option)}`);
     }
-  }
-  if (!RANKED_MODES.includes(options.freePassMode)) {
-    throw new Error(
-      `--free-pass-mode must be one of ${RANKED_MODES.join(", ")}`,
-    );
   }
   return options;
 }
@@ -159,10 +151,7 @@ function publicLeader(board, mode, seasonId) {
   };
 }
 
-export async function buildSeasonBrief(options) {
-  if (!RANKED_MODES.includes(options.freePassMode)) {
-    throw new Error(`freePassMode must be one of ${RANKED_MODES.join(", ")}`);
-  }
+export async function buildSeasonBrief(options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const apiBaseUrl = normalizedApiBaseUrl(options.apiBaseUrl);
   const seasons = await readPublicJson(fetchImpl, `${apiBaseUrl}/seasons`);
@@ -195,7 +184,6 @@ export async function buildSeasonBrief(options) {
     generatedAt: (options.now ?? new Date()).toISOString(),
     source: "public-api",
     season: selectedSeason,
-    freePassMode: options.freePassMode,
     boards: boards.map((board, index) =>
       publicLeader(board, RANKED_MODES[index], seasonId),
     ),

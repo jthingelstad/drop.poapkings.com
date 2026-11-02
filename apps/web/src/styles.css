@@ -3174,7 +3174,6 @@ html.reduce-motion .ed-btn--gold {
   color: #f7f4ff;
   text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
 }
-.ed-hero__wordmark--pass,
 .ed-hero__wordmark--share {
   font-size: 2.2rem;
   line-height: 0.92;
@@ -3254,9 +3253,6 @@ html.reduce-motion .ed-btn--gold {
 .ed-hero__cta .ed-hero__play {
   width: auto;
   margin-top: 0;
-}
-.ed-hero__cta--split .ed-btn {
-  min-width: 0;
 }
 
 /* Desktop's ranked hero states where ranked runs happen instead of offering a
@@ -4150,7 +4146,6 @@ html.reduce-motion .ed-appinfo__refresh:disabled .icon {
 .ed-home-d .ed-hero__wordmark--long {
   font-size: 2.4rem;
 }
-.ed-home-d .ed-hero__wordmark--pass,
 .ed-home-d .ed-hero__wordmark--share {
   font-size: 2.7rem;
 }
@@ -8783,7 +8778,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-app--desktop .ed-hero__wordmark--long {
   font-size: 1.6rem;
 }
-.ed-app--desktop .ed-hero__wordmark--pass,
 .ed-app--desktop .ed-hero__wordmark--share {
   font-size: 1.7rem;
 }

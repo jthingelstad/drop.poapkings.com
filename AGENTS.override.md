@@ -29,7 +29,7 @@ A production write from a checkout takes the production lock
 means wait, never break it.
 
 Jamie decides new modes, material scoring/season rules, privacy-affecting
-collection, Free Pass recipient/prize action, public enforcement, broad
+collection, awarding any prize, public enforcement, broad
 communication outside the standing Updates contract, irreversible changes and
 significant product direction. Preserve the existing source-backed season
 publication and material player-Update rules in `AGENTS.md` and

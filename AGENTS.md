@@ -228,8 +228,8 @@ production run. A successful exact-head validation triggers
   fold into the strongest qualifying card instead of producing sequels. Silence is
   the default. Routine, source-backed standings and Cleared final game results
   publish in the Updates API as season commentary (`docs/OPERATIONS.md`,
-  "Seasons"). Naming the Free Pass recipient, awarding a prize,
-  other player messages, and broad communication retain the normal Jamie authority.
+  "Seasons"). Awarding a prize, other player messages, and broad
+  communication retain the normal Jamie authority.
   Elixir's mailing list may occasionally summarize them for people who do not
   log in, but it is not the source of truth.
   Unread state remains the server-owned `lastOpenedUpdates` timestamp—account-level
@@ -476,12 +476,9 @@ production run. A successful exact-head validation triggers
 - **Home lists every game and features one a day.** `home-games.ts` holds all
   five ranked games in a fixed order that never changes — a player looking for
   Survival finds it in the same place every day. The first hero slide promotes
-  one ranked game chosen by UTC day; two hard-coded slides promote the current
-  designated Free Pass game and sharing Drop. The Free Pass rotates by explicit
-  season designation: Rain is current for Season 136, and Higher / Lower is
-  explicitly next for Season 137; later games must be named in `GAMES.md`, never
-  inferred. Changing the promotion requires a code
-  release. The carousel must never be the only route to a mode. Each All
+  one ranked game chosen by UTC day; the second, hard-coded slide promotes
+  sharing Drop. Changing the promotion requires a code release. The carousel
+  must never be the only route to a mode. Each All
   Games card highlights the player's own all-time best, not the current board
   leader. Rankings stay on the dedicated Ranks surface rather than trailing
   the mobile Games page. No mode carries a permanent "NEW" badge.
@@ -676,7 +673,7 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
   with `DROP . POAPKINGS . COM` because its chat rejects URLs; Discord gets
   Markdown with the owner's permanent profile share link so Recruiter
   attribution survives. Both use the currently selected Clan board and the
-  player's standing, never the current Free Pass mode.
+  player's standing.
 - Discord: `https://discord.gg/SdvKfJW5kA` — the clan is often full; lead with
   Discord when it is (mirror the site's JOIN/WAIT pattern).
 - Drop contact: `drop@poapkings.com` for administration, general questions,
@@ -724,8 +721,8 @@ an impact category, one concise subject, and one Markdown paragraph.
 Player-visible is not sufficient, and related commits produce one card rather than a
 changelog sequence. Feature, season, and message kinds remain distinct in the one
 API stream. Season commentary may publish source-backed current leaders
-and Cleared final game results; naming the Free Pass recipient,
-awarding any prize, or sending broad communication still requires Jamie's authority.
+and Cleared final game results; awarding any prize or sending broad
+communication still requires Jamie's authority.
 Silence is the default. There are no named releases.
 
 ## Landing changes
