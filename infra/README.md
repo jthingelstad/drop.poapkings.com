@@ -68,9 +68,10 @@ Operational alarms target `drop@poapkings.com` by default.
 HTTP logging uses the managed `/elixir-drop/api` and `/elixir-drop/api.local`
 groups with 30-day retention. App timings include a bounded route template and
 API build identity, never viewer IPs, raw paths, identities, tokens, or OAuth
-queries. The dashboard retains CloudFront and DynamoDB panels and shows Web
-Function requests/errors, CPU, active time, memory and concurrency; route counts
-and p95 are queried from application logs. A log metric filter provides existing
+queries. The stack owns no CloudWatch dashboard: since 2026-11-02 the `drop`
+dashboard in Grafana on Otto (otto-ops) charts CloudFront, DynamoDB, and Web
+Function requests/errors, CPU, active time, memory and concurrency, with route
+counts and p95 queried from application logs. A log metric filter provides existing
 p95/p99 latency alarms through `ElixirDrop/HTTP`; native Web metrics drive HTTP
 error and capacity alarms. Workers retain their Event Function alarms.
 
@@ -83,7 +84,7 @@ the service worker, API traffic, and unknown requests. This makes cache outcomes
 status codes, edge detail, bytes, and time-to-first-byte useful without turning the
 operational log into a player or visitor ledger. `node scripts/web-activity.mjs`
 verifies delivery and retention, then returns only aggregate Logs Insights results.
-The operations dashboard adds CloudFront request/byte and error-rate charts, and a
+Grafana charts CloudFront requests, bytes and error rate, and a
 sustained 5xx-rate alarm fires only when more than 5% of requests fail in two of three
 five-minute windows.
 

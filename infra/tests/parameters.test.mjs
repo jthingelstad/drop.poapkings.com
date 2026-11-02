@@ -454,45 +454,11 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("defines a valid operations dashboard and baseline-backed alarms", () => {
-    const dashboardBody = template
-      .match(/DashboardBody: !Sub \|\n((?: {8}.*\n)+)/)?.[1]
-      .replaceAll(/^ {8}/gm, "")
-      .replaceAll(/\$\{[^}]+\}/g, "placeholder");
-    assert.ok(dashboardBody);
-    const dashboard = JSON.parse(dashboardBody);
-    assert.equal(dashboard.start, "-PT8H");
-    assert.equal(dashboard.periodOverride, "inherit");
-    assert.equal(dashboard.widgets[0].type, "alarm");
-    assert.equal(dashboard.widgets.length, 11);
-
-    assert.ok(
-      dashboard.widgets.find(
-        (w) =>
-          w.type === "log" &&
-          w.properties.title === "Requests and p95 by HTTP route",
-      ),
-    );
-    const apiRequests = dashboard.widgets.find(
-      (w) => w.properties.title === "API requests and responses",
-    );
-    assert.equal(apiRequests.properties.metrics[0][0], "AWS/Lambda/Web");
-    assert.ok(
-      dashboard.widgets.find(
-        (w) => w.properties.title === "Web requests and bytes",
-      ),
-    );
-    assert.ok(
-      dashboard.widgets.find((w) => w.properties.title === "Web error rate"),
-    );
-    assert.doesNotMatch(dashboardBody, /AWS\/ApiGateway|HttpApi|ApiFunction/);
-
-    assert.match(template, /PolicyName: elixir-drop-dashboard-management/);
-    assert.match(template, /- cloudwatch:PutDashboard/);
-    assert.match(
-      template,
-      /OperationsDashboard:[\s\S]*?DependsOn: CloudFormationDashboardPolicy/,
-    );
+  void it("owns no CloudWatch dashboard and keeps baseline-backed alarms", () => {
+    // Grafana on Otto charts Drop since 2026-11-02 (Jamie's approval); the
+    // stack and its CloudFormation role no longer manage dashboards.
+    assert.doesNotMatch(template, /AWS::CloudWatch::Dashboard|DashboardBody/);
+    assert.doesNotMatch(template, /elixir-drop-dashboard-management|Dashboard/);
 
     const p95Alarm = template.match(
       /ApiLatencyP95Alarm:[\s\S]*?(?=\n  DataTableThrottleAlarm:)/,
@@ -533,10 +499,7 @@ void describe("deployment parameters", () => {
   void it("allows CloudFormation to manage scheduled structured logs", () => {
     assert.match(bootstrap, /"events:\*"/);
     assert.match(bootstrap, /"logs:\*"/);
-    assert.match(
-      bootstrap,
-      /arn:aws:cloudwatch::\$\{accountId\}:dashboard\/elixir-drop-\*/,
-    );
+    assert.doesNotMatch(bootstrap, /:dashboard\//);
     assert.match(bootstrap, /logs:CreateDelivery/);
     assert.match(bootstrap, /logs:PutDeliverySource/);
     assert.match(bootstrap, /logs:PutResourcePolicy/);

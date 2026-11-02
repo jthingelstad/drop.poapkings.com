@@ -160,7 +160,6 @@ async function ensureRole(
             Action: ["cloudwatch:*"],
             Resource: [
               `arn:aws:cloudwatch:${region}:${accountId}:alarm:elixir-drop-*`,
-              `arn:aws:cloudwatch::${accountId}:dashboard/elixir-drop-*`,
             ],
           },
           {
