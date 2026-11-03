@@ -2,15 +2,21 @@
 // hash-routed SPA and its one-time login token lives in #/auth?...; loading a
 // collector there would create an unnecessary disclosure risk.
 //
-// Tinylytics' SPA collector follows History API navigation, while Drop retains
-// hash routing as its stable auth/share route contract. Bridge safe hash
-// changes to Tinylytics' browser collector so its site view receives useful
-// virtual paths.
+// Tinylytics' script counts History API navigation (pushState, replaceState,
+// popstate) but ignores a change to the hash alone, while Drop retains hash
+// routing as its stable auth/share route contract. Bridge safe hash changes to
+// Tinylytics' browser collector so its site view receives useful virtual
+// paths. The script is never re-injected per route, so nothing counts twice.
+//
+// The tag is the one Tinylytics embed for every site: /js/script.js with the
+// site in data-site and no query parameters. Which features it runs (events,
+// beacon) is set in the site's Tinylytics settings, not here.
 
 import { analyticsCollectorReady } from './analytics'
 
 const SITE_ID = 'JjqvUeyEnrPM1f_iXrbU'
-const EMBED_SRC = `https://tinylytics.app/embed/${SITE_ID}/min.js?events&beacon`
+const EMBED_SRC = 'https://tinylytics.app/js/script.js'
+const CONFIG_URL = `https://tinylytics.app/embed/${SITE_ID}/config`
 const COLLECTOR_URL = `https://tinylytics.app/collector/${SITE_ID}`
 const SCRIPT_ID = 'elixir-drop-tinylytics'
 
@@ -25,6 +31,35 @@ const PAGE_PATHS = [
   '/profile',
   '/login'
 ] as const
+
+// The script attaches its click listener only once it has fetched the site's
+// settings (CONFIG_URL), which is after its own load event. Events queued
+// before the script loaded (a game started from a direct #/surge link) are
+// flushed after that fetch has finished, so the listener hears them. A
+// browser without resource timing, or a settings fetch that never shows,
+// falls back to a fixed delay.
+const LISTENER_SETTLE_MS = 100
+const LISTENER_FALLBACK_MS = 3000
+
+function whenCollectorListening(ready: () => void): void {
+  let done = false
+  let observer: PerformanceObserver | undefined
+  const finish = () => {
+    if (done) return
+    done = true
+    observer?.disconnect()
+    window.setTimeout(ready, LISTENER_SETTLE_MS)
+  }
+  try {
+    observer = new PerformanceObserver((list) => {
+      if (list.getEntries().some((entry) => entry.name.startsWith(CONFIG_URL))) finish()
+    })
+    observer.observe({ type: 'resource', buffered: true })
+  } catch {
+    // No resource timing: the fallback below still flushes.
+  }
+  window.setTimeout(finish, LISTENER_FALLBACK_MS)
+}
 
 function authRoute(): boolean {
   const path = window.location.hash.split('?')[0]
@@ -92,10 +127,11 @@ export function initAnalytics(): () => void {
 
     const script = document.createElement('script')
     script.id = SCRIPT_ID
-    script.src = EMBED_SRC
     script.defer = true
+    script.src = EMBED_SRC
+    script.dataset.site = SITE_ID
     script.addEventListener('load', () => {
-      analyticsCollectorReady()
+      whenCollectorListening(analyticsCollectorReady)
     })
     document.head.appendChild(script)
   }

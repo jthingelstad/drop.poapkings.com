@@ -926,7 +926,7 @@ export function renderStaticPage(slug: StaticPageSlug): string {
       <p>${POLICY_NOTICE}</p>
     </div>
   </footer>
-  <script defer src="https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&amp;beacon"></script>
+  <script defer src="https://tinylytics.app/js/script.js" data-site="JjqvUeyEnrPM1f_iXrbU"></script>
 </body>
 </html>\n`
 }

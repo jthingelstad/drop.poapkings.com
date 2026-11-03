@@ -721,11 +721,14 @@ export const test = base.extend({
     page.on('pageerror', (err) => {
       if (!isWebkitMockNavigationCancellation(err.message)) errors.push(err.message)
     })
-    await page.route('https://tinylytics.app/embed/**', (route) =>
+    await page.route('https://tinylytics.app/js/script.js', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'text/javascript',
+        // Like the real script, fetch the site's settings: the loader
+        // flushes queued events once that fetch has finished.
         body: `window.__tinylyticsEvents = [];
+        fetch('https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/config').catch(() => {});
         document.addEventListener('click', (event) => {
           const node = event.target.closest?.('[data-tinylytics-event]');
           if (!node) return;
@@ -734,6 +737,14 @@ export const test = base.extend({
             value: node.getAttribute('data-tinylytics-event-value')
           });
         });`
+      })
+    )
+    await page.route('https://tinylytics.app/embed/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: '{}'
       })
     )
     await page.route('https://tinylytics.app/collector/**', (route) => route.fulfill({ status: 204 }))
