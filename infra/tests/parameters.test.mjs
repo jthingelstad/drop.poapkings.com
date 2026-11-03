@@ -387,11 +387,7 @@ void describe("deployment parameters", () => {
     assert.equal(parameterDefault("AlarmEmail"), "drop@poapkings.com");
   });
 
-  void it("alarms on observable API 5xx responses and retains structured logs", () => {
-    assert.match(
-      template,
-      /Namespace: AWS\/Lambda\/Web\s+MetricName: HTTPResponseStatusClass5XX/,
-    );
+  void it("retains structured logs", () => {
     assert.match(
       template,
       /LogGroupName: \/elixir-drop\/api\s+RetentionInDays: 30/,
@@ -454,55 +450,34 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("owns no CloudWatch dashboard and keeps baseline-backed alarms", () => {
+  void it("owns no CloudWatch dashboard and keeps one alarm, refresh age", () => {
     // Grafana on Otto charts Drop since 2026-11-02 (Jamie's approval); the
     // stack and its CloudFormation role no longer manage dashboards.
     assert.doesNotMatch(template, /AWS::CloudWatch::Dashboard|DashboardBody/);
     assert.doesNotMatch(template, /elixir-drop-dashboard-management|Dashboard/);
 
-    const p95Alarm = template.match(
-      /ApiLatencyP95Alarm:[\s\S]*?(?=\n  DataTableThrottleAlarm:)/,
-    )?.[0];
-    assert.ok(p95Alarm);
-    assert.match(
-      p95Alarm,
-      /five of fifteen one-minute windows[\s\S]*?ExtendedStatistic: p95[\s\S]*?Period: 60[\s\S]*?EvaluationPeriods: 15[\s\S]*?DatapointsToAlarm: 5[\s\S]*?Threshold: 1200/,
+    // The account keeps alarms only where someone acts on them (Jamie,
+    // 2026-11-03): refresh-age is this stack's one.
+    assert.deepEqual(
+      [
+        ...template.matchAll(
+          /^  ([A-Za-z0-9]+):\n    Type: AWS::CloudWatch::Alarm$/gm,
+        ),
+      ].map((match) => match[1]),
+      ["RefreshAgeAlarm"],
     );
-    for (const retired of [
-      "elixir-drop-api-latency-p99",
-      "elixir-drop-api-concurrency",
-      "elixir-drop-dynamodb-system-errors",
-    ])
-      assert.ok(!template.includes(`AlarmName: ${retired}`));
-    assert.match(template, /AlarmName: elixir-drop-dynamodb-throttles/);
-    assert.match(template, /MetricName: ReadThrottleEvents/);
-    assert.match(template, /MetricName: WriteThrottleEvents/);
-    assert.match(template, /Expression: SUM\(METRICS\(\)\)/);
-    assert.match(template, /AlarmName: elixir-drop-web-5xx-rate/);
+    const refreshAge = template.match(/RefreshAgeAlarm:[\s\S]*?(?=\n\n)/)?.[0];
+    assert.ok(refreshAge);
     assert.match(
-      template,
-      /MetricName: 5xxErrorRate[\s\S]*?DatapointsToAlarm: 2[\s\S]*?Threshold: 5/,
+      refreshAge,
+      /AlarmName: !Sub \$\{AWS::StackName\}-refresh-age[\s\S]*?MetricName: ApproximateAgeOfOldestMessage[\s\S]*?!GetAtt RefreshQueue\.QueueName[\s\S]*?AlarmActions:\s*- !Ref AlarmTopic/,
     );
   });
 
-  void it("alarms when two whole clock hours pass without a saved season clock", () => {
-    const staleAlarm = template.match(
-      /WarClockStaleAlarm:[\s\S]*?(?=\n  RefreshDeadLetterAlarm:)/,
-    )?.[0];
-    assert.ok(staleAlarm);
-    // The metric filter has no default value, so an hour without a save is
-    // missing data; it must breach. The wall clock window keeps CloudWatch from
-    // reaching back past the two hours for older real saves.
+  void it("keeps the season clock's saved metric for Grafana", () => {
     assert.match(
-      staleAlarm,
-      /AlarmName: !Sub \$\{AWS::StackName\}-war-clock-stale[\s\S]*?Namespace: ElixirDrop\/Refresh[\s\S]*?MetricName: WarClockSaved[\s\S]*?Statistic: Sum[\s\S]*?Period: 3600[\s\S]*?EvaluationPeriods: 2[\s\S]*?DatapointsToAlarm: 2[\s\S]*?Threshold: 1[\s\S]*?ComparisonOperator: LessThanThreshold[\s\S]*?TreatMissingData: breaching[\s\S]*?WallClockWindow:[\s\S]*?Timezone: UTC[\s\S]*?AlarmActions:\s*- !Ref AlarmTopic/,
-    );
-    assert.doesNotMatch(staleAlarm, /\u2014/);
-    assert.doesNotMatch(
-      template.match(
-        /WarClockSavedMetric:[\s\S]*?(?=\n  WarClockStaleAlarm:)/,
-      )?.[0] ?? "",
-      /DefaultValue/,
+      template,
+      /WarClockSavedMetric:[\s\S]*?FilterPattern: '\{ \$\.message\.event = "war-clock\.saved" \}'[\s\S]*?MetricName: WarClockSaved/,
     );
   });
 

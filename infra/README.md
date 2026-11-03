@@ -25,8 +25,7 @@ as one CloudFormation stack:
 - an hourly EventBridge Scheduler run (`elixir-drop-prod-war-clock`, :05 UTC) that
   queues the season clock job through its own send-only role, so a season
   finalizes without a visitor, a `WarClockSaved` metric from the worker's
-  `war-clock.saved` log line, and the `elixir-drop-prod-war-clock-stale` alarm
-  on it;
+  `war-clock.saved` log line (no alarm on it since 2026-11-03);
 - a daily EventBridge Scheduler run (`elixir-drop-prod-run-analysis`, 11:15 UTC)
   that invokes the run-analysis Lambda directly. Its role may only Scan the
   table, projected to an attribute allowlist, and write the
@@ -71,16 +70,14 @@ account is an Elixir account, and Elixir's one list is Elixir's. Deleting a
 Drop account unsubscribes nobody from it. The bootstrap-owned execution role
 keeps its now-unused grant on the deleted `elixir-drop` configuration set until
 `npm run bootstrap:aws` next rewrites it.
-CloudWatch separately alarms on refresh queue age, refresh dead letters,
-season-repair consumer errors, season-repair dead letters, and a stale season
-clock. The clock alarm (`elixir-drop-prod-war-clock-stale`) fires when two
-whole UTC clock hours pass with no `WarClockSaved`: the hourly schedule or the
-refresh worker has stopped. It uses a wall clock window, so it reads exactly
-those two hours, and it treats an hour with no data as breaching, because the
-metric filter publishes nothing in an hour without a save. It reaches ALARM
-two to three hours after the last save. The API, refresh
+CloudWatch alarms only on refresh queue age (`elixir-drop-prod-refresh-age`)
+since 2026-11-03: the account keeps alarms only where someone acts on them,
+and the other nine (API errors, p95 latency and throttles, DynamoDB
+throttles, the web 5xx rate, the refresh and season-repair dead letters,
+season-repair consumer errors and the stale season clock) were removed
+(`docs/monitoring-retirement.md`). The API, refresh
 worker, and repair consumer write JSON logs to dedicated 30-day log groups.
-Operational alarms target `drop@poapkings.com` by default.
+The operational alarm topic targets `drop@poapkings.com` by default.
 
 HTTP logging uses the managed `/elixir-drop/api` and `/elixir-drop/api.local`
 groups with 30-day retention. App timings include a bounded route template and
@@ -88,14 +85,11 @@ API build identity, never viewer IPs, raw paths, identities, tokens, or OAuth
 queries. The stack owns no CloudWatch dashboard: since 2026-11-02 the `drop`
 dashboard in Grafana on Otto (otto-ops) charts CloudFront, DynamoDB, and Web
 Function requests/errors, CPU, active time, memory and concurrency, with route
-counts and p95 queried from application logs. A log metric filter provides the
-sustained p95 latency alarm through `ElixirDrop/HTTP`; native Web metrics drive
-the HTTP 5xx alarm and the capacity alarm, which fires on an actual throttle
-(endpoint request, active-environment, or account), not on the active-environment
-count. The endpoint's `MaxEnvironments` is 3 and ordinary page-load bursts reach
-it with no throttle, so the count alarm and the overlapping p99 alarm were retired
-on 2026-11-01 (`docs/monitoring-retirement.md`, issues #94 and #95). Workers retain
-their Event Function alarms.
+counts and p95 queried from application logs. A log metric filter publishes
+request latency to `ElixirDrop/HTTP`, and native Web metrics count HTTP 5xx and
+throttles; no alarm watches them since 2026-11-03. The endpoint's
+`MaxEnvironments` is 3 and ordinary page-load bursts reach it with no throttle
+(`docs/monitoring-retirement.md`, issues #94 and #95).
 
 CloudFront standard logging v2 writes JSON access records to the 24-month (731-day)
 `/elixir-drop/web-access` log group. The delivery deliberately excludes viewer IP,
@@ -106,9 +100,7 @@ the service worker, API traffic, and unknown requests. This makes cache outcomes
 status codes, edge detail, bytes, and time-to-first-byte useful without turning the
 operational log into a player or visitor ledger. `node scripts/web-activity.mjs`
 verifies delivery and retention, then returns only aggregate Logs Insights results.
-Grafana charts CloudFront requests, bytes and error rate, and a
-sustained 5xx-rate alarm fires only when more than 5% of requests fail in two of three
-five-minute windows.
+Grafana charts CloudFront requests, bytes and error rate (no alarm since 2026-11-03).
 
 `npm run bootstrap:aws` is the one-time setup. It uses the currently configured
 administrator credentials to create the `elixir-drop` IAM deploy user, a
@@ -244,7 +236,7 @@ The worker processes one message per invocation with concurrency capped at two.
 FIFO groups serialize the clock and each player; duplicate jobs within five
 minutes coalesce. The 720-second visibility timeout is six times its 120-second
 execution timeout. Failed jobs retry up to five receives before entering the
-14-day DLQ. Queue-age and DLQ alarms use the existing operator alarm topic.
+14-day DLQ. The queue-age alarm uses the existing operator alarm topic.
 Inspect `/elixir-drop/refresh` for safe errors and `api.timings` operation data;
 replay failed refresh work only after correcting its cause. Public requests retain
 cached responses during worker outages. Queue enqueue failure is logged and the
