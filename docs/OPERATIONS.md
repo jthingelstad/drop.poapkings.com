@@ -38,7 +38,9 @@ pipeline that did not run or finish is a finding, not a routine manual handoff.
 - Event Function worker/repair errors, throttles, and duration.
 - DynamoDB throttling, TTL, and capacity.
 - The refresh dead-letter queue.
-- The season clock: `elixir-drop-prod-war-clock-stale` (see Seasons).
+- The season clock: `WarClockSaved` in `ElixirDrop/Refresh` (see Seasons; no
+  alarm since 2026-11-03).
+- The refresh queue's age: `elixir-drop-prod-refresh-age`, the stack's one alarm.
 - CloudFront health.
 
 Drop sends no mail and keeps no mailing list since 2026-10-12 (its SES sender
@@ -157,15 +159,15 @@ identity), or verification fails.
   queues a clock job, so a season closes at 10:05 UTC on the first Monday
   without waiting for a visitor. Each saved clock logs `war-clock.saved`
   (`ElixirDrop/Refresh` `WarClockSaved`).
-- The `elixir-drop-prod-war-clock-stale` alarm fires when two whole UTC clock
-  hours pass with no saved clock, so it mails `drop@poapkings.com` two to
-  three hours after the last save. It means the season clock has stopped
-  updating, and a season boundary would not close on time. Check, in order:
+- No alarm watches the clock since 2026-11-03 (the stack keeps one alarm,
+  `elixir-drop-prod-refresh-age`). Two whole UTC clock hours with no
+  `WarClockSaved` mean the season clock has stopped updating, and a season
+  boundary would not close on time. Check, in order:
   1. The schedule: `elixir-drop-prod-war-clock` is `ENABLED` and its role can
      still send to the refresh queue.
   2. The queue's dead letters: `elixir-drop-prod-refresh-dlq.fifo` holds
-     clock jobs that exhausted their retries (its alarm is
-     `elixir-drop-prod-refresh-dlq`).
+     clock jobs that exhausted their retries (no alarm watches it since
+     2026-11-03).
   3. The worker's errors: `/elixir-drop/refresh` for a thrown clock job or a
      failing hub read (`GET /api/v1/game/clock`), and the worker's Lambda
      errors.

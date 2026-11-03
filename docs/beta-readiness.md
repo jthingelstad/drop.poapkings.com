@@ -46,7 +46,8 @@ state. Do not delete the DynamoDB table or CloudFormation stack as a rollback.
 
 - Confirm the `elixir-drop` CloudFormation stack is settled and the alarm email
   subscription has been confirmed.
-- Confirm all `elixir-drop-*` CloudWatch alarms are `OK`, or understand any
+- Confirm the `elixir-drop-prod-refresh-age` CloudWatch alarm (the stack's
+  one since 2026-11-03) is `OK`, or understand any
   current `INSUFFICIENT_DATA` state before inviting players.
 - Confirm the local launch agent is running:
   `launchctl print gui/$(id -u)/com.poapkings.elixir-drop-cr-bridge`.
