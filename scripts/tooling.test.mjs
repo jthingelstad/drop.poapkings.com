@@ -184,12 +184,52 @@ void test("operator tooling lives in scripts/ and the Fair Play policy keeps its
   assert.doesNotMatch(fairPlayPolicy, /watermark|cohort|top 25/i);
   assert.match(fairPlayPolicy, /## Investigating a flag by hand/);
   assert.match(fairPlayPolicy, /drop@poapkings\.com/);
-  for (const retired of ["season-brief.mjs", "referee-tags.mjs"])
+  // The routine-review reads retired 2026-11-03 with the Otto Ops entrant job
+  // that was their last caller; a hand investigation never used them.
+  const retiredScripts = [
+    "season-brief.mjs",
+    "referee-tags.mjs",
+    "referee-cohort.mjs",
+    "referee-feed.mjs",
+    "referee-decisions.mjs",
+  ];
+  for (const retired of retiredScripts)
     assert.equal(
       existsSync(path.join(ROOT, "scripts", retired)),
       false,
       retired,
     );
+  const packageJson = readFileSync(path.join(ROOT, "package.json"), "utf8");
+  const scriptsReadme = readFileSync(
+    path.join(ROOT, "scripts/README.md"),
+    "utf8",
+  );
+  const spec = readFileSync(path.join(ROOT, "SPEC.md"), "utf8");
+  const agents = readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
+  for (const name of ["referee-cohort", "referee-feed", "referee-decisions"])
+    for (const [label, text] of [
+      ["package.json", packageJson],
+      ["docs/OPERATIONS.md", operations],
+      ["docs/FAIR-PLAY.md", fairPlayPolicy],
+      ["scripts/README.md", scriptsReadme],
+      ["SPEC.md", spec],
+      ["AGENTS.md", agents],
+    ])
+      assert.doesNotMatch(text, new RegExp(name), `${label} names ${name}`);
+  // The kept scripts are still the one sanctioned referee path.
+  for (const kept of [
+    "referee-run.mjs",
+    "referee-player.mjs",
+    "referee-decide.mjs",
+    "referee-players.mjs",
+    "referee-ranked-access.mjs",
+    "_referee-lib.mjs",
+  ])
+    assert.equal(existsSync(path.join(ROOT, "scripts", kept)), true, kept);
+  assert.match(
+    scriptsReadme,
+    /\*\*only\s+sanctioned referee read and decision path\*\*/,
+  );
 });
 
 void test("player updates pass one material-impact notification bar", () => {

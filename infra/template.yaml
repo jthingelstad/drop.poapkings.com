@@ -586,8 +586,8 @@ Resources:
                       - profile-images/*
 
   # Referee identity for evidence review and reversible run judgments. It reads
-  # the canonical evidence surface — bounded to the partitions and indexes the
-  # scripts/referee-*.mjs address — and may write only REFEREE# decision
+  # the canonical evidence surface — bounded to the partitions the
+  # scripts/referee-*.mjs address, with no index — and may write only REFEREE# decision
   # partitions; it cannot alter players, runs, scores, evidence, or leaderboard
   # index rows, and has NO access to any secret (the pepper is Lambda-only).
   # The physical name is retained for compatibility with the managed host's
@@ -609,12 +609,11 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # Keyed reads stay inside the three partition families the referee
+              # Keyed reads stay inside the two partition families the referee
               # scripts actually address: PLAYER# (the profile's playerId, RUN#
-              # history, EVIDENCE# items), REFEREE# (its own decisions), and the
-              # CR_WAR_CLOCK singleton that carries the current leaderboard
-              # season. MAGIC# (raw email), POLL# (session envelopes), RATE#,
-              # RUN#, CR_PLAYER#, and FEED# are out of reach.
+              # history, EVIDENCE# items) and REFEREE# (its own decisions).
+              # MAGIC# (raw email), POLL# (session envelopes), RATE#, RUN#,
+              # CR_PLAYER#, CR_WAR_CLOCK, and FEED# are out of reach.
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
@@ -626,22 +625,17 @@ Resources:
                     dynamodb:LeadingKeys:
                       - PLAYER#*
                       - REFEREE#*
-                      - CR_WAR_CLOCK
-              # Index reads: the GSI1 leaderboard partitions only.
-              # dynamodb:LeadingKeys cannot bound these — an index query keys on
-              # the index's own partition key, not the table's — so the bound is
-              # the resource itself: GSI2 (the sparse tag index, whose one referee
-              # reader, referee-tags, retired 2026-11-02), GSI3 (the public
-              # profile lookup) and any index added later are not granted.
-              - Effect: Allow
-                Action: dynamodb:Query
-                Resource:
-                  - !Sub "${DataTable.Arn}/index/GSI1"
+              # No index is granted. The referee scripts read no leaderboard:
+              # GSI1 was withdrawn on 2026-11-03 when its only readers
+              # (referee-cohort and referee-feed, with the CR_WAR_CLOCK season
+              # read) retired, and GSI2 when referee-tags retired on 2026-11-02.
+              # dynamodb:LeadingKeys cannot bound an index query, so leaving the
+              # index resources out is the bound.
               # Scan cannot be partition-bounded: it returns items regardless of
               # the leading key, so DynamoDB does not evaluate
-              # dynamodb:LeadingKeys for it. Four referee reads need it (runId ->
-              # evidence, playerId -> owning profile, the unscored-attempt feed,
-              # and the decision list), so it is granted on the base table only —
+              # dynamodb:LeadingKeys for it. Three referee reads need it (runId ->
+              # evidence, playerId -> owning profile, and the Control Room's
+              # player directory), so it is granted on the base table only —
               # never an index — and paired with the attribute Deny below.
               - Effect: Allow
                 Action: dynamodb:Scan
@@ -650,7 +644,7 @@ Resources:
               # a subject or email attribute in a projection, filter, or key —
               # the identity half of the scripts' own forbidden-key list. Key
               # attributes (pk, GSI1SK) are deliberately absent: DynamoDB needs
-              # them for pagination and index reads, and the scripts strip them
+              # them for pagination, and the scripts strip them
               # from output instead. This closes the deliberate-projection path.
               # A Query/Scan that supplies no ProjectionExpression still returns
               # whole items, so stripForbidden() remains the other half of the

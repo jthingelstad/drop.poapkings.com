@@ -683,26 +683,31 @@ void describe("deployment parameters", () => {
     assert.match(bootstrap, /role\/elixir-drop-referee-read/);
   });
 
-  void it("bounds referee reads to the partitions and indexes it reviews", () => {
+  void it("bounds referee reads to the partitions it reviews, with no index", () => {
     const refereeRole = template.match(
       /  RefereeReadRole:[\s\S]*?\n  DropControlRole:/,
     )?.[0];
     assert.ok(refereeRole);
 
-    // Keyed reads only reach the profile/run/evidence, decision, and war-clock
-    // partitions. MAGIC# items carry a raw email and POLL# items carry session
-    // envelopes; neither is addressable.
+    // Keyed reads only reach the profile/run/evidence and decision partitions.
+    // MAGIC# items carry a raw email and POLL# items carry session envelopes;
+    // neither is addressable. The CR_WAR_CLOCK season read retired 2026-11-03
+    // with referee-cohort and referee-feed, its only callers.
     assert.match(
       refereeRole,
-      /- dynamodb:GetItem\s+- dynamodb:BatchGetItem\s+- dynamodb:Query\s+Resource: !GetAtt DataTable\.Arn\s+Condition:\s+ForAllValues:StringLike:\s+dynamodb:LeadingKeys:\s+- PLAYER#\*\s+- REFEREE#\*\s+- CR_WAR_CLOCK/,
+      /- dynamodb:GetItem\s+- dynamodb:BatchGetItem\s+- dynamodb:Query\s+Resource: !GetAtt DataTable\.Arn\s+Condition:\s+ForAllValues:StringLike:\s+dynamodb:LeadingKeys:\s+- PLAYER#\*\s+- REFEREE#\*\n(?!\s+- )/,
     );
+    assert.doesNotMatch(refereeRole, /- CR_WAR_CLOCK/);
 
-    // Index reads name the one index the scripts query. The tag index GSI2
-    // (its reader retired 2026-11-02), the public-profile GSI3 and any future
-    // index are not granted.
-    assert.match(refereeRole, /index\/GSI1/);
-    assert.doesNotMatch(refereeRole, /index\/GSI2/);
-    assert.doesNotMatch(refereeRole, /index\/GSI3/);
+    // No index is granted. The kept scripts read no leaderboard, so GSI1 went
+    // with referee-cohort and referee-feed on 2026-11-03; the tag index GSI2
+    // went with referee-tags on 2026-11-02; GSI3 and any future index never
+    // were. Only the Deny below names an index resource.
+    assert.doesNotMatch(refereeRole, /index\/GSI[0-9]/);
+    assert.doesNotMatch(
+      refereeRole,
+      /Effect: Allow\s+Action:\s+dynamodb:Query\s+Resource:\s+- !Sub/,
+    );
     // The one remaining wildcard is the Deny below, never an Allow.
     assert.doesNotMatch(
       refereeRole,

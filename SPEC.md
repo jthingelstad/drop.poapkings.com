@@ -195,8 +195,7 @@ app has six playable modes, routed from `apps/web/src/lib/game-routes.ts`:
 | Rain           | `#/rain`         | `rainBest`, most cards cleared              |
 
 Survival, Rain, Higher / Lower, and Trade each carry a **board epoch**
-(`BOARD_EPOCH` in `services/api/src/games.ts`, mirrored in
-`scripts/_referee-lib.mjs`): a material rules change restarts the
+(`BOARD_EPOCH` in `services/api/src/games.ts`): a material rules change restarts the
 board rather than deleting data, and old rows are orphaned. Rain is on `r4`
 (fresh competition for the accepted kill-line, slowdown, and late-difficulty
 structure), Higher / Lower is on `r3` (its clock now tightens continuously
@@ -1195,15 +1194,18 @@ player's pseudonymous history with `referee-player.mjs`, and records a removal
 or restore with `referee-decide.mjs`; `referee-ranked-access.mjs` is the
 separate Jamie-approved player overlay, and `referee-players.mjs` feeds the
 Control Room directory. These, over `_referee-lib.mjs`, are the only sanctioned
-referee read and decision path (`scripts/README.md`, which also names the three
-routine-review reads kept until the Otto Ops job that uses them retires). They
-run under the bounded
-`RefereeReadRole` (physical name retained for compatibility). It can read the
-game table and write only `REFEREE#` decision partitions; it cannot edit runs,
+referee read and decision path (`scripts/README.md`). None of them reads a
+leaderboard. They run under the bounded
+`RefereeReadRole` (physical name retained for compatibility). Its keyed reads
+reach only the game table's `PLAYER#` and `REFEREE#` items, its `Scan` only the
+base table, and it has no index access; it writes only `REFEREE#` decision
+partitions; it cannot edit runs,
 scores, evidence, players, XP, or leaderboard rows and has no secret access. A sparse
 `GSI2` (`GSI2PK="TAGGED"`, `GSI2SK="{normalizedPlayerTag}#{playerId}"` on tagged
 PROFILE items) indexes tags saved through the current API; since `referee-tags`
-retired on 2026-11-02 the referee role is not granted it. `runId` on the all-time item
+retired on 2026-11-02 the referee role is not granted it, and since the
+routine-review reads retired on 2026-11-03 it is not granted the GSI1 leaderboard
+index either. `runId` on the all-time item
 resolves an all-time board entry to its earning run. The scripts sanitize on the
 way out (pseudonymous `playerId`, opaque hashes, normalized tag — never `sub`,
 email, a raw IP, or the pepper) and **fail closed** on missing or incomplete

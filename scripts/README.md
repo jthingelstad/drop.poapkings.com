@@ -116,11 +116,9 @@ sanctioned referee read and decision path**:
 - `referee-players.mjs` feeds the Control Room's player directory;
 - `_referee-lib.mjs` holds their shared key conventions.
 
-`referee-cohort.mjs`, `referee-feed.mjs` and `referee-decisions.mjs` are kept only
-for the Otto Ops `flag-new-drop-entrants` job and its monthly decision check, which
-retire around 2026-11-10. They belong to the retired routine review, are not part
-of a hand investigation, and go when that job does. `referee-tags.mjs` and
-`season-brief.mjs` were retired on 2026-11-02.
+`referee-tags.mjs` and `season-brief.mjs` were retired on 2026-11-02, and the
+routine-review reads that served the Otto Ops entrant job on 2026-11-03. None of
+the remaining scripts reads a leaderboard.
 
 Read [`docs/FAIR-PLAY.md`](../docs/FAIR-PLAY.md) for the required evidence and decision rubric. The
 scripts encapsulate documented DynamoDB queries and print sanitized, annotated
@@ -174,17 +172,18 @@ Run under the bounded `RefereeReadRole` (the physical name is retained for host
 compatibility; it is defined in `infra/template.yaml` and exported as
 `RefereeReadRoleArn`). Its **read** scope is bounded, not blanket:
 
-- Keyed reads (`GetItem`, `BatchGetItem`, `Query`) only inside the three partition
+- Keyed reads (`GetItem`, `BatchGetItem`, `Query`) only inside the two partition
   families the scripts address — `PLAYER#*` (profile, `RUN#` history, `EVIDENCE#`
-  items), `REFEREE#*`, and the `CR_WAR_CLOCK` singleton. `MAGIC#` (raw email),
-  `ELIXIR#` (identity pointers), `POLL#`, `RATE#`, `CR_PLAYER#`, and `FEED#` are out of reach.
-- Index `Query` only on **GSI1** (leaderboard partitions). GSI2 (the sparse tag
-  index, whose referee reader `referee-tags` retired 2026-11-02), GSI3 and any
-  index added later are not granted — `LeadingKeys` cannot bound an index read,
-  so the resource itself is the bound.
-- `Scan` on the **base table only**, never an index. Evidence/player lookup,
-  unscored attempts, decisions and the directory need it; `Scan` cannot be
-  partition-bounded.
+  items) and `REFEREE#*`. `MAGIC#` (raw email), `ELIXIR#` (identity pointers),
+  `POLL#`, `RATE#`, `CR_PLAYER#`, `CR_WAR_CLOCK`, and `FEED#` are out of reach.
+- **No index** read. The scripts read no leaderboard, so GSI1 (leaderboard
+  partitions) was withdrawn on 2026-11-03, GSI2 (the sparse tag index) when
+  `referee-tags` retired on 2026-11-02, and GSI3 and any index added later were
+  never granted — `LeadingKeys` cannot bound an index read, so the resource
+  itself is the bound.
+- `Scan` on the **base table only**, never an index. Evidence lookup by run,
+  profile lookup by player and the Control Room directory need it; `Scan`
+  cannot be partition-bounded.
 - An explicit **Deny** on any read that names `sub`, `playerSub`, `owner`,
   `dropSub`, or `email` in a projection, filter, or key — golden rule 7 enforced in IAM, not
   just in JS.
@@ -216,75 +215,38 @@ Configuration:
 | Script                      | Arguments                                                                                                                    | Returns                                                                                                                                                                                                                                                                                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `referee-run.mjs`           | `<runId-or-#Dreference>`                                                                                                     | Full annotated evidence for one run (challenge, transcript, timing, recomputed score, scoring version, integrity outcome, correlation hashes). Resolves the UUID or player-facing Drop run tag by scanning for the `EVIDENCE#` item.                                                                                                                |
-| `referee-cohort.mjs`        | `--mode <m> --scope season\|all-time [--limit 25] [--season <number>]`                                                       | Ranked top cohort: `{ rank, playerId, runId, runReference, score, completedAt, timeMs? }`. Season defaults to the live Clan Wars season. Kept only for the Otto Ops `flag-new-drop-entrants` job until it retires (about 2026-11-10).                                                                                                               |
 | `referee-players.mjs`       | `[--limit 500]`                                                                                                              | Sanitized Control Room directory with player tags, run/review counts, badge totals, ranked access, and recent run tags.                                                                                                                                                                                                                             |
 | `referee-player.mjs`        | `<playerId>`                                                                                                                 | Bounded run history + per-mode progression for one pseudonymous player.                                                                                                                                                                                                                                                                             |
-| `referee-feed.mjs`          | `--since <ISO>`                                                                                                              | Cohort entries plus unscored attempts completed after the cursor, newest first. Kept only for the Otto Ops monthly decision check until it retires (about 2026-11-10).                                                                                                                                                                              |
-| `referee-decisions.mjs`     | `[--disposition <d>] [--visibility visible\|hidden\|not_ranked] [--limit 200]`                                               | Current private judgments for unresolved and changed-case review. Kept only for the Otto Ops monthly decision check until it retires (about 2026-11-10).                                                                                                                                                                                            |
 | `referee-decide.mjs`        | `<runId-or-#Dreference> --disposition <d> --visibility visible\|hidden\|not_ranked --reason <text> [--player-reason <code>]` | Atomically writes the current decision and immutable audit event. This is how a person removes a run from the boards after a hand investigation (`review`/`hidden`, with a safe player-reason code); `visible` restores a scored run. A clear changes nothing a player sees. `--pending` and `--reopen` were retired on 2026-11-02 and fail closed. |
 | `referee-ranked-access.mjs` | `<playerId> (--restrict \| --restore) --approved-by jamie --reason <text>`                                                   | Applies or reverses a separate owner-only ranked-access restriction. It requires explicit Jamie approval, writes only an audited `REFEREE#PLAYER#` overlay, and never deletes the account or evidence.                                                                                                                                              |
 
-## Ranked modes and board epochs
+## Board visibility and shared conventions
 
-`RANKED_MODES` in `_referee-lib.mjs` is `surge`, `higher-lower`, `trade`,
-`survival`, and `rain` — the modes that write leaderboard rows. Practice is
-unranked and guest runs are never recorded, so neither has a partition. Rain was
-missing from this list until 2026-07-24, so cohort and feed reviews silently
-skipped it; if you are reading a review older than that, Rain was not covered.
+The scripts read no leaderboard. The leaderboard mirror they once carried
+(ranked modes, board epochs, sort keys and visible-row reconciliation) retired
+on 2026-11-03 with the routine-review reads, its only callers; the API's own
+board code in `services/api/src/games.ts` and `leaderboards.ts` is the one
+implementation.
 
-`BOARD_EPOCH` mirrors `services/api/src/games.ts`. A mode whose rules change
-materially gets a new epoch so its board restarts without deleting data — old
-rows are orphaned, and the scripts only ever see the current epoch. Survival is
-on `r2` (clear-the-deck rework), Rain on `r4` (2026-08-27: fresh competition for
-the accepted exact kill-line, final-10% slowdown, and half-strength progression
-beyond 80; `r3` introduced its two tiebreaks, and `r2` was the uncapped
-difficulty redesign), Higher/Lower on `r3` (`r2` introduced three lives and a
-gap-ramped deal on 2026-07-25; `r3` replaced its 2s clock floor with continuous
-tightening on 2026-08-08), and Trade on `r2` (2026-07-25: ten exchanges on a
-fixed board ladder, so an eight-exchange time is both shorter and easier).
-**Keep this in sync with the API** — a stale mirror reads the wrong partition
-and silently returns an empty cohort.
+`_referee-lib.mjs` still mirrors four conventions from the API: the
+player-facing run and player tags (`runReference`, `playerReference`), the
+board-exclusion classifier `isExcludedFromBoards` (from
+`services/api/src/referee-status.ts`, which `referee-players` uses to count
+excluded runs), and the `FORBIDDEN_KEYS` denylist that enforces Golden rule 7.
+Each is guarded by `services/api/tests/referee-scripts-mirror.test.ts`, which
+compares both implementations, so drift in either direction fails the API
+build.
 
-All-time visibility reconciliation also applies `isCurrentBoardRun` before it
-promotes a player's next-best history row. That history spans every ruleset, so
-an explicit `boardEpoch` must match the current epoch; legacy unstamped rows use
-the same verified cutover timestamp as the API. Without this filter, hiding a
-current leader can resurrect a stronger-looking score from a retired game.
-
-`MODE_TIEBREAKS` mirrors the ordered ascending tiebreaks each mode ranks equal
-scores by, named by the run attribute carrying each value: Survival `timeMs`;
-Higher/Lower `livesLost` then `timeMs`; Rain `wrongGuesses` then `avgLatencyMs`
-(average clear latency, derived server-side from the transcript's `atMs` stamps
-against Rain's shared spawn curve — the client never reports it). **Array order
-is ranking order**, and a wrong order or count rebuilds a different sort key than
-the API wrote, which re-ranks a board silently rather than failing.
-
-`_referee-lib.mjs` mirrors eight conventions in all: `RANKED_MODES`,
-`BOARD_EPOCH`/`leaderboardPartition`, `MODE_DIRECTION` + `MODE_TIEBREAKS` +
-`leaderboardSortKey`/`rowSortKey`, `isLeaderboardEligibleScore`,
-`isCurrentBoardRun`, `bestVisibleRun`, and `resolveAllTimeEarningRun` — plus the `FORBIDDEN_KEYS`
-denylist that enforces Golden rule 7. Every one of them is guarded by
-`services/api/tests/referee-scripts-mirror.test.ts`, which runs both
-implementations over the same fixture table and compares the answers; drift in
-either direction fails the API build. Two silent drifts were fixed on
-2026-07-24: the sort-key fallback never inverted the score (higher-is-better
-boards ranked backwards for rows with no `GSI1SK`), and the eligibility filter
-was missing (a 0-score run could be promoted as a player's best visible run).
-
-Leaderboard cohort/feed output reconciles current decisions. A hidden seasonal
-best falls back to the player's next-best visible run. The all-time cohort does
-the same, so hiding one fabricated score does not erase the player's legitimate
-history. Legacy all-time rows without a projected `runId` are resolved against
-immutable player history and fail closed if no exact earning run exists.
 `referee-run` and `referee-player` annotate evidence/history with the current
 decision when one exists. Since 2026-11-02 every run ranks on finishing: the
 game records automatic timing and scoring signals in the evidence
 (`integrityOutcome`, `reviewSignals`) and writes no decision. Only a person's
 `hidden` decision, after a hand investigation, removes a run from the boards,
-and a later `visible` decision restores it. Older automatic holds
-(`decidedBy: "integrity-gate"`) and reopened queue holds (`queueState:
-"pending"`) stay in the table and are ignored by the board classifier.
-Automatic labels are review signals, never verdicts.
+and a later `visible` decision restores it; the board then uses that player's
+next-best rankable run. Older automatic holds (`decidedBy: "integrity-gate"`)
+and reopened queue holds (`queueState: "pending"`) stay in the table and are
+ignored by the board classifier. Automatic labels are review signals, never
+verdicts.
 
 ## Output contract
 
@@ -299,9 +261,9 @@ Every script prints one JSON object to stdout:
 
 `sanitize` in `_referee-lib.mjs` deep-strips `FORBIDDEN_KEYS` from every item
 before it is printed: the internal subject keys `sub` / `playerSub` / `owner`, any
-`email`, and the raw key attributes `pk` / `GSI1SK` (DynamoDB needs those for
-pagination and index reads, so they are stripped on the way out rather than never
-fetched).
+`email`, and the raw key attributes `pk` / `GSI1SK` (whole run and evidence items
+carry them and DynamoDB needs keys for pagination, so they are stripped on the way
+out rather than never fetched).
 
 Three more values cannot appear because they are never stored or reachable at all:
 a raw IP address, a raw user-agent (both are hashed at the edge and discarded —
