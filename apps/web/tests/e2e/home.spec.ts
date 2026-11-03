@@ -346,7 +346,7 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
   const embedRequests: string[] = []
   const pageRequests: string[] = []
   page.on('request', (request) => {
-    if (request.url().startsWith('https://tinylytics.app/embed/')) embedRequests.push(request.url())
+    if (request.url().startsWith('https://tinylytics.app/js/script.js')) embedRequests.push(request.url())
     if (request.url().startsWith('https://tinylytics.app/collector/')) pageRequests.push(request.url())
   })
 
@@ -359,7 +359,7 @@ test('Tinylytics tracks hash pages, stays off the token route, and captures game
   await expect(page).toHaveURL(/#\/profile/)
   await expect.poll(() => embedRequests.length).toBe(1)
   await expect.poll(() => pageRequests.length).toBe(1)
-  expect(embedRequests[0]).toContain('/min.js?events&beacon')
+  expect(embedRequests[0]).toBe('https://tinylytics.app/js/script.js')
   expect(new URL(pageRequests[0]).searchParams.get('path')).toBe('/profile')
   expect(pageRequests[0]).not.toContain('abcdefghijklmnopqrstuvwxyz123456')
 

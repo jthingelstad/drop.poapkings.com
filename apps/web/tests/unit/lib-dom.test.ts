@@ -398,7 +398,9 @@ describe('analytics loader', () => {
     window.location.hash = '#/profile'
     window.dispatchEvent(new HashChangeEvent('hashchange'))
     const script = document.getElementById('elixir-drop-tinylytics') as HTMLScriptElement | null
-    expect(script?.src).toBe('https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon')
+    expect(script?.src).toBe('https://tinylytics.app/js/script.js')
+    expect(script?.dataset.site).toBe('JjqvUeyEnrPM1f_iXrbU')
+    expect(script?.defer).toBe(true)
     expect(sendBeacon).toHaveBeenCalledTimes(1)
 
     const pageHit = new URL(sendBeacon.mock.calls[0][0])

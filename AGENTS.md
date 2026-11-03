@@ -669,10 +669,11 @@ refresh always sets `MIRROR_IMAGES=true`; CDN URLs would break WebGL textures un
 
 ## Key values
 
-- Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). The safe loader uses
-  `https://tinylytics.app/embed/JjqvUeyEnrPM1f_iXrbU/min.js?events&beacon` and explicitly
-  bridges credential-free hash routes into virtual page paths because Drop
-  retains hash routing.
+- Tinylytics site ID: `JjqvUeyEnrPM1f_iXrbU` (integer `3445`). The safe loader injects
+  `<script defer src="https://tinylytics.app/js/script.js" data-site="JjqvUeyEnrPM1f_iXrbU">`
+  (no query parameters; events and beacon are the site's Tinylytics settings) and
+  explicitly bridges credential-free hash routes into virtual page paths because
+  Drop retains hash routing and the script ignores hash-only changes.
   The browser sends every event, including signed-in game completions and personal bests
   (from the completion response's `personalBest` flag). The API holds no Tinylytics token
   and publishes nothing.
