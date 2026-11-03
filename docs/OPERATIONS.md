@@ -228,9 +228,6 @@ referee read and decision path. Their reference is
 - Both writers take the production lock.
 - The Control Room runs these same scripts, plus `referee-players` for its
   player directory.
-- `referee-cohort`, `referee-feed` and `referee-decisions` remain only until the
-  Otto Ops `flag-new-drop-entrants` job and its monthly decision check retire
-  (about 2026-11-10). They are not part of a hand investigation; retire them then.
 
 **Identity.** Run them as `AWS_PROFILE=referee-read AWS_REGION=us-east-1`.
 
@@ -238,7 +235,8 @@ referee read and decision path. Their reference is
   assumed session of `elixir-drop-referee-read`.
 - If that check fails, the script fails closed; it never falls back to another
   identity.
-- The role may read only `PLAYER#*`, `REFEREE#*`, and the clock singleton.
+- Its keyed reads reach only `PLAYER#*` and `REFEREE#*`, and it has no index
+  read.
 - It is denied any read that names `sub`, `playerSub`, `owner`, or `email`.
 - It may write only `REFEREE#` partitions.
 - It never sees `TELEMETRY_PEPPER`.

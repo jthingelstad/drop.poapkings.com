@@ -3,35 +3,16 @@
 // surface the referee regression tests assert against is declared here.
 declare module "*/scripts/_referee-lib.mjs" {
   export const TABLE_NAME: string;
-  export const RANKED_MODES: string[];
   export const FORBIDDEN_KEYS: readonly string[];
-  export function leaderboardPartition(
-    seasonId: number | "ALLTIME",
-    mode: string,
-  ): string;
-  export function leaderboardSortKey(
-    mode: string,
-    score: number,
-    completedAt: string,
-    sub: string,
-    tiebreaks?: number | readonly number[],
-  ): string;
-  export function isLeaderboardEligibleScore(score: number): boolean;
-  export function isCurrentBoardRun(run: {
-    mode: string;
-    boardEpoch?: string;
-    completedAt: string;
-  }): boolean;
   export function runReference(runId: string): string;
   export function playerReference(playerId: string): string;
   export function findEvidenceByRunId(
     doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
     runIdentifier: string,
   ): Promise<Record<string, unknown> | undefined>;
-  export function rowSortKey(
-    row: Record<string, unknown>,
-    mode: string,
-  ): string;
+  export function isExcludedFromBoards(
+    decision: Record<string, unknown> | undefined,
+  ): boolean;
   export function sanitize(
     item: Record<string, unknown>,
     playerId: string,
@@ -39,25 +20,4 @@ declare module "*/scripts/_referee-lib.mjs" {
   export function sanitizeRecord(
     item: Record<string, unknown>,
   ): Record<string, unknown>;
-  export function bestVisibleRun(
-    doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
-    playerSub: string,
-    mode: string,
-    hiddenRunId: string,
-  ): Promise<Record<string, unknown> | undefined>;
-  export function resolveAllTimeEarningRun(
-    doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
-    row: Record<string, unknown>,
-    mode: string,
-  ): Promise<Record<string, unknown>>;
-  export function visibleLeaderboardRows(
-    doc: { send: (command: unknown) => Promise<Record<string, unknown>> },
-    seasonId: number | "ALLTIME",
-    mode: string,
-    scope: "season" | "all-time",
-    limit: number,
-  ): Promise<{
-    rows: Array<Record<string, unknown>>;
-    decisions: Map<string, Record<string, unknown>>;
-  }>;
 }
