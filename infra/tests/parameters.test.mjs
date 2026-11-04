@@ -11,10 +11,6 @@ const base = {
   environment: {},
 };
 const requiredCreateEnvironment = {
-  SESSION_SECRET: "session-secret",
-  TELEMETRY_PEPPER: "telemetry-pepper",
-  ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
-    "updates-publish-token-with-at-least-32-characters",
   ELIXIR_DROP_WEB_CERTIFICATE_ARN:
     "arn:aws:acm:us-east-1:999153317627:certificate/example",
 };
@@ -196,25 +192,43 @@ void describe("deployment parameters", () => {
     );
   });
 
-  void it("reuses runtime secrets when updating an existing stack from CI", () => {
-    const parameters = deploymentParameters({ ...base, stackExists: true });
-
-    for (const parameterKey of [
-      "SessionSecret",
-      "TelemetryPepper",
-      "UpdatesPublishToken",
-    ]) {
-      assert.deepEqual(
-        parameters.find((parameter) => parameter.ParameterKey === parameterKey),
-        { ParameterKey: parameterKey, UsePreviousValue: true },
-      );
+  void it("sends no credential, even from an operator .env that still holds them", () => {
+    // Drop's credentials live in the runtime secret (infra/README.md, "Runtime
+    // secret"). The template declares no parameter for them, so sending one
+    // would fail the deploy.
+    const leftover = {
+      SESSION_SECRET: "session-secret",
+      TELEMETRY_PEPPER: "telemetry-pepper",
+      ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:
+        "updates-publish-token-with-at-least-32-characters",
+      ELIXIR_INTEGRATION_KEY: "integration-key",
+      ELIXIR_MCP_KEY: "mcp-key",
+      ELIXIR_OAUTH_CLIENT_SECRET: "client-secret",
+    };
+    for (const stackExists of [true, false]) {
+      const keys = deploymentParameters({
+        ...base,
+        environment: { ...requiredCreateEnvironment, ...leftover },
+        stackExists,
+      }).map((parameter) => parameter.ParameterKey);
+      for (const removed of [
+        "SessionSecret",
+        "TelemetryPepper",
+        "UpdatesPublishToken",
+        "ElixirIntegrationKey",
+        "ElixirMcpKey",
+        "ElixirOAuthClientSecret",
+      ]) {
+        assert.equal(keys.includes(removed), false, removed);
+        assert.equal(declaredParameters.includes(removed), false, removed);
+      }
     }
   });
 
-  void it("requires runtime secrets when creating the stack", () => {
+  void it("requires the certificate when creating the stack", () => {
     assert.throws(
       () => deploymentParameters({ ...base, stackExists: false }),
-      /Missing SESSION_SECRET/,
+      /Missing ELIXIR_DROP_WEB_CERTIFICATE_ARN/,
     );
   });
 
@@ -237,36 +251,6 @@ void describe("deployment parameters", () => {
     assert.deepEqual(
       preserved.find((p) => p.ParameterKey === "WebCertificateArn"),
       { ParameterKey: "WebCertificateArn", UsePreviousValue: true },
-    );
-  });
-
-  void it("passes supplied runtime secrets during local creation or rotation", () => {
-    const parameters = deploymentParameters({
-      ...base,
-      environment: requiredCreateEnvironment,
-      stackExists: false,
-    });
-
-    assert.deepEqual(
-      parameters.find(
-        (parameter) => parameter.ParameterKey === "SessionSecret",
-      ),
-      { ParameterKey: "SessionSecret", ParameterValue: "session-secret" },
-    );
-    assert.deepEqual(
-      parameters.find(
-        (parameter) => parameter.ParameterKey === "TelemetryPepper",
-      ),
-      { ParameterKey: "TelemetryPepper", ParameterValue: "telemetry-pepper" },
-    );
-    assert.deepEqual(
-      parameters.find(
-        (parameter) => parameter.ParameterKey === "UpdatesPublishToken",
-      ),
-      {
-        ParameterKey: "UpdatesPublishToken",
-        ParameterValue: "updates-publish-token-with-at-least-32-characters",
-      },
     );
   });
 
@@ -297,56 +281,6 @@ void describe("deployment parameters", () => {
     }
     assert.doesNotMatch(template, /Buttondown|BUTTONDOWN|EmailFrom|EMAIL_FROM/);
     assert.doesNotMatch(template, /AWS::SES::|\bses:|ses\.amazonaws\.com/);
-  });
-
-  void it("preserves the Elixir OAuth client secret, which CI never carries", () => {
-    const updated = deploymentParameters({ ...base, stackExists: true });
-    assert.deepEqual(
-      updated.find(
-        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
-      ),
-      { ParameterKey: "ElixirOAuthClientSecret", UsePreviousValue: true },
-    );
-
-    // The first deploy carrying it takes the empty Default...
-    const first = deploymentParameters({
-      ...base,
-      stackExists: true,
-      existingParameterKeys: ["AppUrl", "ElixirOAuthClientId"],
-    });
-    assert.equal(
-      first.find(
-        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
-      ),
-      undefined,
-    );
-
-    // ...and the fixed host's .env stages the value.
-    const staged = deploymentParameters({
-      ...base,
-      environment: { ELIXIR_OAUTH_CLIENT_SECRET: "ecs_example" },
-      stackExists: true,
-    });
-    assert.deepEqual(
-      staged.find(
-        (parameter) => parameter.ParameterKey === "ElixirOAuthClientSecret",
-      ),
-      {
-        ParameterKey: "ElixirOAuthClientSecret",
-        ParameterValue: "ecs_example",
-      },
-    );
-
-    const declaration = template.match(
-      /^ {2}ElixirOAuthClientSecret:\n(?: {4}.*\n)*/m,
-    )?.[0];
-    assert.ok(declaration);
-    assert.match(declaration, /^ {4}NoEcho: true$/m);
-    assert.equal(parameterDefault("ElixirOAuthClientSecret"), '""');
-    assert.match(
-      template,
-      /ELIXIR_OAUTH_CLIENT_SECRET:\s+!If[\s\S]*?HasElixirOAuthClientSecret[\s\S]*?!Ref ElixirOAuthClientSecret[\s\S]*?!Ref AWS::NoValue/,
-    );
   });
 
   void it("carries no Tinylytics token: usage analytics live in the browser", () => {
@@ -786,14 +720,9 @@ void describe("deployment parameters", () => {
 
   void it("publishes Updates only with the server-side bearer token", () => {
     assert.doesNotMatch(template, /UpdatesPublisherRole/);
-    assert.match(
-      template,
-      /UpdatesPublishToken:\n {4}Type: String\n {4}NoEcho: true\n {4}MinLength: 32/,
-    );
-    assert.match(
-      template,
-      /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN: !Ref UpdatesPublishToken/,
-    );
+    // The API holds the token through the runtime secret; the fixed host keeps
+    // its own copy in .env, which bootstrap generates.
+    assert.doesNotMatch(template, /UpdatesPublishToken|UPDATES_PUBLISH_TOKEN/);
     assert.match(
       bootstrap,
       /ELIXIR_DROP_UPDATES_PUBLISH_TOKEN:[\s\S]*?randomBytes\(32\)\.toString\("base64url"\)/,
@@ -827,7 +756,7 @@ void describe("parameters added since the last deploy", () => {
       UsePreviousValue: true,
     });
     assert.equal(
-      byKey.ElixirMcpKey,
+      byKey.ElixirMcpBaseUrl,
       undefined,
       "a brand-new parameter is omitted so its template Default applies",
     );
@@ -837,13 +766,16 @@ void describe("parameters added since the last deploy", () => {
     const parameters = deploymentParameters({
       bucket: "code-bucket",
       codeKey: "code/api.zip",
-      environment: { ELIXIR_MCP_KEY: "svt_example" },
+      environment: { ELIXIR_MCP_BASE_URL: "https://hub.example" },
       stackExists: true,
       existingParameterKeys: ["AppUrl"],
     });
     assert.deepEqual(
-      parameters.find((p) => p.ParameterKey === "ElixirMcpKey"),
-      { ParameterKey: "ElixirMcpKey", ParameterValue: "svt_example" },
+      parameters.find((p) => p.ParameterKey === "ElixirMcpBaseUrl"),
+      {
+        ParameterKey: "ElixirMcpBaseUrl",
+        ParameterValue: "https://hub.example",
+      },
     );
   });
 
@@ -856,8 +788,8 @@ void describe("parameters added since the last deploy", () => {
       stackExists: true,
     });
     assert.deepEqual(
-      parameters.find((p) => p.ParameterKey === "ElixirMcpKey"),
-      { ParameterKey: "ElixirMcpKey", UsePreviousValue: true },
+      parameters.find((p) => p.ParameterKey === "ElixirMcpBaseUrl"),
+      { ParameterKey: "ElixirMcpBaseUrl", UsePreviousValue: true },
     );
   });
 });

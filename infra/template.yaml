@@ -11,28 +11,6 @@ Parameters:
   ApiVersion:
     Type: String
     Default: ""
-  SessionSecret:
-    Type: String
-    NoEcho: true
-  TelemetryPepper:
-    Type: String
-    NoEcho: true
-    Description: Server-only pepper for referee connection-correlation HMACs. Lambda env only; never exposed to the referee scripts, referee role, CI, or the browser.
-  UpdatesPublishToken:
-    Type: String
-    NoEcho: true
-    MinLength: 32
-    Description: Server-only bearer token used by the fixed host to publish player Updates without an AWS session.
-  ElixirIntegrationKey:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: REST-audience platform credential. Stage before the API code cutover; the legacy MCP key is preserved for rollback.
-  ElixirMcpKey:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: Service token for the Elixir MCP hub. Drop reads recorded Clash Royale history from the hub. Not the Clash Royale token, which never leaves the allowlisted host.
   ElixirMcpBaseUrl:
     Type: String
     Default: https://elixir.poapkings.com
@@ -40,11 +18,6 @@ Parameters:
     Type: String
     Default: ""
     Description: Sign in with Elixir. The OAuth client_id Elixir issued to Drop (infra/scripts/register-elixir-client.mjs). Empty disables the button. A registration lives 365 days from last use.
-  ElixirOAuthClientSecret:
-    Type: String
-    NoEcho: true
-    Default: ""
-    Description: The client secret for ElixirOAuthClientId, sent as client_secret on the token request (client_secret_post). Staged from the fixed host's .env; never printed. Empty sends none.
   WebCertificateArn:
     Type: String
     AllowedPattern: ^arn:[^:]+:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$
@@ -67,10 +40,7 @@ Parameters:
     Default: https://drop.poapkings.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173
 
 Conditions:
-  HasElixirIntegrationKey: !Not [!Equals [!Ref ElixirIntegrationKey, ""]]
-  HasElixirMcpKey: !Not [!Equals [!Ref ElixirMcpKey, ""]]
   HasElixirOAuthClientId: !Not [!Equals [!Ref ElixirOAuthClientId, ""]]
-  HasElixirOAuthClientSecret: !Not [!Equals [!Ref ElixirOAuthClientSecret, ""]]
   HasWebVersion: !Not [!Equals [!Ref WebVersion, ""]]
   HasApiVersion: !Not [!Equals [!Ref ApiVersion, ""]]
 
@@ -894,30 +864,13 @@ Resources:
           TABLE_NAME: !Ref DataTable
           RUNTIME_SECRET_ID: elixir-drop-runtime
           REFRESH_QUEUE_URL: !Ref RefreshQueue
-          SESSION_SECRET: !Ref SessionSecret
-          TELEMETRY_PEPPER: !Ref TelemetryPepper
-          ELIXIR_DROP_UPDATES_PUBLISH_TOKEN: !Ref UpdatesPublishToken
           APP_URL: !Ref AppUrl
           NAME_MODEL_ID: !Ref NameModelId
-          ELIXIR_INTEGRATION_KEY:
-            !If [
-              HasElixirIntegrationKey,
-              !Ref ElixirIntegrationKey,
-              !Ref AWS::NoValue,
-            ]
-          ELIXIR_MCP_KEY:
-            !If [HasElixirMcpKey, !Ref ElixirMcpKey, !Ref AWS::NoValue]
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_OAUTH_CLIENT_ID:
             !If [
               HasElixirOAuthClientId,
               !Ref ElixirOAuthClientId,
-              !Ref AWS::NoValue,
-            ]
-          ELIXIR_OAUTH_CLIENT_SECRET:
-            !If [
-              HasElixirOAuthClientSecret,
-              !Ref ElixirOAuthClientSecret,
               !Ref AWS::NoValue,
             ]
           SHARE_ASSET_BUCKET: !Ref ShareAssetBucket
@@ -1043,8 +996,6 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           RUNTIME_SECRET_ID: elixir-drop-runtime
-          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
-          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
 
   RefreshEventSource:
@@ -1283,15 +1234,8 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           RUNTIME_SECRET_ID: elixir-drop-runtime
-          SESSION_SECRET: !Ref SessionSecret
-          # The result consumer does not write referee evidence, but it calls the
-          # shared getConfig(), which requires TELEMETRY_PEPPER. Present here only
-          # to satisfy that shared config; still Lambda-only, never exported.
-          TELEMETRY_PEPPER: !Ref TelemetryPepper
           APP_URL: !Ref AppUrl
           NAME_MODEL_ID: !Ref NameModelId
-          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
-          ELIXIR_MCP_KEY: !Ref ElixirMcpKey
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
 
   CrResultEventSource:

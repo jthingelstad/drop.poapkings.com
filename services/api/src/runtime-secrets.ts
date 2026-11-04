@@ -3,22 +3,20 @@ import {
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 
-// Drop's credentials are moving out of the function configuration into one
-// Secrets Manager secret, elixir-drop-runtime: a JSON object of the env-style
-// names below. CloudFormation writes the NoEcho stack parameters into the
-// function configuration as plaintext, readable by anyone who can read the
-// function and kept in every retained revision; the secret is readable only
-// by the three function roles. Each container reads the secret once, before
-// its first config read, and places its values in process.env, so config.ts
-// and refresh-worker.ts read them unchanged. Values exist only in memory and
-// are never logged: the log line carries names only.
+// Drop's credentials live in one Secrets Manager secret, elixir-drop-runtime: a
+// JSON object of the env-style names below. Jamie keeps it by hand; no stack
+// parameter or function environment carries them (2026-11-04), so no function
+// configuration or retained revision holds a copy. The secret is readable only
+// by the three function roles. Each container reads it once, before its first
+// config read, and places its values in process.env, so config.ts and
+// refresh-worker.ts read them unchanged. Values exist only in memory and are
+// never logged: the log lines carry names only.
 //
-// Transition (2026-10-16): a name the secret lacks keeps the value the stack
-// parameter already put in the environment, and a failed read leaves the
-// environment as it is, so the parameters stay the fallback until the secret
-// holds every name. Once `runtime_secrets.loaded` reports every name in
-// `fromSecret`, the parameters are removed from the template and this load
-// fails closed (infra/README.md, "Runtime secret").
+// The load fails closed: an unreadable secret, or one missing a name the
+// calling function needs, throws. A container caches a successful load only,
+// so a transient failure is retried by the next request or message. An edit to
+// the secret reaches a container at its next cold start (infra/README.md,
+// "Runtime secret").
 
 export const RUNTIME_SECRET_KEYS = [
   "SESSION_SECRET",
@@ -28,6 +26,21 @@ export const RUNTIME_SECRET_KEYS = [
   "ELIXIR_MCP_KEY",
   "ELIXIR_OAUTH_CLIENT_SECRET",
 ] as const;
+
+type RuntimeSecretKey = (typeof RUNTIME_SECRET_KEYS)[number];
+
+// What each function cannot run without. refresh reads the hub keys only.
+// cr-results uses no credential itself, but its shared getConfig() refuses to
+// start without these two.
+export const API_SECRET_KEYS: readonly RuntimeSecretKey[] = RUNTIME_SECRET_KEYS;
+export const REFRESH_SECRET_KEYS: readonly RuntimeSecretKey[] = [
+  "ELIXIR_INTEGRATION_KEY",
+  "ELIXIR_MCP_KEY",
+];
+export const CR_RESULTS_SECRET_KEYS: readonly RuntimeSecretKey[] = [
+  "SESSION_SECRET",
+  "TELEMETRY_PEPPER",
+];
 
 type SecretsClient = Pick<SecretsManagerClient, "send">;
 
@@ -55,37 +68,49 @@ export function runtimeSecretValues(
 
 async function load(
   secretId: string,
+  required: readonly RuntimeSecretKey[],
   client: SecretsClient,
   env: NodeJS.ProcessEnv,
 ) {
+  let values: Record<string, string>;
   try {
     const response = await client.send(
       new GetSecretValueCommand({ SecretId: secretId }),
     );
-    const values = runtimeSecretValues(response.SecretString);
-    for (const [key, value] of Object.entries(values)) env[key] = value;
-    const rest = RUNTIME_SECRET_KEYS.filter((key) => !(key in values));
-    console.info({
-      event: "runtime_secrets.loaded",
-      fromSecret: Object.keys(values).sort(),
-      fromEnvironment: rest.filter((key) => env[key]?.trim()).sort(),
-      absent: rest.filter((key) => !env[key]?.trim()).sort(),
-    });
+    values = runtimeSecretValues(response.SecretString);
   } catch (error) {
-    // Transition: keep serving on the values already in the environment.
     console.error({
       event: "runtime_secrets.load_failed",
       error: error instanceof Error ? error.name : "unknown",
     });
+    // The original is dropped: a JSON parse message quotes the secret's text.
+    throw new Error("Runtime secret could not be read");
   }
+  const missing = required.filter((key) => !(key in values)).sort();
+  if (missing.length) {
+    console.error({
+      event: "runtime_secrets.load_failed",
+      error: "missing_required",
+      missing,
+    });
+    throw new Error(`Runtime secret lacks ${missing.join(", ")}`);
+  }
+  for (const [key, value] of Object.entries(values)) env[key] = value;
+  console.info({
+    event: "runtime_secrets.loaded",
+    fromSecret: Object.keys(values).sort(),
+    absent: RUNTIME_SECRET_KEYS.filter((key) => !(key in values)).sort(),
+  });
 }
 
 /**
- * Settle the runtime secret into the environment once per container. A no-op
- * when RUNTIME_SECRET_ID is unset (local runs and tests, which set the
- * variables directly).
+ * Settle the runtime secret into the environment once per container, or throw.
+ * A no-op when RUNTIME_SECRET_ID is unset (local runs and tests, which set the
+ * variables directly); every deployed function sets it, which
+ * infra/tests/runtime-secret.test.mjs guards.
  */
 export function loadRuntimeSecrets(
+  required: readonly RuntimeSecretKey[],
   options: RuntimeSecretOptions = {},
 ): Promise<void> {
   const env = options.env ?? process.env;
@@ -93,9 +118,13 @@ export function loadRuntimeSecrets(
   if (!secretId) return Promise.resolve();
   loaded ??= load(
     secretId,
+    required,
     options.client ?? new SecretsManagerClient({}),
     env,
-  );
+  ).catch((error: unknown) => {
+    loaded = undefined;
+    throw error;
+  });
   return loaded;
 }
 

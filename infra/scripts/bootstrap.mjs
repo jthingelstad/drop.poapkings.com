@@ -480,8 +480,6 @@ const values = {
   FASTMAIL_JMAP_TOKEN: jmapToken,
   NAME_MODEL_ID:
     existingEnv.NAME_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-  SESSION_SECRET:
-    existingEnv.SESSION_SECRET || randomBytes(48).toString("base64url"),
 };
 await writeFile(envPath, serializeEnv(values), { mode: 0o600 });
 await chmod(envPath, 0o600);

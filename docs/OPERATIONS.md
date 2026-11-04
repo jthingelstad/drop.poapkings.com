@@ -310,7 +310,9 @@ node scripts/player-updates.mjs publish \
   Publishing does not require a source commit or deployment.
 
 **Token.** Publishing reads `ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` from the
-environment or the mode-0600 `.env` and sends it to the API over HTTPS.
+environment or the mode-0600 `.env` and sends it to the API over HTTPS. The API
+compares it with its copy in the `elixir-drop-runtime` secret, so a rotation
+changes both (`infra/README.md`, "Runtime secret").
 
 - It needs no AWS profile or login.
 - It cannot deploy or write DynamoDB directly.

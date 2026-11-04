@@ -53,4 +53,16 @@ void describe("runtime secret (infra/README.md, Runtime secret)", () => {
   void it("never resolves a secret into a function environment", () => {
     assert.doesNotMatch(template, /\{\{resolve:secretsmanager/);
   });
+
+  void it("no credential is a parameter, a condition or an environment entry", () => {
+    assert.doesNotMatch(template, /NoEcho/);
+    assert.doesNotMatch(
+      template,
+      /SessionSecret|TelemetryPepper|UpdatesPublishToken|ElixirIntegrationKey|ElixirMcpKey|ElixirOAuthClientSecret/,
+    );
+    assert.doesNotMatch(
+      template,
+      /SESSION_SECRET|TELEMETRY_PEPPER|ELIXIR_DROP_UPDATES_PUBLISH_TOKEN|ELIXIR_INTEGRATION_KEY|ELIXIR_MCP_KEY|ELIXIR_OAUTH_CLIENT_SECRET/,
+    );
+  });
 });
