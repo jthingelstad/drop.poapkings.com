@@ -267,7 +267,7 @@ out rather than never fetched).
 
 Three more values cannot appear because they are never stored or reachable at all:
 a raw IP address, a raw user-agent (both are hashed at the edge and discarded —
-see `SPEC.md` §11), and the `TELEMETRY_PEPPER` (Lambda env only). The identity
+see `SPEC.md` §11), and the `TELEMETRY_PEPPER` (runtime secret only). The identity
 half of this list is also enforced in IAM — see "Credentials" above — so a
 deliberate projection cannot route around `sanitize`.
 

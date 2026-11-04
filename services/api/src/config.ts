@@ -3,7 +3,7 @@ export interface Config {
   refreshQueueUrl?: string;
   sessionSecret: string;
   // Server-only pepper for the referee correlation HMACs (see
-  // referee-evidence.ts). Guarded exactly like SESSION_SECRET: Lambda env only,
+  // referee-evidence.ts). Guarded exactly like SESSION_SECRET: the runtime secret only,
   // never in the referee scripts, the read-only role, CI, or the browser.
   telemetryPepper: string;
   appUrl: string;

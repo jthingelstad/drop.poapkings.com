@@ -396,9 +396,8 @@ rules change so historical evidence stays interpretable.
 HMAC hashes of the request IP and user-agent (`deriveCorrelation`) and discards
 the raw values — no raw IP or user-agent is ever stored. `TELEMETRY_PEPPER` is a
 required server secret (the functions only, guarded like `SESSION_SECRET`: the
-`elixir-drop-runtime` secret or the function environment, `infra/README.md`
-"Runtime secret"; never in the referee scripts, the referee role, CI, or the
-browser). The bounded surface
+`elixir-drop-runtime` secret, `infra/README.md` "Runtime secret"; never in the
+referee scripts, the referee role, CI, or the browser). The bounded surface
 is in `scripts/referee-*.mjs` (see `scripts/README.md`), run under `RefereeReadRole`; the
 physical name is retained for compatibility. Scripts never see the pepper,
 `sub`, email, or a raw IP. The role may write only independent `REFEREE#`

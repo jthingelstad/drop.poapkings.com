@@ -1179,8 +1179,8 @@ source"_ **without Drop storing the actual IP or user-agent**.
   `uaFamily` (e.g. `Chrome/macOS`). Same source ⇒ same hash; the hash is **not
   reversible** to an IP without the pepper.
 - **`TELEMETRY_PEPPER`** is a required server secret, guarded like
-  `SESSION_SECRET`: the functions only (the `elixir-drop-runtime` secret or
-  the function environment, `infra/README.md` "Runtime secret"), **never** in the read scripts, the
+  `SESSION_SECRET`: the functions only (the `elixir-drop-runtime` secret,
+  `infra/README.md` "Runtime secret"), **never** in the read scripts, the
   referee role, CI, or the browser. A stable pepper enables long-window
   correlation (default); rotating it strengthens privacy but shortens the
   correlation window. Anyone holding the pepper _and_ table read could brute the
@@ -1279,9 +1279,9 @@ saved tags do not start an ongoing Elixir recording. The canonical contract and 
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
 
-`ELIXIR_INTEGRATION_KEY` holds the REST-audience integration key. Stage this
-new parameter before switching code; the legacy `ELIXIR_MCP_KEY` is preserved
-for rollback and only used if no new key is configured. `ELIXIR_MCP_BASE_URL` stays the hub
+`ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
+key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
+the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
 origin. Login and tag save enqueue generation-bound refresh jobs. The worker
 reads recorded data or requests a durable collector refresh without collection
 membership or enrollment. Source `observed_at` supplies profile freshness.
@@ -1306,8 +1306,8 @@ player joins or leaves it in their Elixir account, and deleting a Drop account
 touches no list (Drop's Buttondown newsletter and SES sender retired the same
 day). Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
-button). A configured `ELIXIR_OAUTH_CLIENT_SECRET` (the NoEcho, preserved
-stack parameter `ElixirOAuthClientSecret`) is sent as `client_secret` on the
+button). `ELIXIR_OAUTH_CLIENT_SECRET` (in the `elixir-drop-runtime` secret) is
+sent as `client_secret` on the
 token request. The grant is `cr:read recordings:write account:email` for Elixir's
 JSON API (`resource` `/api/v1`, 2026-09-25: Drop is a program, not an agent,
 so it reads the JSON API, never MCP). `account:email` is offered only to the

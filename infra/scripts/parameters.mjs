@@ -1,9 +1,3 @@
-const SECRET_PARAMETERS = [
-  ["SessionSecret", "SESSION_SECRET"],
-  ["TelemetryPepper", "TELEMETRY_PEPPER"],
-  ["UpdatesPublishToken", "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN"],
-];
-
 const REQUIRED_PARAMETERS = [
   ["WebCertificateArn", "ELIXIR_DROP_WEB_CERTIFICATE_ARN"],
 ];
@@ -33,18 +27,12 @@ const PRESERVED_PARAMETERS = [
   // HTTP server CORS allowlist, so resetting it to the Default would revoke any
   // origin an operator added.
   ["AllowedOrigins", ["ELIXIR_DROP_ALLOWED_ORIGINS"]],
-  // The hub seam. Operator-owned like the rest: CI never carries the
-  // service token, so these preserve rather than reset. Blanking
-  // the key would silently disable recorded profile and clock reads.
-  ["ElixirIntegrationKey", ["ELIXIR_INTEGRATION_KEY"]],
-  ["ElixirMcpKey", ["ELIXIR_MCP_KEY"]],
+  // The hub seam. Its credentials are in the runtime secret, not the stack
+  // (infra/README.md, "Runtime secret").
   ["ElixirMcpBaseUrl", ["ELIXIR_MCP_BASE_URL"]],
   // Sign in with Elixir. Operator-registered; blanking it would silently
   // remove the button from every sign-in sheet.
   ["ElixirOAuthClientId", ["ELIXIR_OAUTH_CLIENT_ID"]],
-  // Its client secret. NoEcho, and CI never carries it: blanking it would
-  // send the token request without one.
-  ["ElixirOAuthClientSecret", ["ELIXIR_OAUTH_CLIENT_SECRET"]],
 ];
 
 function firstValue(environment, environmentKeys) {
@@ -111,12 +99,6 @@ export function deploymentParameters({
       existingParameterKeys,
     );
     if (parameter) parameters.push(parameter);
-  }
-
-  for (const [parameterKey, environmentKey] of SECRET_PARAMETERS) {
-    parameters.push(
-      requiredParameter(parameterKey, environmentKey, environment, stackExists),
-    );
   }
 
   for (const [parameterKey, environmentKey] of REQUIRED_PARAMETERS) {

@@ -1,7 +1,7 @@
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 import { required, type Config } from "./config.js";
 import { requestCrProfileRefresh } from "./cr-refresh.js";
-import { loadRuntimeSecrets } from "./runtime-secrets.js";
+import { loadRuntimeSecrets, REFRESH_SECRET_KEYS } from "./runtime-secrets.js";
 import { fetchWarClockFromHub } from "./elixir-war-clock.js";
 import { finalizePreviousSeasonIfNeeded } from "./podium.js";
 import { Repository } from "./repository.js";
@@ -88,7 +88,7 @@ export async function processRefreshJob(
 export async function refreshHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
-  await loadRuntimeSecrets();
+  await loadRuntimeSecrets(REFRESH_SECRET_KEYS);
   const config: RefreshConfig = {
     tableName: required("TABLE_NAME"),
     elixirMcpBaseUrl: required("ELIXIR_MCP_BASE_URL").replace(/\/$/, ""),

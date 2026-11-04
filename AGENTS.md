@@ -184,8 +184,10 @@ production run. A successful exact-head validation triggers
   lands it deploys it.
 - CI holds no AWS key: the promotion job runs in the `production` environment
   (main only) and assumes `elixir-drop-github-deploy` through GitHub OIDC.
-- `npm run deploy:api` stays the out-of-band tool: first stack creation, secret
-  rotation, and re-running a deploy that CI could not complete. It is run from
+- `npm run deploy:api` stays the out-of-band tool: first stack creation and
+  re-running a deploy that CI could not complete. Rotating a credential is a
+  console edit of `elixir-drop-runtime`, effective at the next cold start
+  (`infra/README.md`, "Runtime secret"). It is run from
   the fixed host as `AWS_PROFILE=cloud-engineer`, only on a checkout equal to
   `origin/main` whose tree passed `validate` (`--break-glass` skips that check,
   for an outage only), under the production lock (`docs/OPERATIONS.md`,
@@ -767,9 +769,9 @@ saved tags do not start an ongoing Elixir recording. The canonical contract and 
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
 
-`ELIXIR_INTEGRATION_KEY` holds the REST-audience integration key. Stage this
-new parameter before switching code; the legacy `ELIXIR_MCP_KEY` is preserved
-for rollback and only used if no new key is configured. `ELIXIR_MCP_BASE_URL` stays the hub
+`ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
+key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
+the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
 origin. Login and tag save enqueue generation-bound refresh jobs. The worker
 reads recorded data or requests a durable collector refresh without collection
 membership or enrollment. Source `observed_at` supplies profile freshness.
