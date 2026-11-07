@@ -259,9 +259,16 @@ export default function Rain() {
       const el = document.createElement('div')
       el.className = 'ed-rain__tile'
       el.style.left = `${6 + Math.random() * 72}%`
-      el.innerHTML =
-        `<img src="${card.icon}" alt="" class="ed-rain__tile-img" loading="eager" decoding="sync"/>` +
-        `<span class="ed-rain__tile-name">${card.name}</span>`
+      const img = document.createElement('img')
+      img.src = card.icon
+      img.alt = ''
+      img.className = 'ed-rain__tile-img'
+      img.loading = 'eager'
+      img.decoding = 'sync'
+      const name = document.createElement('span')
+      name.className = 'ed-rain__tile-name'
+      name.textContent = card.name
+      el.append(img, name)
       field.appendChild(el)
       // The original random pace remains, but it is converted to a monotonic
       // duration. Field height now affects only pixel travel, never answer time.

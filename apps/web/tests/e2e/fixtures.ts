@@ -688,7 +688,9 @@ export const test = base.extend({
       (/127\.0\.0\.1:[0-9]+\/(?:activity|auth|leaderboards|me|players|runs|stats)(?:[/?]|\s)/.test(text) ||
         // The same cancellation hits the app's own mirrored card art when a
         // reload lands while the art pack or a board's icons are still loading.
-        /127\.0\.0\.1:[0-9]+\/cards\/[0-9]+(?:_evo|_hero)?\.png due to access control checks\.$/.test(text))
+        /127\.0\.0\.1:[0-9]+\/cards\/[0-9]+(?:_evo|_hero)?\.png due to access control checks\.$/.test(text) ||
+        // And the blob URLs the art cache hands out for those same images.
+        /127\.0\.0\.1:[0-9]+\/[0-9a-f]{8}-[0-9a-f-]{27} due to access control checks\.$/.test(text))
     page.on('console', (msg) => {
       const text = msg.text()
       // Firefox 153 reports its own in-flight document cancellation as a
