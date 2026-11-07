@@ -26,7 +26,7 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
-    "oxlint": "^1.90.0",
+    "oxlint": "^1.91.0",
     "prettier": "^3.9.10",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
