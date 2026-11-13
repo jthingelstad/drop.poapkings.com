@@ -19,7 +19,6 @@ export interface Config {
   // Empty until registered (infra/scripts/register-elixir-client.mjs).
   elixirOAuthClientId: string;
   elixirOAuthClientSecret: string;
-  elixirMcpKey?: string;
   // The clan whose river race defines the Clan Wars calendar Drop's
   // seasons follow. Read from the hub now, not polled from Supercell.
   warClockClanTag: string;
@@ -56,10 +55,6 @@ export function getConfig(): Config {
     elixirOAuthClientId: process.env.ELIXIR_OAUTH_CLIENT_ID?.trim() || "",
     elixirOAuthClientSecret:
       process.env.ELIXIR_OAUTH_CLIENT_SECRET?.trim() || "",
-    elixirMcpKey:
-      process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
-      process.env.ELIXIR_MCP_KEY?.trim() ||
-      undefined,
     warClockClanTag:
       process.env.CR_WAR_CLOCK_CLAN_TAG?.trim().toUpperCase() || "#J2RGCRVG",
     shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,

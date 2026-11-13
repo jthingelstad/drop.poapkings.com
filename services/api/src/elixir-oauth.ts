@@ -45,6 +45,7 @@ export interface ElixirSelfPlayer {
   isPrimary: boolean;
   verified: boolean;
   clanTag?: string;
+  clanName?: string;
   clanRole?: string;
 }
 
@@ -287,6 +288,7 @@ export class ElixirOAuthClient {
         isPrimary: row.is_primary === true,
         verified: row.claim_status === "verified",
         clanTag: typeof row.clan_tag === "string" ? row.clan_tag : undefined,
+        clanName: typeof row.clan_name === "string" ? row.clan_name : undefined,
         clanRole: typeof row.clan_role === "string" ? row.clan_role : undefined,
       });
     }

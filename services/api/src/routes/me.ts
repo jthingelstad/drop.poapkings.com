@@ -9,6 +9,7 @@ import {
   reconcileBadgeCounters,
 } from "../badges.js";
 import { favoriteCard } from "../cards.js";
+import { publicCrProfile } from "../cr-profile.js";
 import { badRequest, HttpError } from "../errors.js";
 import { hasFirstDropBadge } from "../first-drop.js";
 import { isGameMode } from "../games.js";
@@ -519,12 +520,15 @@ export async function getPublicPlayer(
   const crProfile = lookup.player.playerTag
     ? await repository.getCrProfile(lookup.player.playerTag)
     : undefined;
-  const clashRoyale = lookup.player.playerTag
+  const shown = lookup.player.playerTag
+    ? publicCrProfile(lookup.player.playerTag, crProfile)
+    : undefined;
+  const clashRoyale = shown
     ? {
-        tag: lookup.player.playerTag,
-        status: crProfile?.status ?? ("pending" as const),
-        ...(crProfile?.name ? { name: crProfile.name } : {}),
-        ...(crProfile?.clan ? { clan: crProfile.clan } : {}),
+        tag: shown.tag,
+        status: shown.status,
+        ...(shown.name ? { name: shown.name } : {}),
+        ...(shown.clan ? { clan: shown.clan } : {}),
       }
     : undefined;
   const recentRuns = await repository.listRecentRuns(lookup.sub, 10);

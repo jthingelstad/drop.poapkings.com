@@ -32,7 +32,6 @@ describe("request-side refresh scheduling", () => {
     expect(
       await currentWarClock(repo, {
         refreshQueueUrl: "test",
-        elixirMcpKey: "test",
       } as Config),
     ).toBe(stored);
     expect(send).toHaveBeenCalledOnce();
@@ -43,7 +42,7 @@ describe("request-side refresh scheduling", () => {
       .mockResolvedValueOnce({ observedAt: new Date().toISOString() })
       .mockResolvedValueOnce(undefined);
     const repo = { getCrWarClock } as unknown as Repository;
-    const config = { refreshQueueUrl: "test", elixirMcpKey: "test" } as Config;
+    const config = { refreshQueueUrl: "test" } as Config;
     await currentWarClock(repo, config);
     expect(send).not.toHaveBeenCalled();
     expect(await currentWarClock(repo, config)).toBeUndefined();

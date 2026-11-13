@@ -3,7 +3,6 @@ import {
   API_SECRET_KEYS,
   CR_RESULTS_SECRET_KEYS,
   loadRuntimeSecrets,
-  REFRESH_SECRET_KEYS,
   resetRuntimeSecretsForTests,
   RUNTIME_SECRET_KEYS,
   runtimeSecretValues,
@@ -37,24 +36,25 @@ describe("runtime secret", () => {
     const env: NodeJS.ProcessEnv = { ...SECRET_ID };
     const secrets = client(
       JSON.stringify({
-        ELIXIR_INTEGRATION_KEY: "integration-value",
-        ELIXIR_MCP_KEY: "mcp-value",
+        SESSION_SECRET: "session-value",
+        TELEMETRY_PEPPER: "pepper-value",
+        // Retired 2026-11-13; still in the secret until Jamie removes it.
+        ELIXIR_INTEGRATION_KEY: "retired-value",
         UNKNOWN: "ignored",
       }),
     );
-    await loadRuntimeSecrets(REFRESH_SECRET_KEYS, { env, client: secrets });
-    expect(env.ELIXIR_INTEGRATION_KEY).toBe("integration-value");
-    expect(env.ELIXIR_MCP_KEY).toBe("mcp-value");
+    await loadRuntimeSecrets(CR_RESULTS_SECRET_KEYS, { env, client: secrets });
+    expect(env.SESSION_SECRET).toBe("session-value");
+    expect(env.TELEMETRY_PEPPER).toBe("pepper-value");
+    expect(env.ELIXIR_INTEGRATION_KEY).toBeUndefined();
     expect(env.UNKNOWN).toBeUndefined();
     const line = info.mock.calls[0]![0] as Record<string, string[]>;
-    expect(line.fromSecret).toEqual([
-      "ELIXIR_INTEGRATION_KEY",
-      "ELIXIR_MCP_KEY",
-    ]);
+    expect(line.fromSecret).toEqual(["SESSION_SECRET", "TELEMETRY_PEPPER"]);
     expect(line.absent).toContain("ELIXIR_OAUTH_CLIENT_SECRET");
     const logged = JSON.stringify(info.mock.calls);
-    expect(logged).not.toContain("integration-value");
-    expect(logged).not.toContain("mcp-value");
+    expect(logged).not.toContain("session-value");
+    expect(logged).not.toContain("pepper-value");
+    expect(logged).not.toContain("retired-value");
   });
 
   it("the secret wins over a value already in the environment", async () => {
@@ -71,20 +71,18 @@ describe("runtime secret", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const env: NodeJS.ProcessEnv = { ...SECRET_ID };
     await expect(
-      loadRuntimeSecrets(REFRESH_SECRET_KEYS, {
+      loadRuntimeSecrets(CR_RESULTS_SECRET_KEYS, {
         env,
-        client: client(
-          JSON.stringify({ ELIXIR_INTEGRATION_KEY: "integration-value" }),
-        ),
+        client: client(JSON.stringify({ SESSION_SECRET: "session-value" })),
       }),
-    ).rejects.toThrow("Runtime secret lacks ELIXIR_MCP_KEY");
-    expect(env.ELIXIR_INTEGRATION_KEY).toBeUndefined();
+    ).rejects.toThrow("Runtime secret lacks TELEMETRY_PEPPER");
+    expect(env.SESSION_SECRET).toBeUndefined();
     expect(error).toHaveBeenCalledWith({
       event: "runtime_secrets.load_failed",
       error: "missing_required",
-      missing: ["ELIXIR_MCP_KEY"],
+      missing: ["TELEMETRY_PEPPER"],
     });
-    expect(JSON.stringify(error.mock.calls)).not.toContain("integration-value");
+    expect(JSON.stringify(error.mock.calls)).not.toContain("session-value");
   });
 
   it("a value in the environment does not stand in for a missing name", async () => {
@@ -173,11 +171,14 @@ describe("runtime secret", () => {
     expect(() => runtimeSecretValues("not json")).toThrow();
   });
 
-  it("each function requires what it needs, and only the API all six", () => {
+  it("each function requires what it needs, and only the API all four", () => {
     expect(API_SECRET_KEYS).toEqual(RUNTIME_SECRET_KEYS);
-    expect(REFRESH_SECRET_KEYS).toEqual([
-      "ELIXIR_INTEGRATION_KEY",
-      "ELIXIR_MCP_KEY",
+    // Drop's Elixir integration key was retired on 2026-11-13.
+    expect(RUNTIME_SECRET_KEYS).toEqual([
+      "SESSION_SECRET",
+      "TELEMETRY_PEPPER",
+      "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN",
+      "ELIXIR_OAUTH_CLIENT_SECRET",
     ]);
     expect(CR_RESULTS_SECRET_KEYS).toEqual([
       "SESSION_SECRET",

@@ -4,7 +4,6 @@
 // codes and mailed links (POST /auth/request) are gone; guests still play
 // without an account.
 
-import { enqueueRefresh } from "../refresh-jobs.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { emailSubject } from "../validation.js";
@@ -127,12 +126,6 @@ export async function redeemMagicLink({
     playerId: login.profile.playerId,
     newPlayer: login.created,
   });
-  await enqueueRefresh(config, {
-    version: 1,
-    type: "player-profile",
-    sub: login.profile.sub,
-    playerId: login.profile.playerId,
-  });
   // Side channels are best-effort: a hiccup must not fail a login whose
   // credential is already spent. Drop keeps no mailing list of its own
   // (2026-10-12): Elixir's one list is Elixir's.
@@ -165,12 +158,6 @@ export async function refreshSession({
       "Your session has expired. Sign in again.",
       "invalid_session",
     );
-  await enqueueRefresh(config, {
-    version: 1,
-    type: "player-profile",
-    sub: session.sub,
-    playerId: profile.playerId,
-  });
   return json(200, {
     session: issueSession(
       session.sub,

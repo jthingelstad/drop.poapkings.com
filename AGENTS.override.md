@@ -40,9 +40,10 @@ These agent-definition changes do not warrant a player Update.
 
 - Keep web, admin, API, contracts and infrastructure boundaries explicit.
   Never import service implementation across workspaces.
-- Runtime CR context comes from the current Elixir Integration REST contract;
-  read `AGENTS.md`'s final integration section and the canonical MCP integration
-  docs. Do not restore the retired CR bridge or direct runtime Supercell calls.
+- Drop talks to Elixir only to sign people in (2026-11-13): the OAuth flow and
+  `GET /api/v1/me`. Read `AGENTS.md`'s final integration section before adding
+  any Elixir call. Do not restore the retired CR bridge or direct runtime
+  Supercell calls.
   The manual host-only card refresh is a separate documented exception.
 - Secrets never enter context, source, browser builds or CI output. Follow the
   parent secret-safety rules. No CR credential belongs in Lambda or the browser.

@@ -1072,22 +1072,6 @@ describe("repository DynamoDB requests", () => {
     expect(entries[0]).not.toHaveProperty("refereeReviewed");
   });
 
-  it("marks every claimed Clash Royale refresh as pending", async () => {
-    send.mockResolvedValueOnce({});
-
-    await new Repository("test-table").claimCrRefresh(
-      "#2PYQ0",
-      "job-1",
-      "2026-07-18T12:00:00.000Z",
-      "2026-07-18T11:00:00.000Z",
-      "2026-07-18T11:55:00.000Z",
-    );
-    const update = send.mock.calls[0]?.[0];
-
-    expect(update.input.UpdateExpression).toContain("#status = :pending");
-    expect(update.input.UpdateExpression).not.toContain("if_not_exists");
-  });
-
   it("stores the Clash season number on the live clock", async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 

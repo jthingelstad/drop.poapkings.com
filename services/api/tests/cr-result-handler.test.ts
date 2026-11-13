@@ -2,7 +2,6 @@ import type { SQSEvent } from "aws-lambda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
-  saveCrProfileResult: vi.fn(),
   saveCrWarClock: vi.fn(),
 }));
 const podium = vi.hoisted(() => ({
@@ -12,7 +11,6 @@ const podium = vi.hoisted(() => ({
 
 vi.mock("../src/repository.js", () => ({
   Repository: class {
-    saveCrProfileResult = repository.saveCrProfileResult;
     saveCrWarClock = repository.saveCrWarClock;
   },
 }));

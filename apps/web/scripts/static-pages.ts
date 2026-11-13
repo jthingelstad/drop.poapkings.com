@@ -277,12 +277,12 @@ ${pageSections([
   section(
     'What other players can see',
     paragraph(
-      'Leaderboards can show your generated Drop name, favorite card, scores, total games, and chosen player tag. When you choose a player, Drop also shows public Clash Royale clan, card collection, and account-age data. Card levels, trophies, arenas, and experience level are not shown.'
+      'Leaderboards can show your generated Drop name, favorite card, scores, total games, and chosen player tag. When you choose a player, Drop also shows that player&rsquo;s Clash Royale name and clan. Card levels, trophies, arenas, and experience level are not shown.'
     )
   ),
   section(
     'Services Drop uses',
-    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Elixir also supplies the public Clash Royale profile it has recorded for your chosen player. Drop only reads from Elixir: it never adds a player to your Elixir account or asks Elixir to record anything.</li></ul>'
+    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>When you sign in, Elixir also tells Drop the name and clan of each Clash Royale player on your Elixir account; Drop keeps them for the player you choose. Drop asks Elixir for nothing else, and never adds a player to your Elixir account or asks Elixir to record anything.</li></ul>'
   ),
   section(
     'Fair Play',

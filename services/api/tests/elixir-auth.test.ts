@@ -155,7 +155,9 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   const pointers = new Map<string, string>();
   const released: string[] = [];
   const shares = new Map<string, string>();
+  const crProfiles = new Map<string, Record<string, unknown>>();
   const repo = {
+    crProfiles,
     profiles,
     magic,
     pending,
@@ -260,8 +262,12 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       const owner = shares.get(token);
       return owner ? { owner } : undefined;
     },
-    async getCrProfile() {
-      return undefined;
+    async getCrProfile(tag: string) {
+      return crProfiles.get(tag);
+    },
+    async saveCrProfileFromElixir(snapshot: { tag: string }) {
+      crProfiles.set(snapshot.tag, snapshot);
+      return true;
     },
     async rankedAccess() {
       return "allowed" as const;
@@ -292,18 +298,19 @@ const KING = {
   is_primary: true,
   claim_status: "verified",
   clan_tag: "#J2RGCRVG",
+  clan_name: "POAP KINGS",
   clan_role: "leader",
 };
 const ALT = {
-  player_tag: "#VJQV8G8RL",
-  name: "thingles",
+  player_tag: "#2PYQ0C",
+  name: "Sample Alt",
   relationship: "alt",
   is_primary: false,
   claim_status: "unverified",
 };
 const FRIEND = {
-  player_tag: "#U8RYG9Y2U",
-  name: "King Levy",
+  player_tag: "#9LCQ2",
+  name: "Sample Friend",
   relationship: "friend",
   is_primary: false,
   claim_status: "verified",
@@ -384,6 +391,12 @@ describe("sign in with Elixir", () => {
     expect(repo.pendingExpiry.get(sub)).toBe(repo.magic[0]?.expiresAt);
     expect(repo.pointers.size).toBe(0);
     expect(Object.keys(repo.profiles)).toEqual([]);
+    // The chosen player's name and clan are stored by tag straight away.
+    expect(repo.crProfiles.get("#20JJJ2CCRU")).toMatchObject({
+      status: "ready",
+      name: "King Thing",
+      clan: { tag: "#J2RGCRVG", name: "POAP KINGS" },
+    });
   });
   it("callback for an existing account with the same email: linked in place, verified mark on", async () => {
     const sub = emailSubject("jamie@example.com");
@@ -412,6 +425,15 @@ describe("sign in with Elixir", () => {
     expect(repo.pointers.get("elixir-acct-1")).toBe(sub);
     expect(repo.must(sub).elixirAccountId).toBe("elixir-acct-1");
     expect(repo.magic[0]).toMatchObject({ sub, email: "jamie@example.com" });
+    // Name and clan come from the same /me read, never a later fetch.
+    expect(repo.crProfiles.get("#20JJJ2CCRU")).toEqual({
+      tag: "#20JJJ2CCRU",
+      status: "ready",
+      name: "King Thing",
+      clan: { tag: "#J2RGCRVG", name: "POAP KINGS", role: "leader" },
+      fetchedAt: repo.must(sub).elixir?.checkedAt,
+      updatedAt: repo.must(sub).elixir?.checkedAt,
+    });
   });
   it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir stays as it is, unverified", async () => {
     const sub = emailSubject("jamie@example.com");
@@ -433,7 +455,7 @@ describe("sign in with Elixir", () => {
     const link = repo.must(sub).elixir!;
     expect(link.candidates.map((c) => c.playerTag)).toEqual([
       "#20JJJ2CCRU",
-      "#VJQV8G8RL",
+      "#2PYQ0C",
     ]);
     // The hand-typed tag is kept; nothing is chosen over it.
     expect(link.playerTag).toBeUndefined();
@@ -465,6 +487,9 @@ describe("sign in with Elixir", () => {
     expect(link.playerTag).toBeUndefined();
     expect(link.candidates.map((c) => c.playerTag)).toEqual(["#20JJJ2CCRU"]);
     expect(repo.must(sub).playerTag).toBe("#2PP");
+    // Drop reads nothing for a typed tag, and stores nothing for a player
+    // the person has not chosen.
+    expect(repo.crProfiles.size).toBe(0);
     // There is a choice to offer, so the person lands on the picker.
     expect(String(res.headers?.location)).toContain(
       encodeURIComponent("/profile?scope=account"),
@@ -801,8 +826,8 @@ describe("sign in with Elixir", () => {
           verified: true,
         },
         {
-          playerTag: "#VJQV8G8RL",
-          name: "thingles",
+          playerTag: "#2PYQ0C",
+          name: "Sample Alt",
           relationship: "alt",
           isPrimary: false,
           verified: false,
@@ -821,7 +846,7 @@ describe("sign in with Elixir", () => {
       selectElixirPlayer({
         request: event("POST", "/me/elixir/select", {
           bearer,
-          body: { playerTag: "#U8RYG9Y2U" },
+          body: { playerTag: "#9LCQ2" },
         }),
         config,
         repository: repo as never,
@@ -847,10 +872,21 @@ describe("sign in with Elixir", () => {
     expect(body.player.playerTag).toBe("#20JJJ2CCRU");
     expect(body.player.elixir.verified).toBe(true);
     expect(body.player.accountTags).toEqual(["verified"]);
+    // Choosing stores the name as the last sign-in listed it, and the
+    // response shows it without waiting for anything.
+    expect(repo.crProfiles.get("#20JJJ2CCRU")).toMatchObject({
+      status: "ready",
+      name: "King Thing",
+      fetchedAt: "2026-09-12T20:00:00.000Z",
+    });
+    expect(
+      (body.player as unknown as { clashRoyale?: { status: string } })
+        .clashRoyale?.status,
+    ).toBe("ready");
     const alt = await selectElixirPlayer({
       request: event("POST", "/me/elixir/select", {
         bearer,
-        body: { playerTag: "#VJQV8G8RL" },
+        body: { playerTag: "#2PYQ0C" },
       }),
       config,
       repository: repo as never,
@@ -889,7 +925,7 @@ describe("sign in with Elixir", () => {
           verified: true,
         },
         {
-          playerTag: "#VJQV8G8RL",
+          playerTag: "#2PYQ0C",
           relationship: "alt",
           isPrimary: false,
           verified: true,

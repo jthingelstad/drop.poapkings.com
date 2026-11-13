@@ -96,10 +96,8 @@ describe('favorite-card identity', () => {
         clan: {
           tag: '#P0QY',
           name: 'POAP KINGS',
-          badgeId: 16000000,
           role: 'coLeader'
         },
-        accountAge: { days: 2_930, years: 8 },
         // The card collection is no longer collected, stored, or sent:
         // the profile shape simply has nowhere to put one now.
         fetchedAt: '2026-07-18T12:00:00.000Z'
@@ -118,7 +116,8 @@ describe('favorite-card identity', () => {
 
     expect(text).toContain('POAP KINGS')
     expect(text).toContain('#2PYQ0')
-    expect(text).toContain('8y 10d playing')
+    // Years Played went with the profile read (2026-11-13).
+    expect(text).not.toMatch(/\d+d playing/)
     // The clan role is deliberately not projected.
     expect(text).not.toContain('Co Leader')
     expect(text).not.toContain('coLeader')

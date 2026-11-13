@@ -24,7 +24,6 @@ import {
   deleteAccount,
   markUpdatesOpened,
   player,
-  refreshAccount,
   sessionToken,
   signOut,
   updateAccount
@@ -65,17 +64,6 @@ import { track } from '../lib/analytics'
 
 const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
 
-// `3y 41d playing` — compact enough to sit on one line with the tag.
-function accountAgeText(years: number | undefined, days: number | undefined): string {
-  if (days !== undefined) {
-    const fullYears = Math.floor(days / 365)
-    const remainder = days % 365
-    return fullYears ? `${fullYears}y ${remainder}d playing` : `${remainder}d playing`
-  }
-  if (years !== undefined) return `${years}y playing`
-  return 'Account age unavailable'
-}
-
 function joinedText(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }
@@ -101,7 +89,6 @@ export default function Profile() {
   const syncedPlayerId = useRef<string | undefined>(undefined)
   const tagStepRef = useRef<HTMLHeadingElement | null>(null)
   const handledTagEditRequest = useRef(false)
-  const pollingCrStatus = player.value?.clashRoyale?.status
 
   useEffect(() => {
     if (routePathname(profileRoute) !== '/profile' || route.peek() !== profileRoute) return
@@ -132,12 +119,6 @@ export default function Profile() {
     })
     return () => window.cancelAnimationFrame(frame)
   }, [profileRoute, editingIdentity, flow, step])
-
-  useEffect(() => {
-    if (pollingCrStatus !== 'pending') return
-    const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
-    return () => window.clearInterval(interval)
-  }, [pollingCrStatus])
 
   // Opening Updates stamps the read time server-side, clearing the unread dot.
   useEffect(() => {
@@ -1030,22 +1011,13 @@ function AccountScope({ current }: { current: NonNullable<(typeof player)['value
           {current.clashRoyale.status === 'ready' ? (
             <>
               <div class="ed-account__line">{clan?.name ?? current.clashRoyale.name ?? 'No clan'}</div>
-              <div class="ed-account__line ed-account__muted">
-                {[
-                  current.clashRoyale.tag,
-                  accountAgeText(current.clashRoyale.accountAge?.years, current.clashRoyale.accountAge?.days)
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
+              <div class="ed-account__line ed-account__muted">{current.clashRoyale.tag}</div>
             </>
           ) : (
+            // Drop reads a player's name and clan from Elixir only when you sign
+            // in with Elixir (2026-11-13); it never fetches one in the background.
             <div class="ed-account__line ed-account__muted">
-              {current.clashRoyale.status === 'pending'
-                ? `Loading ${current.clashRoyale.tag}…`
-                : current.clashRoyale.status === 'not_found'
-                  ? `Elixir has no record of ${current.clashRoyale.tag} yet.`
-                  : 'Profile refresh delayed. Drop will retry automatically.'}
+              {`${current.clashRoyale.tag}: sign in with Elixir again to show its name and clan.`}
             </div>
           )}
         </div>

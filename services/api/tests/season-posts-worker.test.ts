@@ -6,11 +6,6 @@ import type { SeasonPostsRecord } from "../src/season-posts.js";
 
 import { processRefreshJob } from "../src/refresh-worker.js";
 
-const config = {
-  tableName: "test",
-  elixirMcpBaseUrl: "https://hub.example",
-  elixirMcpKey: "test-key",
-};
 const job = { version: 1, type: "war-clock" } as const;
 
 // The real worker, finalization and season-posts code over an in-memory store
@@ -84,7 +79,7 @@ describe("season posts ride the war-clock job", () => {
 
   it("posts both season posts once across a retried and duplicated job", async () => {
     const repo = store();
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     expect(repo.clock()?.crSeasonId).toBe(139);
     expect([...repo.updates.keys()]).toEqual([
       "season-138-final-results",
@@ -92,9 +87,9 @@ describe("season posts ride the war-clock job", () => {
     ]);
 
     // A duplicated job inside the freshness window, then the next hourly run.
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     vi.setSystemTime(new Date("2026-12-07T11:05:00.000Z"));
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     expect(repo.updates.size).toBe(2);
     expect(repo.publishUpdate).toHaveBeenCalledTimes(2);
   });
@@ -103,7 +98,7 @@ describe("season posts ride the war-clock job", () => {
     const repo = store();
     repo.publishUpdate.mockRejectedValueOnce(new Error("throttled"));
     await expect(
-      processRefreshJob(job, config, repo as unknown as Repository),
+      processRefreshJob(job, repo as unknown as Repository),
     ).resolves.toBeUndefined();
     expect(repo.clock()?.crSeasonId).toBe(139);
     expect(repo.updates.size).toBe(0);
@@ -111,7 +106,7 @@ describe("season posts ride the war-clock job", () => {
     // The live board moves after the close; the post must not.
     repo.setBoard([{ rank: 1, score: 9_000, player: { publicName: "Late" } }]);
     vi.setSystemTime(new Date("2026-12-07T11:05:00.000Z"));
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     const results = repo.updates.get("season-138-final-results");
     expect(results?.body).toContain("Surge: Log at **11.720s**.");
     expect(results?.body).not.toContain("Late");
@@ -124,12 +119,12 @@ describe("season posts ride the war-clock job", () => {
     repo.seasonFinalists.mockRejectedValueOnce(new Error("award failed"));
     repo.publishUpdate.mockRejectedValueOnce(new Error("throttled"));
     await expect(
-      processRefreshJob(job, config, repo as unknown as Repository),
+      processRefreshJob(job, repo as unknown as Repository),
     ).rejects.toThrow("award failed");
     expect(repo.clock()?.crSeasonId).toBe(138);
 
     repo.setBoard([{ rank: 1, score: 9_000, player: { publicName: "Late" } }]);
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     expect(repo.clock()?.crSeasonId).toBe(139);
     expect(repo.createSeasonPosts).toHaveBeenCalledTimes(2);
     expect(repo.updates.get("season-138-final-results")?.body).toContain(
@@ -141,7 +136,7 @@ describe("season posts ride the war-clock job", () => {
     const repo = store();
     // Half an hour before the season 139 reset: still season 138.
     vi.setSystemTime(new Date("2026-12-07T09:35:00.000Z"));
-    await processRefreshJob(job, config, repo as unknown as Repository);
+    await processRefreshJob(job, repo as unknown as Repository);
     expect(repo.createSeasonPosts).not.toHaveBeenCalled();
     expect(repo.updates.size).toBe(0);
     expect(repo.clock()?.crSeasonId).toBe(138);

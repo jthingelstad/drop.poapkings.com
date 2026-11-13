@@ -30,8 +30,6 @@ const CREDENTIALS = [
   "SESSION_SECRET",
   "TELEMETRY_PEPPER",
   "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN",
-  "ELIXIR_INTEGRATION_KEY",
-  "ELIXIR_MCP_KEY",
   "ELIXIR_OAUTH_CLIENT_SECRET",
 ];
 const saved: Record<string, string | undefined> = {};
@@ -63,27 +61,16 @@ describe("fail closed at each entry point", () => {
     expect((await dispatch(request("/health"))).statusCode).toBe(200);
   });
 
-  it("refresh throws without the hub keys, so SQS keeps the message", async () => {
-    secretString.current = JSON.stringify({ SESSION_SECRET: "only-this" });
-    await expect(refreshHandler({ Records: [] })).rejects.toThrow(
-      "Runtime secret lacks ELIXIR_INTEGRATION_KEY, ELIXIR_MCP_KEY",
-    );
-  });
-
-  it("refresh runs on its two keys with the other four absent", async () => {
+  it("refresh holds no credential: it runs with the secret empty", async () => {
     process.env.TABLE_NAME ??= "table";
-    process.env.ELIXIR_MCP_BASE_URL ??= "https://hub.example";
-    secretString.current = JSON.stringify({
-      ELIXIR_INTEGRATION_KEY: "integration",
-      ELIXIR_MCP_KEY: "mcp",
-    });
+    secretString.current = JSON.stringify({});
     await expect(refreshHandler({ Records: [] })).resolves.toEqual({
       batchItemFailures: [],
     });
   });
 
   it("cr-results throws without the two names its config needs", async () => {
-    secretString.current = JSON.stringify({ ELIXIR_MCP_KEY: "mcp" });
+    secretString.current = JSON.stringify({ ELIXIR_INTEGRATION_KEY: "x" });
     await expect(crResultHandler({ Records: [] })).rejects.toThrow(
       "Runtime secret lacks SESSION_SECRET, TELEMETRY_PEPPER",
     );

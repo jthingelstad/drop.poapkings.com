@@ -169,16 +169,15 @@ on the managed host (kept in its `.env`); a bare refresh would revert the
 snapshot to hotlinked CDN URLs, which the page CSP blocks for WebGL texture
 use and which reintroduces a CDN dependency for gameplay art.
 
-Drop reads Clash Royale data from Elixir, the hub that records it, through
-Elixir's Integration REST API (`/api/v1`) with Drop's own integration key. The
-season clock is Drop's own calculation (`services/api/src/season-clock.ts`):
-season, week and day boundaries at 10:00 UTC from the first-Monday calendar,
-not an observation of any one clan's race and not a request to Elixir. A
-player's profile is the recorded one at `GET /api/v1/players/{tag}`, taken as
-Elixir has it. Drop writes nothing to Elixir (2026-11-12): it never asks for a
-fresh read and never adds a player to an Elixir account; its one non-GET is
-the OAuth token request. A dedicated FIFO refresh worker makes the reads, so
-player requests never wait for the hub. The fixed-IP bridge and both SQS queues were retired 2026-09-06 —
+Drop talks to Elixir only to sign people in (2026-11-13): the OAuth flow,
+`GET /oauth/userinfo` and `GET /api/v1/me`. The `/me` answer that lists a
+person's own players also carries the chosen player's name and clan, which
+Drop stores then; it reads no profile at any other time and holds no Elixir
+integration key. The season clock is Drop's own calculation
+(`services/api/src/season-clock.ts`): season, week and day boundaries at
+10:00 UTC from the first-Monday calendar, not an observation of any one clan's
+race and not a request to Elixir. Drop writes nothing to Elixir (2026-11-12);
+its one non-GET is the OAuth token request. The fixed-IP bridge and both SQS queues were retired 2026-09-06 —
 Drop no longer calls Supercell at runtime at all.
 
 The API stores one current clock and uses it to partition completed runs, reset

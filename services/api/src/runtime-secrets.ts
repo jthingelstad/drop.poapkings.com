@@ -7,9 +7,9 @@ import {
 // JSON object of the env-style names below. Jamie keeps it by hand; no stack
 // parameter or function environment carries them (2026-11-04), so no function
 // configuration or retained revision holds a copy. The secret is readable only
-// by the three function roles. Each container reads it once, before its first
-// config read, and places its values in process.env, so config.ts and
-// refresh-worker.ts read them unchanged. Values exist only in memory and are
+// by the three function roles (the refresh worker's role keeps a grant it no
+// longer uses). Each container reads it once, before its first config read,
+// and places its values in process.env, so config.ts reads them unchanged. Values exist only in memory and are
 // never logged: the log lines carry names only.
 //
 // The load fails closed: an unreadable secret, or one missing a name the
@@ -22,21 +22,18 @@ export const RUNTIME_SECRET_KEYS = [
   "SESSION_SECRET",
   "TELEMETRY_PEPPER",
   "ELIXIR_DROP_UPDATES_PUBLISH_TOKEN",
-  "ELIXIR_INTEGRATION_KEY",
-  "ELIXIR_MCP_KEY",
   "ELIXIR_OAUTH_CLIENT_SECRET",
 ] as const;
 
 type RuntimeSecretKey = (typeof RUNTIME_SECRET_KEYS)[number];
 
-// What each function cannot run without. refresh reads the hub keys only.
-// cr-results uses no credential itself, but its shared getConfig() refuses to
-// start without these two.
+// What each function cannot run without. The refresh worker holds no
+// credential since 2026-11-13 (Drop's integration key went with the last
+// non-sign-in Elixir read), so it reads no secret at all. cr-results uses no
+// credential itself, but its shared getConfig() refuses to start without
+// these two. A name the secret still holds but no function lists, such as
+// the retired Elixir integration key, is ignored.
 export const API_SECRET_KEYS: readonly RuntimeSecretKey[] = RUNTIME_SECRET_KEYS;
-export const REFRESH_SECRET_KEYS: readonly RuntimeSecretKey[] = [
-  "ELIXIR_INTEGRATION_KEY",
-  "ELIXIR_MCP_KEY",
-];
 export const CR_RESULTS_SECRET_KEYS: readonly RuntimeSecretKey[] = [
   "SESSION_SECRET",
   "TELEMETRY_PEPPER",

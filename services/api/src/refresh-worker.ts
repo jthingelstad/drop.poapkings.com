@@ -1,7 +1,5 @@
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
 import { required, type Config } from "./config.js";
-import { requestCrProfileRefresh } from "./cr-refresh.js";
-import { loadRuntimeSecrets, REFRESH_SECRET_KEYS } from "./runtime-secrets.js";
 import { finalizePreviousSeasonIfNeeded } from "./podium.js";
 import { Repository } from "./repository.js";
 import { publishPendingSeasonPosts } from "./season-posts.js";
@@ -9,30 +7,19 @@ import { policyClock } from "./season-clock.js";
 import type { RefreshJob } from "./refresh-jobs.js";
 import { measure, withTimings } from "./timings.js";
 
-type RefreshConfig = Pick<
-  Config,
-  "tableName" | "elixirMcpBaseUrl" | "elixirMcpKey"
->;
+type RefreshConfig = Pick<Config, "tableName">;
 
-function parseJob(body: string): RefreshJob {
-  const job = JSON.parse(body) as Partial<RefreshJob> | null;
+// `player-profile` jobs were retired on 2026-11-13: Drop reads a player's
+// name and clan only at Sign in with Elixir. One still on the queue from
+// before the deploy is acknowledged and dropped, never retried.
+const RETIRED_JOB_TYPES = new Set(["player-profile"]);
+
+function parseJob(body: string): RefreshJob | "retired" {
+  const job = JSON.parse(body) as { version?: unknown; type?: unknown } | null;
   if (job?.version === 1 && job.type === "war-clock")
     return { version: 1, type: "war-clock" };
-  if (
-    job?.version === 1 &&
-    job.type === "player-profile" &&
-    typeof job.sub === "string" &&
-    /^[A-Za-z0-9_-]{43}$/.test(job.sub) &&
-    typeof job.playerId === "string" &&
-    job.playerId.length > 0 &&
-    job.playerId.length <= 100
-  )
-    return {
-      version: 1,
-      type: "player-profile",
-      sub: job.sub,
-      playerId: job.playerId,
-    };
+  if (job?.version === 1 && RETIRED_JOB_TYPES.has(job.type as string))
+    return "retired";
   throw new Error("Invalid refresh job");
 }
 
@@ -57,50 +44,33 @@ async function advanceWarClock(repository: Repository): Promise<void> {
 }
 
 export async function processRefreshJob(
-  job: RefreshJob,
-  config: RefreshConfig,
+  _job: RefreshJob,
   repository: Repository,
 ): Promise<void> {
-  if (job.type === "war-clock") {
-    try {
-      await advanceWarClock(repository);
-    } finally {
-      // Owed season posts publish after every clock job, whatever the clock
-      // did, so a failed post retries on the next hourly run. This never
-      // throws, and nothing it does can undo finalization or the saved clock.
-      await measure("season.posts", () =>
-        publishPendingSeasonPosts(repository),
-      );
-    }
-    return;
+  try {
+    await advanceWarClock(repository);
+  } finally {
+    // Owed season posts publish after every clock job, whatever the clock
+    // did, so a failed post retries on the next hourly run. This never
+    // throws, and nothing it does can undo finalization or the saved clock.
+    await measure("season.posts", () => publishPendingSeasonPosts(repository));
   }
-
-  const profile = await repository.getProfile(job.sub);
-  // Jobs carry an account generation, so a deleted/recreated account is untouched.
-  if (!profile || profile.playerId !== job.playerId || !profile.playerTag)
-    return;
-  await requestCrProfileRefresh(repository, config, profile.playerTag);
 }
 
+// The worker holds no credential: the clock is computed and the table is
+// reached through the function's role, so it reads no runtime secret.
 export async function refreshHandler(
   event: SQSEvent,
 ): Promise<SQSBatchResponse> {
-  await loadRuntimeSecrets(REFRESH_SECRET_KEYS);
-  const config: RefreshConfig = {
-    tableName: required("TABLE_NAME"),
-    elixirMcpBaseUrl: required("ELIXIR_MCP_BASE_URL").replace(/\/$/, ""),
-    elixirMcpKey:
-      process.env.ELIXIR_INTEGRATION_KEY?.trim() ||
-      process.env.ELIXIR_MCP_KEY?.trim() ||
-      undefined,
-  };
+  const config: RefreshConfig = { tableName: required("TABLE_NAME") };
   const repository = new Repository(config.tableName);
   for (let index = 0; index < event.Records.length; index += 1) {
     const record = event.Records[index]!;
     try {
       const job = parseJob(record.body);
+      if (job === "retired") continue;
       await withTimings(`refresh.${job.type}`, () =>
-        processRefreshJob(job, config, repository),
+        processRefreshJob(job, repository),
       );
     } catch (error) {
       console.error("Refresh job failed", {

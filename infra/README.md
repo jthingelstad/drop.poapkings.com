@@ -175,10 +175,12 @@ refuses unless the checkout equals `origin/main` and its tree passed
 
 Drop's credentials live in one Secrets Manager secret, `elixir-drop-runtime`: a
 JSON object whose keys are the env names `SESSION_SECRET`, `TELEMETRY_PEPPER`,
-`ELIXIR_DROP_UPDATES_PUBLISH_TOKEN`, `ELIXIR_INTEGRATION_KEY`, `ELIXIR_MCP_KEY`
-and `ELIXIR_OAUTH_CLIENT_SECRET`. Jamie keeps it by hand in the console; the
+`ELIXIR_DROP_UPDATES_PUBLISH_TOKEN` and `ELIXIR_OAUTH_CLIENT_SECRET`. Drop's
+Elixir integration key (`ELIXIR_INTEGRATION_KEY`, legacy `ELIXIR_MCP_KEY`) was
+retired on 2026-11-13; no function reads those names, so they can be deleted
+from the secret at any time. Jamie keeps it by hand in the console; the
 stack does not own it and no deploy writes it. Only the API, refresh and
-result-consumer roles may read it (never the referee role, CI, or the browser).
+result-consumer roles may read it (the refresh worker no longer does) (never the referee role, CI, or the browser).
 No stack parameter or function environment carries a credential, so no function
 configuration or retained Web Function revision holds a copy (since 2026-11-04).
 The functions get only `RUNTIME_SECRET_ID`; `services/api/src/runtime-secrets.ts`
@@ -189,10 +191,10 @@ environment.
 
 The load fails closed. A secret that cannot be read or parsed, or one missing a
 name that function needs, logs `runtime_secrets.load_failed` with names only and
-throws. The API needs all six and answers 500 on everything but `/health`.
-Refresh needs `ELIXIR_INTEGRATION_KEY` and `ELIXIR_MCP_KEY`. The result consumer
+throws. The API needs all four and answers 500 on everything but `/health`.
+Refresh holds no credential and does not read the secret. The result consumer
 needs `SESSION_SECRET` and `TELEMETRY_PEPPER`, which its shared `getConfig()`
-requires. Both queue consumers throw, so SQS retries the message and then moves
+requires, and throws without them, so SQS retries the message and then moves
 it to the dead-letter queue. A failed load is not cached, so a brief outage clears on
 the next request or message. An environment value never stands in for a missing
 name.
