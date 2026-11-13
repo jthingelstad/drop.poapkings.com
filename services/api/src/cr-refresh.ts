@@ -2,7 +2,7 @@ import type { ClashRoyaleProfile } from "@elixir-drop/contracts";
 import { randomUUID } from "node:crypto";
 import type { Config } from "./config.js";
 import { fetchPlayerFromHub } from "./elixir-player.js";
-import type { ElixirMcpFetch } from "./elixir-mcp.js";
+import { ElixirMcpError, type ElixirMcpFetch } from "./elixir-mcp.js";
 import { Repository } from "./repository.js";
 import type { CrProfileSnapshot } from "./types.js";
 
@@ -28,11 +28,13 @@ export function publicCrProfile(
 }
 
 /**
- * Refresh one player's Clash Royale profile from the hub.
+ * Re-read one player's recorded Clash Royale profile from Elixir.
  *
- * The 6-hour claim is what keeps this cheap: a returning player inside
- * the window reads the stored snapshot and spends nothing. Only a stale
- * or missing one costs a live read.
+ * A GET only: Drop never asks Elixir to refresh a profile (Jamie,
+ * 2026-11-12). The 6-hour claim keeps it cheap: a returning player inside
+ * the window reads the stored snapshot and spends nothing. A player Elixir
+ * has not recorded is marked not_found and is not retried in the queue; the
+ * next sign-in or session refresh reads again.
  *
  * Failure is recorded rather than thrown. Enrichment is cosmetic, and
  * every caller is on a path — a login, a profile save — that must
@@ -80,6 +82,15 @@ export async function requestCrProfileRefresh(
       updatedAt: fetchedAt,
     });
   } catch (error) {
+    if (error instanceof ElixirMcpError && error.code === "not_recorded") {
+      await repository.markCrRefreshUnavailable(
+        tag,
+        jobId,
+        new Date().toISOString(),
+        "not_found",
+      );
+      return repository.getCrProfile(tag);
+    }
     console.warn("Elixir MCP player enrichment failed", {
       error: error instanceof Error ? error.name : "unknown",
     });

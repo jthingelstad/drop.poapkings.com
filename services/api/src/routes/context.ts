@@ -118,7 +118,6 @@ export function ownerElixir(link: ElixirLink) {
     verified: link.verified,
     verifiedAt: link.verifiedAt,
     candidates: link.candidates,
-    ...(link.trackRefused ? { trackRefused: link.trackRefused } : {}),
   };
 }
 export function profileResponse(

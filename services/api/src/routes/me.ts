@@ -1,4 +1,3 @@
-import { enqueueRefresh } from "../refresh-jobs.js";
 import {
   arenaForXp,
   seasonNumber,
@@ -614,14 +613,16 @@ export async function deleteMe({ request, config, repository }: RouteContext) {
   return json(200, { ok: true });
 }
 
-// PATCH /me — save the card-bound identity and/or the unverified player tag.
+// PATCH /me — save the card-bound identity, or clear the player tag. A
+// player tag is never typed in any more (Jamie, 2026-11-12): a signed-in
+// player picks one of their Elixir players (`POST /me/elixir/select`). A tag
+// typed in before stays as it is, and any other tag sent here is refused.
 export async function patchMe({ request, config, repository }: RouteContext) {
   const session = sessionFor(request, config.sessionSecret, true);
   const body = bodyOf(request);
   const updates: {
     publicName?: string;
     favoriteCardId?: number;
-    playerTag?: string;
     clearPlayerTag?: boolean;
     lastOpenedUpdates?: string;
   } = {};
@@ -641,8 +642,15 @@ export async function patchMe({ request, config, repository }: RouteContext) {
     } catch (error) {
       throw badRequest(error);
     }
-    if (tag) updates.playerTag = tag;
-    else updates.clearPlayerTag = true;
+    if (tag) {
+      const stored = await repository.getProfile(session.sub);
+      if (tag !== stored?.playerTag)
+        throw new HttpError(
+          403,
+          "Choose one of the players on your Elixir account.",
+          "player_from_elixir",
+        );
+    } else updates.clearPlayerTag = true;
   }
   const changesIdentity =
     Object.hasOwn(body, "publicName") || Object.hasOwn(body, "favoriteCardId");
@@ -685,39 +693,12 @@ export async function patchMe({ request, config, repository }: RouteContext) {
   }
   if (!Object.keys(updates).length)
     throw new HttpError(400, "No profile changes were provided.");
-  let profile = await repository.updateProfile(session.sub, updates);
-  // The verified mark belongs to the one tag Elixir proved: a tag saved by
-  // hand keeps it only if it is that tag.
-  if (updates.playerTag && profile.elixir) {
-    const verified =
-      profile.elixir.verified && profile.elixir.playerTag === profile.playerTag;
-    if (Boolean(profile.elixirVerified) !== verified) {
-      await repository.setElixirVerifiedFlag(session.sub, verified);
-      profile = { ...profile, elixirVerified: verified };
-    }
-  }
-  if (updates.playerTag)
-    await enqueueRefresh(config, {
-      version: 1,
-      type: "player-profile",
-      sub: session.sub,
-      playerId: profile.playerId,
-    });
+  const profile = await repository.updateProfile(session.sub, updates);
   const crProfile: CrProfileSnapshot | undefined = profile.playerTag
     ? await repository.getCrProfile(profile.playerTag)
     : undefined;
   const rankedAccess = await repository.rankedAccess(profile.playerId);
-  const badgeResult = updates.playerTag
-    ? await badgeSummary(
-        { request, config, repository },
-        session.sub,
-        profile.playerId,
-        profile,
-      )
-    : undefined;
-  const xpProfile = badgeResult && (await repository.getProfile(session.sub));
   return json(200, {
-    player: profileResponse(xpProfile ?? profile, crProfile, rankedAccess),
-    ...(badgeResult ? { badges: badgeResult } : {}),
+    player: profileResponse(profile, crProfile, rankedAccess),
   });
 }

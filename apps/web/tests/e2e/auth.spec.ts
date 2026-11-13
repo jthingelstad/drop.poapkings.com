@@ -124,7 +124,7 @@ test('signing in with Elixir from the login screen returns the player to the req
   await waitForKeypad(page)
 })
 
-test('the player-tag deep link survives sign-in and focuses the tag field', { tag: '@deploy' }, async ({ page }) => {
+test('the player deep link survives sign-in and focuses the player step', { tag: '@deploy' }, async ({ page }) => {
   const noTagPlayer = { ...testPlayer, playerTag: undefined, clashRoyale: undefined }
   let startBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
@@ -174,9 +174,10 @@ test('the player-tag deep link survives sign-in and focuses the tag field', { ta
   await expect.poll(() => startBody).toEqual({ returnTo: '/profile?edit=player-tag' })
 
   await expect(page).toHaveURL(/#\/profile\?edit=player-tag$/)
-  const tagInput = page.getByRole('textbox', { name: 'Clash Royale player tag' })
-  await expect(tagInput).toBeVisible()
-  await expect(tagInput).toBeFocused()
+  const step = page.getByRole('heading', { level: 2, name: 'Choose your Clash Royale player' })
+  await expect(step).toBeVisible()
+  await expect(step).toBeFocused()
+  await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
 })
 
 test('new players choose a favorite card and generated name before returning to a game', async ({ page }) => {

@@ -1036,21 +1036,6 @@ export class Repository {
     return result.Attributes as ProfileItem;
   }
 
-  // The verified mark belongs to ONE tag, the one Elixir proved. After a
-  // tag is saved by hand, the mark stays only if that is the tag.
-  async setElixirVerifiedFlag(sub: string, value: boolean): Promise<void> {
-    await client.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: profileKey(sub),
-        UpdateExpression: "SET #elixirVerified = :value",
-        ConditionExpression: "attribute_exists(pk)",
-        ExpressionAttributeNames: { "#elixirVerified": "elixirVerified" },
-        ExpressionAttributeValues: { ":value": value },
-      }),
-    );
-  }
-
   async clearElixirLink(sub: string): Promise<PlayerProfile> {
     const result = await client.send(
       new UpdateCommand({
@@ -1894,10 +1879,13 @@ export class Repository {
     }
   }
 
+  // A tag that has never been read: unavailable after a failure, or
+  // not_found when Elixir has no record of the player.
   async markCrRefreshUnavailable(
     tag: string,
     jobId: string,
     updatedAt: string,
+    status: "unavailable" | "not_found" = "unavailable",
   ): Promise<void> {
     try {
       await client.send(
@@ -1910,7 +1898,7 @@ export class Repository {
             "jobId = :jobId AND attribute_not_exists(fetchedAt)",
           ExpressionAttributeNames: { "#status": "status" },
           ExpressionAttributeValues: {
-            ":unavailable": "unavailable",
+            ":unavailable": status,
             ":updatedAt": updatedAt,
             ":jobId": jobId,
           },

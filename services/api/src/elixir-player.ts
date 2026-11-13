@@ -1,16 +1,13 @@
-import { setTimeout as delay } from "node:timers/promises";
-/** Recorded player context from the Integration API. The source timestamp
- * drives cache freshness; missing/stale profiles request collector work. */
+/** Recorded player context from the Integration API, read with GET alone.
+ * Drop writes nothing to Elixir (Jamie, 2026-11-12): it never asks Elixir
+ * to refresh a profile. Elixir keeps the players on an account fresh itself,
+ * and the source timestamp says how old a reading is. */
 
 import type {
   ClashRoyaleAccountAge,
   ClashRoyaleClan,
 } from "@elixir-drop/contracts";
-import {
-  apiRequest,
-  ElixirMcpError,
-  type ElixirMcpFetch,
-} from "./elixir-mcp.js";
+import { apiGet, ElixirMcpError, type ElixirMcpFetch } from "./elixir-mcp.js";
 import type { Config } from "./config.js";
 
 export interface HubPlayer {
@@ -78,80 +75,29 @@ export function normalizeRecordedPlayer(
   };
 }
 
-/** Read the record first. Missing or stale data starts an asynchronous refresh;
- * access refusals and outages never trigger extra upstream work. */
+/** The recorded profile, whatever its age. A player Elixir has not recorded
+ * answers `not_recorded`; Drop asks for nothing more. */
 export async function fetchPlayerFromHub(
   config: Pick<Config, "elixirMcpBaseUrl" | "elixirMcpKey">,
   tag: string,
   fetcher?: ElixirMcpFetch,
-  sleep: (ms: number) => Promise<void> = (ms) => delay(ms),
 ): Promise<HubPlayer> {
   const hub = { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey };
-  const normalize = (profile: RecordedProfile): HubPlayer => {
-    const player = normalizeRecordedPlayer(profile);
-    if (
-      !player ||
-      !profile.observed_at ||
-      !Number.isFinite(Date.parse(profile.observed_at))
-    )
-      throw new ElixirMcpError(
-        "Invalid recorded profile",
-        502,
-        "invalid_response",
-      );
-    return { ...player, observedAt: profile.observed_at };
-  };
-  try {
-    const recorded = normalize(
-      await apiRequest<RecordedProfile>(
-        hub,
-        "GET",
-        `/players/${encodeURIComponent(tag)}`,
-        undefined,
-        fetcher,
-      ),
-    );
-    if (Date.now() - Date.parse(recorded.observedAt!) < 6 * 60 * 60_000)
-      return recorded;
-  } catch (error) {
-    // Authentication, quota and server failures are not missing player data.
-    if (!(error instanceof ElixirMcpError) || error.code !== "not_recorded")
-      throw error;
-  }
-  type Refresh = { id?: string; status: string; profile?: RecordedProfile };
-  let refresh = await apiRequest<Refresh>(
+  const profile = await apiGet<RecordedProfile>(
     hub,
-    "POST",
-    "/profile-refreshes",
-    { player_tag: tag },
+    `/players/${encodeURIComponent(tag)}`,
     fetcher,
-    `profile:${tag}:${Math.floor(Date.now() / (15 * 60_000))}`,
   );
-  // Only the background worker calls this adapter. Give ordinary collector
-  // work a short completion window before relying on the longer SQS retry.
-  for (
-    let attempt = 0;
-    refresh.status === "pending" && attempt < 3;
-    attempt += 1
-  ) {
-    if (!refresh.id || !/^[a-f0-9-]{36}$/.test(refresh.id))
-      throw new ElixirMcpError(
-        "Invalid refresh resource",
-        502,
-        "invalid_response",
-      );
-    await sleep(5000);
-    refresh = await apiRequest<Refresh>(
-      hub,
-      "GET",
-      `/profile-refreshes/${refresh.id}`,
-      undefined,
-      fetcher,
+  const player = normalizeRecordedPlayer(profile);
+  if (
+    !player ||
+    !profile.observed_at ||
+    !Number.isFinite(Date.parse(profile.observed_at))
+  )
+    throw new ElixirMcpError(
+      "Invalid recorded profile",
+      502,
+      "invalid_response",
     );
-  }
-  if (refresh.status === "complete" && refresh.profile)
-    return normalize(refresh.profile);
-  // The durable FIFO worker retries. Do not pretend an accepted
-  // fetch means the recorder already holds an observation.
-  throw new ElixirMcpError("Profile refresh pending", 202, "refresh_pending");
+  return { ...player, observedAt: profile.observed_at };
 }

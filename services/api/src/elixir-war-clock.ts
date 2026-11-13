@@ -1,7 +1,7 @@
 /** Game calendar from Elixir's platform API. These are policy boundaries,
  * never an observed opening borrowed from a particular clan's river race. */
 import type { CrWarClock } from "@elixir-drop/contracts";
-import { apiRequest, type ElixirMcpFetch } from "./elixir-mcp.js";
+import { apiGet, type ElixirMcpFetch } from "./elixir-mcp.js";
 import type { Config } from "./config.js";
 interface GameClock {
   source?: string;
@@ -76,11 +76,9 @@ export async function fetchWarClockFromHub(
   fetcher?: ElixirMcpFetch,
 ): Promise<CrWarClock> {
   return toWarClock(
-    await apiRequest<GameClock>(
+    await apiGet<GameClock>(
       { baseUrl: config.elixirMcpBaseUrl, token: config.elixirMcpKey },
-      "GET",
       "/game/clock",
-      undefined,
       fetcher,
     ),
   );

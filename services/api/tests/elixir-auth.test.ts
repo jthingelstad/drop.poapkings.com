@@ -57,15 +57,21 @@ function fakeElixir(script: {
   kind?: string;
   email?: string;
   players?: Record<string, unknown>[];
-  trackOk?: boolean;
   userinfoStatus?: number;
 }) {
   const calls: string[] = [];
+  // Every request, as METHOD path: Drop writes nothing to Elixir, so the only
+  // non-GET it may send is OAuth's own token request.
+  const requests: string[] = [];
   const fetchImpl = (async (
     input: string | URL | Request,
     init?: RequestInit,
   ) => {
     const url = input instanceof Request ? input.url : String(input);
+    const method = init?.method ?? "GET";
+    requests.push(`${method} ${new URL(url).pathname}`);
+    if (method !== "GET" && !url.endsWith("/oauth/token"))
+      throw new Error(`Drop sent Elixir a ${method} to ${url}`);
     const sent = typeof init?.body === "string" ? init.body : "";
     const answer = (status: number, body: unknown) =>
       new Response(JSON.stringify(body), {
@@ -120,32 +126,12 @@ function fakeElixir(script: {
         },
       });
     }
-    if (url.endsWith("/api/v1/me/players") && init?.method === "POST") {
-      calls.push("track");
-      const request = JSON.parse(sent) as Record<string, unknown>;
-      expect(request).toEqual({
-        player_tag: request.player_tag,
-        relationship: "alt",
-      });
-      if (script.trackOk === false) return problem(429, "daily_quota_exceeded");
-      script.players = [
-        ...(script.players ?? []),
-        {
-          player_tag: request.player_tag,
-          name: "Added",
-          relationship: "alt",
-          is_primary: false,
-          claim_status: "unverified",
-          recording: "active",
-        },
-      ];
-      return answer(200, { request_id: "r", data: { added: true } });
-    }
     if (url.includes("/api/v1/")) return problem(404, "not_found");
     throw new Error(`unexpected ${url}`);
   }) as typeof fetch;
   return {
     calls,
+    requests,
     client: new ElixirOAuthClient({
       issuer: config.elixirMcpBaseUrl,
       clientId: "client123",
@@ -349,15 +335,14 @@ async function start(
   return { ...body, state };
 }
 describe("sign in with Elixir", () => {
-  it("start: asks Elixir for cr:read + recordings:write + account:email with PKCE, and hands back a poll id", async () => {
+  it("start: asks Elixir for cr:read + account:email with PKCE, and hands back a poll id", async () => {
     const repo = fakeRepository();
     const fake = fakeElixir({});
     const { url, pollId, mode } = await start(repo, fake);
     const u = new URL(url);
     expect(u.origin + u.pathname).toBe("https://elixir.test/oauth/authorize");
-    expect(u.searchParams.get("scope")).toBe(
-      "cr:read recordings:write account:email",
-    );
+    // Read and sign in only: no recordings:write (Jamie, 2026-11-12).
+    expect(u.searchParams.get("scope")).toBe("cr:read account:email");
     expect(u.searchParams.get("redirect_uri")).toBe(
       "https://drop.test/api/auth/elixir/callback",
     );
@@ -428,7 +413,7 @@ describe("sign in with Elixir", () => {
     expect(repo.must(sub).elixirAccountId).toBe("elixir-acct-1");
     expect(repo.magic[0]).toMatchObject({ sub, email: "jamie@example.com" });
   });
-  it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir is added there first", async () => {
+  it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir stays as it is, unverified", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
     const fake = fakeElixir({ players: [KING, ALT] });
@@ -443,15 +428,16 @@ describe("sign in with Elixir", () => {
       },
       fake.client,
     );
-    expect(fake.calls).toEqual(["token", "me", "userinfo", "track", "me"]);
+    // Nothing is added to the Elixir account.
+    expect(fake.calls).toEqual(["token", "me", "userinfo"]);
     const link = repo.must(sub).elixir!;
-    // The Drop tag is now among the candidates, so it stays the choice.
     expect(link.candidates.map((c) => c.playerTag)).toEqual([
       "#20JJJ2CCRU",
       "#VJQV8G8RL",
-      "#2PP",
     ]);
-    expect(link.playerTag).toBe("#2PP");
+    // The hand-typed tag is kept; nothing is chosen over it.
+    expect(link.playerTag).toBeUndefined();
+    expect(repo.must(sub).playerTag).toBe("#2PP");
     expect(link.verified).toBe(false);
     expect(repo.must(sub).elixirVerified).toBe(false);
     // More than one candidate: the person is shown the picker.
@@ -459,10 +445,10 @@ describe("sign in with Elixir", () => {
       encodeURIComponent("/profile?scope=account"),
     );
   });
-  it("callback: a refused track is recorded, not fatal", async () => {
+  it("callback: a hand-typed tag beside one Elixir player is kept, never replaced by it", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
-    const fake = fakeElixir({ players: [KING], trackOk: false });
+    const fake = fakeElixir({ players: [KING] });
     const { state } = await start(repo, fake);
     const res = await elixirCallback(
       {
@@ -476,11 +462,54 @@ describe("sign in with Elixir", () => {
     );
     expect(res.statusCode).toBe(303);
     const link = repo.must(sub).elixir!;
-    expect(link.trackRefused).toBe("#2PP");
-    // The only candidate is King Thing; Drop's tag is not theirs on Elixir, so
-    // the lone candidate is chosen and becomes the Drop tag.
-    expect(link.playerTag).toBe("#20JJJ2CCRU");
-    expect(repo.must(sub).playerTag).toBe("#20JJJ2CCRU");
+    expect(link.playerTag).toBeUndefined();
+    expect(link.candidates.map((c) => c.playerTag)).toEqual(["#20JJJ2CCRU"]);
+    expect(repo.must(sub).playerTag).toBe("#2PP");
+    // There is a choice to offer, so the person lands on the picker.
+    expect(String(res.headers?.location)).toContain(
+      encodeURIComponent("/profile?scope=account"),
+    );
+  });
+  it("callback: a hand-typed tag and no Elixir players goes where the person was going", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
+    const fake = fakeElixir({ players: [] });
+    const { state } = await start(repo, fake, undefined, "/surge");
+    const res = await elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+    expect(repo.must(sub).playerTag).toBe("#2PP");
+    expect(String(res.headers?.location)).toContain(
+      `returnTo=${encodeURIComponent("/surge")}`,
+    );
+  });
+  it("a whole sign-in sends Elixir GETs only, besides OAuth's token request", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
+    const fake = fakeElixir({ players: [KING, ALT] });
+    const { state } = await start(repo, fake);
+    await elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+    expect(fake.requests).toEqual([
+      "POST /oauth/token",
+      "GET /api/v1/me",
+      "GET /oauth/userinfo",
+    ]);
   });
   it("callback from a signed-in browser is a LINK to that account, whatever email Elixir names", async () => {
     const dropSub = emailSubject("other@example.com");

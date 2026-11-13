@@ -173,11 +173,11 @@ Drop reads Clash Royale data from Elixir, the hub that records it, through
 Elixir's Integration REST API (`/api/v1`) with Drop's own integration key. The
 season clock is `GET /api/v1/game/clock`, Elixir's policy clock: season, week
 and day boundaries at 10:00 UTC, not an observation of any one clan's race. A
-player's profile is the recorded one at `GET /api/v1/players/{tag}`; when it is
-missing or more than six hours old, Drop asks for a fresh read with
-`POST /api/v1/profile-refreshes` and polls `/profile-refreshes/{id}`. A
-dedicated FIFO refresh worker makes these calls, so player requests never wait
-for the hub. The fixed-IP bridge and both SQS queues were retired 2026-09-06 —
+player's profile is the recorded one at `GET /api/v1/players/{tag}`, taken as
+Elixir has it. Drop writes nothing to Elixir (2026-11-12): it never asks for a
+fresh read and never adds a player to an Elixir account; its one non-GET is
+the OAuth token request. A dedicated FIFO refresh worker makes the reads, so
+player requests never wait for the hub. The fixed-IP bridge and both SQS queues were retired 2026-09-06 —
 Drop no longer calls Supercell at runtime at all.
 
 The API stores one current clock and uses it to partition completed runs, reset

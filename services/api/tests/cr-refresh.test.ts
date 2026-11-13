@@ -71,4 +71,34 @@ describe("CR profile refresh policy", () => {
       warn.mockRestore();
     }
   });
+
+  it("marks a player Elixir has not recorded as not_found, asks for no refresh, and does not throw for a queue retry", async () => {
+    const markCrRefreshUnavailable = vi.fn().mockResolvedValue(undefined);
+    const repository = {
+      claimCrRefresh: vi.fn().mockResolvedValue(true),
+      markCrRefreshUnavailable,
+      getCrProfile: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Repository;
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => ({
+      ok: false,
+      status: 404,
+      json: async () => ({ code: "not_recorded" }),
+      text: async () => "",
+    }));
+    await requestCrProfileRefresh(
+      repository,
+      { elixirMcpBaseUrl: "https://elixir.example", elixirMcpKey: "svt_test" },
+      "#2PP",
+      new Date("2026-11-12T00:00:00.000Z"),
+      fetcher,
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls[0]![1].method).toBe("GET");
+    expect(markCrRefreshUnavailable).toHaveBeenCalledWith(
+      "#2PP",
+      expect.any(String),
+      expect.any(String),
+      "not_found",
+    );
+  });
 });

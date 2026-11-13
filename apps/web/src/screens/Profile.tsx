@@ -19,6 +19,8 @@ import BadgeMedallion from '../components/BadgeMedallion'
 import {
   accountStatus,
   badges,
+  beginElixirLogin,
+  chooseElixirPlayer,
   deleteAccount,
   markUpdatesOpened,
   player,
@@ -45,7 +47,7 @@ import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
 import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
-import ElixirConnection from '../components/ElixirConnection'
+import ElixirConnection, { NoElixirPlayer } from '../components/ElixirConnection'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
@@ -83,11 +85,10 @@ export default function Profile() {
   const returnTo = gameReturnPathFromRoute(profileRoute)
   const scope = youScopeFromRoute(profileRoute)
   const unreadUpdates = hasUnreadUpdates.value
-  const tag = useSignal(player.value?.playerTag || '')
   const search = useSignal('')
   const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
   const editingIdentity = useSignal(!player.value?.favoriteCardId)
-  // Identity setup is three steps: card → name → player tag. A fresh player runs
+  // Identity setup is three steps: card → name → Clash Royale player. A fresh player runs
   // the whole flow ('setup'); Edit from You opens step 2 and Account opens step 3
   // ('edit'), reusing the same screens.
   const step = useSignal<'card' | 'name' | 'tag'>('card')
@@ -98,7 +99,7 @@ export default function Profile() {
   const busy = useSignal(false)
   const message = useSignal('')
   const syncedPlayerId = useRef<string | undefined>(undefined)
-  const tagInputRef = useRef<HTMLInputElement | null>(null)
+  const tagStepRef = useRef<HTMLHeadingElement | null>(null)
   const handledTagEditRequest = useRef(false)
   const pollingCrStatus = player.value?.clashRoyale?.status
 
@@ -112,7 +113,6 @@ export default function Profile() {
     const authenticatedPlayer = player.value
     if (!authenticatedPlayer || syncedPlayerId.current === authenticatedPlayer.id) return
     syncedPlayerId.current = authenticatedPlayer.id
-    tag.value = authenticatedPlayer.playerTag || ''
     selectedCardId.value = authenticatedPlayer.favoriteCardId ?? null
     // A player arriving after mount opens setup only when they have no card. Do
     // not clobber a tag-edit the route requested (Account → step 3).
@@ -122,13 +122,13 @@ export default function Profile() {
   useEffect(() => {
     if (handledTagEditRequest.current || canonicalProfileRoute(profileRoute) !== PLAYER_TAG_RETURN_PATH) return
     handledTagEditRequest.current = true
-    // Account's player-tag edit opens step 3 directly (reusing the setup screen).
+    // Account's player edit opens step 3 directly (reusing the setup screen).
     flow.value = 'edit'
     step.value = 'tag'
     editingIdentity.value = true
     const frame = window.requestAnimationFrame(() => {
-      tagInputRef.current?.scrollIntoView({ block: 'center' })
-      tagInputRef.current?.focus()
+      tagStepRef.current?.scrollIntoView({ block: 'center' })
+      tagStepRef.current?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
   }, [profileRoute, editingIdentity, flow, step])
@@ -254,17 +254,19 @@ export default function Profile() {
     }
   }
 
-  // Step 3: the tag lookup runs against the public profile after submission, so
-  // the screen promises nothing it has not got — the player can start straight away.
-  async function saveTagAndFinish(event: Event) {
-    event.preventDefault()
+  // Step 3: a signed-in player picks one of the players on their Elixir
+  // account; a tag is never typed in (Jamie, 2026-11-12). The clan lookup
+  // runs after the choice, so the player can start straight away.
+  async function choosePlayerAndFinish(playerTag: string) {
     busy.value = true
+    message.value = ''
     try {
-      await updateAccount({ playerTag: tag.value || null })
+      await chooseElixirPlayer(playerTag)
+      busy.value = false
       finishEdit()
     } catch (error) {
       busy.value = false
-      message.value = error instanceof Error ? error.message : 'Player tag could not be saved.'
+      message.value = error instanceof Error ? error.message : 'That player could not be chosen.'
     }
   }
 
@@ -391,35 +393,66 @@ export default function Profile() {
 
         {step.value === 'tag' && (
           <section class="ed-idsetup__step">
-            <h2 class="ed-idsetup__h">Add your Clash Royale tag</h2>
-            <form class="ed-idsetup__tagform" onSubmit={saveTagAndFinish}>
-              <input
-                id="clash-player-tag"
-                ref={tagInputRef}
-                aria-label="Clash Royale player tag"
-                value={tag.value}
-                placeholder="#PLAYER_TAG"
-                onInput={(event) => (tag.value = event.currentTarget.value)}
-              />
-              <p class="ed-idsetup__sub">
-                Drop looks up your clan after you finish — it takes a moment, and you can start playing straight away.
+            <h2 class="ed-idsetup__h" ref={tagStepRef} tabIndex={-1}>
+              Choose your Clash Royale player
+            </h2>
+            <p class="ed-idsetup__sub">
+              Drop shows a player from your Elixir account and uses it to find your clan. You can start playing straight
+              away.
+            </p>
+            {current.playerTag && !current.elixir?.candidates.some((c) => c.playerTag === current.playerTag) && (
+              <p class="ed-idsetup__fine">
+                Drop keeps the tag you typed in before, <span class="ed-profile__reference">{current.playerTag}</span>,
+                as not verified.
               </p>
-              <p class="ed-idsetup__fine">Drop only reads your public Clash Royale profile — a tag is not ownership.</p>
-              <p class="ed-idsetup__fine">Find the tag under your name in Clash Royale.</p>
-              <div class="ed-idsetup__actions">
-                <button class="ed-btn ed-btn--gold ed-btn--lg tap-fx" disabled={busy.value}>
-                  <span class="tap-face">{`PLAY AS ${nameForCta}`.trim()}</span>
-                </button>
-                <button
-                  type="button"
-                  class="ed-btn ed-btn--ghost ed-btn--lg"
-                  onClick={finishEdit}
-                  disabled={busy.value}
-                >
-                  Skip — add it later in You
-                </button>
+            )}
+            {current.elixir && current.elixir.candidates.length > 0 ? (
+              <div class="ed-elixir__picker" role="group" aria-label="Your Elixir players">
+                {current.elixir.candidates.map((candidate) => {
+                  const chosen = candidate.playerTag === current.playerTag
+                  return (
+                    <button
+                      key={candidate.playerTag}
+                      type="button"
+                      class={`ed-elixir__candidate${chosen ? ' ed-elixir__candidate--current' : ''}`}
+                      aria-pressed={chosen}
+                      disabled={busy.value || chosen}
+                      onClick={() => void choosePlayerAndFinish(candidate.playerTag)}
+                    >
+                      <span class="ed-elixir__candidate-name">{candidate.name ?? candidate.playerTag}</span>
+                      <span class="ed-profile__reference">{candidate.playerTag}</span>
+                      <span class="ed-elixir__candidate-meta">
+                        {candidate.relationship === 'primary' ? 'you' : 'alt'}
+                        {candidate.verified ? (
+                          <>
+                            {' '}
+                            · <Icon name="circle-check" /> verified
+                          </>
+                        ) : (
+                          ' · not verified'
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
-            </form>
+            ) : current.elixir ? (
+              <NoElixirPlayer />
+            ) : (
+              <button
+                type="button"
+                class="ed-btn ed-btn--ghost ed-btn--sm"
+                disabled={busy.value}
+                onClick={() => void beginElixirLogin(PLAYER_TAG_RETURN_PATH)}
+              >
+                Check with Elixir
+              </button>
+            )}
+            <div class="ed-idsetup__actions">
+              <button type="button" class="ed-btn ed-btn--ghost ed-btn--lg" onClick={finishEdit} disabled={busy.value}>
+                {flow.value === 'setup' ? 'Skip — choose it later in You' : 'Done'}
+              </button>
+            </div>
           </section>
         )}
 
@@ -747,11 +780,13 @@ function UpdatesScope() {
             <Icon name="user" />
           </span>
           <div class="ed-updates__tagcard-text">
-            <strong>Add your player tag</strong>
-            <small>Link your public Clash Royale profile so Drop can show your clan and clan rankings.</small>
+            <strong>Choose your player</strong>
+            <small>
+              Pick a Clash Royale player from your Elixir account so Drop can show your clan and clan rankings.
+            </small>
           </div>
           <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate('/profile?edit=player-tag')}>
-            Add tag
+            Choose player
           </button>
         </div>
       )}
@@ -1009,7 +1044,7 @@ function AccountScope({ current }: { current: NonNullable<(typeof player)['value
               {current.clashRoyale.status === 'pending'
                 ? `Loading ${current.clashRoyale.tag}…`
                 : current.clashRoyale.status === 'not_found'
-                  ? `Clash Royale could not find ${current.clashRoyale.tag}.`
+                  ? `Elixir has no record of ${current.clashRoyale.tag} yet.`
                   : 'Profile refresh delayed. Drop will retry automatically.'}
             </div>
           )}
