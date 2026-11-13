@@ -11,17 +11,13 @@ export interface Config {
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
   nameModelId: string;
-  // The Elixir hub: Drop reads recorded Clash Royale history from it.
-  // Optional so the app
-  // runs unwired; every call site treats an absent hub as a no-op.
+  // Elixir, the issuer of Sign in with Elixir: the only thing Drop asks of
+  // it (no-elixir-writes.test.ts pins the URLs).
   elixirMcpBaseUrl: string;
   // Sign in with Elixir: Drop's public OAuth client_id at Elixir's door.
   // Empty until registered (infra/scripts/register-elixir-client.mjs).
   elixirOAuthClientId: string;
   elixirOAuthClientSecret: string;
-  // The clan whose river race defines the Clan Wars calendar Drop's
-  // seasons follow. Read from the hub now, not polled from Supercell.
-  warClockClanTag: string;
   // Dedicated private bucket for permanent, browser-composited run preview PNGs.
   // Optional only so reduced-entry-point and unit-test environments do not need
   // an unrelated bucket; publication fails closed when production omits it.
@@ -55,8 +51,6 @@ export function getConfig(): Config {
     elixirOAuthClientId: process.env.ELIXIR_OAUTH_CLIENT_ID?.trim() || "",
     elixirOAuthClientSecret:
       process.env.ELIXIR_OAUTH_CLIENT_SECRET?.trim() || "",
-    warClockClanTag:
-      process.env.CR_WAR_CLOCK_CLAN_TAG?.trim().toUpperCase() || "#J2RGCRVG",
     shareAssetBucket: process.env.SHARE_ASSET_BUCKET?.trim() || undefined,
     webVersion: process.env.WEB_VERSION?.trim().slice(0, 12) || undefined,
   };

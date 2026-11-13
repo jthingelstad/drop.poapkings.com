@@ -52,6 +52,8 @@ const retiredBridgeEnvironmentNames = new Set([
   "ELIXIR_DROP_CR_BRIDGE_AWS_SECRET_ACCESS_KEY",
   "ELIXIR_DROP_CR_REQUEST_QUEUE_NAME",
   "ELIXIR_DROP_CR_RESULT_QUEUE_NAME",
+  // Drop computes the season clock itself (2026-11-13); no clan tag drives it.
+  "CR_WAR_CLOCK_CLAN_TAG",
 ]);
 
 const iam = new IAMClient({ region });
@@ -465,7 +467,6 @@ const values = {
   AWS_REGION: region,
   AWS_SECRET_ACCESS_KEY: key.SecretAccessKey,
   CR_API_KEY: crApiKey,
-  CR_WAR_CLOCK_CLAN_TAG: existingEnv.CR_WAR_CLOCK_CLAN_TAG || "#J2RGCRVG",
   ELIXIR_DROP_ALARM_EMAIL:
     existingEnv.ELIXIR_DROP_ALARM_EMAIL || "drop@poapkings.com",
   ELIXIR_DROP_CFN_ROLE_ARN: role.Arn,
