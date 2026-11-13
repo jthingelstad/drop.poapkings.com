@@ -72,10 +72,8 @@ export type PlayerDetail = {
     status: string;
     name?: string;
     clan?: { tag?: string; name?: string; role?: string };
-    accountAge?: { days?: number; years?: number };
     cardCount?: number;
     fetchedAt?: string;
-    refreshRequestedAt?: string;
     updatedAt?: string;
   };
   changes: Array<{

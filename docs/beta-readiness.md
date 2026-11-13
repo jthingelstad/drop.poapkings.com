@@ -71,10 +71,10 @@ Use a normal browser session and an email address that is not already signed in:
 5. Confirm the summary's Player XP breakdown matches the increase on the
    player's inline arena, and that refreshing does not award it again. Confirm
    Home's **games played across Drop** counter advances exactly once.
-6. Attach a Clash Royale tag. Confirm clan, account age, and card collection
-   appear without trophies, arena, experience level, or card levels.
-7. Sign out and back in. Confirm that login queues one player refresh and that
-   ordinary page loads do not keep refreshing the tag.
+6. Choose a Clash Royale player from the Elixir account. Confirm its name and
+   clan appear without trophies, arena, experience level, or card levels.
+7. Sign out and back in. Confirm that the sign-in makes no Elixir call beyond
+   the OAuth flow and `GET /api/v1/me`, and that page loads read nothing.
 8. Share that Surge run. Confirm the sheet carries a rendered card **and** a
    `#/r/<token>` link, that the link opens the run itself with the score as the
    button, and that sharing the same run again produces a different token.

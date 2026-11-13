@@ -54,7 +54,9 @@ export const seasonSchema = z.object({
 const clashRoyaleClanSchema = z.object({
   tag: nonEmptyString,
   name: nonEmptyString,
-  badgeId: nonNegativeInteger,
+  // Elixir's sign-in read carries no badge id (2026-11-13); older
+  // snapshots may still have one. Drop renders it nowhere.
+  badgeId: z.optional(nonNegativeInteger),
   role: z.optional(nonEmptyString)
 })
 
@@ -63,14 +65,7 @@ const clashRoyaleProfileSchema = z.object({
   status: z.enum(['pending', 'ready', 'not_found', 'unavailable']),
   name: z.optional(nonEmptyString),
   clan: z.optional(clashRoyaleClanSchema),
-  accountAge: z.optional(
-    z.object({
-      days: z.optional(nonNegativeInteger),
-      years: z.optional(nonNegativeInteger)
-    })
-  ),
-  fetchedAt: z.optional(isoDateTime),
-  refreshRequestedAt: z.optional(isoDateTime)
+  fetchedAt: z.optional(isoDateTime)
 })
 
 const publicClashRoyaleProfileSchema = clashRoyaleProfileSchema.pick({

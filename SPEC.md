@@ -31,10 +31,10 @@ guest**: a guest run is dealt the same server-signed challenge and scored the
 same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
 history, no Discord) — the summary nudges the visitor to sign in before the next
 game so future scores can be recorded. A player session, opened only by Sign
-in with Elixir, unlocks recording and ranking. Dynamic Clash Royale player
-enrichment comes from the Elixir Integration REST API through Drop's
-asynchronous refresh worker; the season clock is Drop's own calendar
-(`season-clock.ts`).
+in with Elixir, unlocks recording and ranking. Drop talks to Elixir only to
+sign people in (2026-11-13): the chosen player's name and clan come from the
+same sign-in read that lists the person's players, and the season clock is
+Drop's own calendar (`season-clock.ts`).
 
 The only outbound ties are ordinary links:
 
@@ -48,8 +48,10 @@ The only outbound ties are ordinary links:
 Hard product constraints:
 
 - Do not call the Clash Royale API from the browser, CI, or Lambda.
-- Runtime Clash Royale context comes only from the Elixir Integration REST API.
-  The managed-host card refresher is the sole direct Supercell exception.
+- Runtime Clash Royale context is only what Sign in with Elixir's
+  `GET /api/v1/me` says about the person's own players. Drop calls no other
+  Elixir endpoint. The managed-host card refresher is the sole direct
+  Supercell exception.
 - Do not put the CR API token in client code, Lambda, CI, or committed files.
 - Do not add curated deck definitions, archetype lists, or game modes that depend
   on authentic deck construction; new game modes work from the committed facts in
@@ -73,9 +75,9 @@ The repository uses npm workspaces:
 
 The API uses a native Node 24 HTTP server on Lambda Web Functions behind
 CloudFront OAC, DynamoDB, SQS, Bedrock,
-the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
-queue carries player-profile and season-clock refresh work to a separate Lambda;
-the public request path continues serving cached values while refreshes run.
+Sign in with Elixir, and CloudFormation. A dedicated encrypted FIFO
+queue carries season-clock work to a separate Lambda;
+the public request path continues serving cached values while it runs.
 
 Current public website stack:
 
@@ -149,9 +151,8 @@ Refresh model:
   dependency for gameplay art.
 
 The static refresher is the only implemented direct Clash Royale API consumer.
-Dynamic backend work is queued to Drop's refresh worker, which reads recorded
-profiles from the Elixir Integration REST API; Lambda and browsers never call
-Supercell directly.
+Lambda and browsers never call Supercell directly, and the refresh worker
+calls nothing outside AWS.
 
 The season clock is Drop's own (`services/api/src/season-clock.ts`, since
 2026-11-13; it was Elixir's `GET /api/v1/game/clock`, which computed the same
@@ -601,7 +602,7 @@ boundary; no control-room or Elixir integration surface writes XP directly.
 `GET /players/{playerId}` returns the same badge summary for the read-only public
 profile, where only earned medallions are shown. Its identity projection also
 includes the unverified Clash player tag plus CR name and clan when the shared
-snapshot has them; account age and collection context remain owner-only.
+snapshot has them (as of that player's last Sign in with Elixir).
 Public identity responses may also include `accountTags`, an allowlisted set of
 server-owned labels keyed by permanent public player ID. The initial
 `developer` tag renders as `DEV` beside Jamie and Tyler on owner profiles,
@@ -947,12 +948,14 @@ Authenticated public identity is centered on one favorite card:
   (any primary or alt); a tag is never typed in (2026-11-12). A tag typed in
   before stays as it was, unverified; only a tag Elixir verified carries the
   mark. A signed-in player with no player on their Elixir account is pointed to
-  elixir.poapkings.com to add one. Choosing a player or reading a stale tag
-  queues a re-read of Elixir's recorded profile; snapshots are fresh for six
-  hours and shared by tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
-  the owned-card _count_. Experience, arena, trophies, wins, card levels, and
-  the card collection grid are excluded — the grid has no use in Drop, only the
-  count is shown. Drop's own arena (per-player, from Player XP) is native and
+  elixir.poapkings.com to add one. The chosen player's CR name and clan come
+  from the same sign-in read (`GET /api/v1/me`) and are stored by tag when the
+  person signs in or chooses a player; the next Sign in with Elixir brings them
+  up to date, and Drop reads them at no other time (2026-11-13). A tag with no
+  stored name says "sign in with Elixir again to show its name and clan"; the
+  clan board asks the same, and nothing polls. Years Played, experience,
+  arena, trophies, wins, card levels and the card collection are not shown.
+  Drop's own arena (per-player, from Player XP) is native and
   unrelated to CR arenas.
 - A signed-in player without a player tag is prompted at most once every seven
   days on that device. The reminder never appears during active play, does not
@@ -1283,10 +1286,14 @@ Supercell's Fan Content Policy. Not endorsed by Supercell._
 
 ## Elixir integration API
 
-Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`, reads only: recorded player profiles. The game policy clock
-read was retired on 2026-11-13; Drop computes the same calendar itself.
-**Drop writes nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and
+Drop is a Sign in with Elixir client and nothing more (Jamie, 2026-11-13:
+"The only thing that I have a strong opinion on is that Elixir Drop uses
+Elixir authentication"). It reaches `/oauth/authorize`, `/oauth/token`,
+`/oauth/userinfo` (scope `account:email`: the account id and address) and
+`GET /api/v1/me` (scope `cr:read`: the person's own players, with each one's
+name and clan). The recorded-profile read `GET /api/v1/players/{tag}` and the
+game policy clock `GET /api/v1/game/clock` were retired on 2026-11-13; Drop
+holds no integration key. **Drop writes nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and
 ONLY authenticating and getting a verified clash Royale account"): profile
 refresh requests and adding a player to an Elixir account were removed, and
 the only non-GET Drop sends Elixir is the OAuth token request
@@ -1295,16 +1302,11 @@ saved tags do not start an ongoing Elixir recording. The canonical contract and 
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
 
-`ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
-key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
-the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
-origin. Login, session refresh and a player choice enqueue generation-bound
-refresh jobs. The worker re-reads the recorded profile with one GET, whatever
-its age, and never asks Elixir to fetch. Source `observed_at` supplies profile
-freshness. A tag Elixir has not recorded becomes `not_found` without a retry;
-other failures retry in SQS; stale values remain useful. The collection sync script
-and collection configuration are retired. Sign in with Elixir, consent,
-verified identity selection and the person's authorized account access remain.
+`ELIXIR_MCP_BASE_URL` stays the issuer; `ELIXIR_OAUTH_CLIENT_SECRET` is the
+runtime secret's only Elixir name. No refresh job reads a profile: a
+`player-profile` job left on the queue from before 2026-11-13 is acknowledged
+and dropped. The collection sync script and collection configuration are
+retired.
 
 Saved CR tags remain optional and unverified **unless Elixir has proven them**
 (below). No Drop identities, scores, XP or badges are uploaded.

@@ -42,7 +42,7 @@ const base: Player = {
 }
 
 const KING = { playerTag: '#20JJJ2CCRU', name: 'King Thing', relationship: 'primary' as const, verified: true }
-const ALT = { playerTag: '#VJQV8G8RL', name: 'thingles', relationship: 'alt' as const, verified: false }
+const ALT = { playerTag: '#2PYQ0C', name: 'Sample Alt', relationship: 'alt' as const, verified: false }
 
 beforeEach(() => {
   host = document.createElement('div')
@@ -109,12 +109,12 @@ describe('ElixirConnection', () => {
     const candidates = [...host.querySelectorAll<HTMLButtonElement>('.ed-elixir__candidate')]
     expect(candidates.map((c) => c.textContent)).toEqual([
       expect.stringContaining('King Thing'),
-      expect.stringContaining('thingles')
+      expect.stringContaining('Sample Alt')
     ])
     expect(candidates[0]!.textContent).toContain('verified')
     expect(candidates[1]!.textContent).toContain('not verified')
     await click(candidates[1]!)
-    expect(accountMock.chooseElixirPlayer).toHaveBeenCalledWith('#VJQV8G8RL')
+    expect(accountMock.chooseElixirPlayer).toHaveBeenCalledWith('#2PYQ0C')
   })
 
   it('an unverified choice points at Elixir → Verify; there is no disconnect', async () => {

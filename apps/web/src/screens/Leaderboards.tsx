@@ -19,7 +19,7 @@ import XpTimelinePanel from '../components/XpTimeline'
 import EmptyState from '../components/EmptyState'
 import SkeletonRows from '../components/Skeleton'
 import ClanInviteModal from '../components/ClanInviteModal'
-import { accountStatus, badges, player, refreshAccount, sessionToken } from '../lib/account'
+import { accountStatus, badges, player, sessionToken } from '../lib/account'
 import { badgeViews } from '../lib/badges'
 import {
   ApiError,
@@ -43,7 +43,7 @@ import { offline } from '../lib/api-availability'
 // so the visible title is decorative; the header's height never changes between
 // scopes, which is what kept the rows from jumping.
 
-type ClanGate = 'signed-out' | 'tag-required' | 'profile-pending' | 'profile-missing' | 'no-clan' | null
+type ClanGate = 'signed-out' | 'tag-required' | 'profile-missing' | 'no-clan' | null
 
 const MODE_TAB_LABEL: Partial<Record<GameMode, string>> = {
   surge: 'SURGE',
@@ -206,8 +206,7 @@ export default function Leaderboards() {
         return () => controller.abort()
       }
       if (!currentClan) {
-        clanGate.value =
-          crStatus === 'pending' ? 'profile-pending' : crStatus === 'not_found' ? 'profile-missing' : 'no-clan'
+        clanGate.value = crStatus === 'ready' ? 'no-clan' : 'profile-missing'
         loading.value = false
         return () => controller.abort()
       }
@@ -282,12 +281,6 @@ export default function Leaderboards() {
   }, [isXp, isOffline, currentAccountStatus, currentPlayer, xpReload.value, xpTimeline, xpLoading, xpError])
 
   // Keep polling while a just-chosen player resolves to a clan.
-  useEffect(() => {
-    if (!isClan || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
-    const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
-    return () => window.clearInterval(interval)
-  }, [isClan, currentPlayer?.playerTag, currentClan, crStatus])
-
   const selectedGame = GAME_BY_MODE.get(mode)!
   const clanName = activeClan.value?.name ?? currentClan?.name
   const clanTag = activeClan.value?.tag ?? currentClan?.tag
@@ -318,15 +311,9 @@ export default function Leaderboards() {
         label: 'Choose player',
         href: '/profile?edit=player-tag'
       },
-      'profile-pending': {
-        state: 'Loading your clan',
-        line: 'Your player is chosen. Drop is reading its Clash Royale profile from Elixir.',
-        label: 'View profile',
-        href: '/profile'
-      },
       'profile-missing': {
-        state: 'Profile not found',
-        line: 'Elixir has no record of your player yet. Choose a player from your Elixir account, then open Clan again.',
+        state: 'Clan not known yet',
+        line: 'Drop learns your clan when you sign in with Elixir. Sign in with Elixir again, then open Clan.',
         label: 'Choose player',
         href: '/profile?edit=player-tag'
       },

@@ -1838,85 +1838,10 @@ export class Repository {
     return result.Item as CrProfileItem | undefined;
   }
 
-  async claimCrRefresh(
-    tag: string,
-    jobId: string,
-    requestedAt: string,
-    staleBefore: string,
-    retryBefore: string,
-  ): Promise<boolean> {
-    try {
-      await client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: crProfileKey(tag),
-          UpdateExpression:
-            "SET #tag = :tag, #status = :pending, jobId = :jobId, refreshRequestedAt = :requestedAt, updatedAt = :requestedAt",
-          ConditionExpression:
-            "(attribute_not_exists(fetchedAt) OR fetchedAt < :staleBefore) AND (attribute_not_exists(refreshRequestedAt) OR refreshRequestedAt < :retryBefore)",
-          ExpressionAttributeNames: {
-            "#tag": "tag",
-            "#status": "status",
-          },
-          ExpressionAttributeValues: {
-            ":tag": tag,
-            ":pending": "pending",
-            ":jobId": jobId,
-            ":requestedAt": requestedAt,
-            ":staleBefore": staleBefore,
-            ":retryBefore": retryBefore,
-          },
-        }),
-      );
-      return true;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      )
-        return false;
-      throw error;
-    }
-  }
-
-  // A tag that has never been read: unavailable after a failure, or
-  // not_found when Elixir has no record of the player.
-  async markCrRefreshUnavailable(
-    tag: string,
-    jobId: string,
-    updatedAt: string,
-    status: "unavailable" | "not_found" = "unavailable",
-  ): Promise<void> {
-    try {
-      await client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: crProfileKey(tag),
-          UpdateExpression:
-            "SET #status = :unavailable, updatedAt = :updatedAt",
-          ConditionExpression:
-            "jobId = :jobId AND attribute_not_exists(fetchedAt)",
-          ExpressionAttributeNames: { "#status": "status" },
-          ExpressionAttributeValues: {
-            ":unavailable": status,
-            ":updatedAt": updatedAt,
-            ":jobId": jobId,
-          },
-        }),
-      );
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      )
-        return;
-      throw error;
-    }
-  }
-
-  async saveCrProfileResult(snapshot: CrProfileSnapshot): Promise<boolean> {
-    if (!snapshot.refreshRequestedAt)
-      throw new Error("CR profile result is missing its request timestamp");
+  /** The player's name and clan from Elixir's sign-in read, replacing
+   * whatever Drop held for the tag. A slower request carrying an older read
+   * never overwrites a newer one. */
+  async saveCrProfileFromElixir(snapshot: CrProfileSnapshot): Promise<boolean> {
     try {
       await client.send(
         new PutCommand({
@@ -1926,10 +1851,8 @@ export class Repository {
             ...snapshot,
           } satisfies CrProfileItem,
           ConditionExpression:
-            "attribute_not_exists(refreshRequestedAt) OR refreshRequestedAt <= :refreshRequestedAt",
-          ExpressionAttributeValues: {
-            ":refreshRequestedAt": snapshot.refreshRequestedAt,
-          },
+            "attribute_not_exists(fetchedAt) OR fetchedAt <= :fetchedAt",
+          ExpressionAttributeValues: { ":fetchedAt": snapshot.fetchedAt },
         }),
       );
       return true;

@@ -1423,14 +1423,6 @@ function ProfilePanel({
           <Detail label="Clan" value={clash?.clan?.name} />
           <Detail label="Clan tag" value={clash?.clan?.tag} copy />
           <Detail label="Clan role" value={clash?.clan?.role} />
-          <Detail
-            label="Account age"
-            value={
-              clash?.accountAge?.days !== undefined
-                ? `${clash.accountAge.days.toLocaleString()} days (${clash.accountAge.years ?? "?"} years)`
-                : undefined
-            }
-          />
           <Detail label="Cards seen" value={clash?.cardCount} />
           <Detail
             label="Snapshot fetched"

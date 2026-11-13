@@ -3,7 +3,7 @@ import type { HttpRequest } from "../http.js";
 import { accountTagsFor } from "../account-tags.js";
 import type { Config } from "../config.js";
 import { enqueueRefresh } from "../refresh-jobs.js";
-import { publicCrProfile } from "../cr-refresh.js";
+import { publicCrProfile } from "../cr-profile.js";
 import { badRequest, HttpError } from "../errors.js";
 import { bearerToken } from "../http.js";
 import { levelForGames } from "../progression.js";

@@ -868,54 +868,22 @@ describe("repository conditional writes", () => {
     expect(update.UpdateExpression).toContain("#playerTag = :playerTag");
   });
 
-  it("ignores a stale Clash Royale result instead of overwriting fresher data", async () => {
+  it("ignores an older sign-in read instead of overwriting a newer one", async () => {
     send.mockRejectedValueOnce(conditionFailed());
 
     await expect(
-      new Repository("test-table").saveCrProfileResult({
+      new Repository("test-table").saveCrProfileFromElixir({
         tag: "#ABC123",
         status: "ready",
-        refreshRequestedAt: "2026-07-18T12:00:00.000Z",
-        updatedAt: "2026-07-18T12:00:01.000Z",
+        name: "Player",
+        fetchedAt: "2026-07-18T12:00:00.000Z",
+        updatedAt: "2026-07-18T12:00:00.000Z",
       }),
     ).resolves.toBe(false);
-  });
-
-  it("refuses a Clash Royale result with no request timestamp to match on", async () => {
-    await expect(
-      new Repository("test-table").saveCrProfileResult({
-        tag: "#ABC123",
-        status: "ready",
-        updatedAt: "2026-07-18T12:00:01.000Z",
-      }),
-    ).rejects.toThrow("CR profile result is missing its request timestamp");
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("swallows an unavailable marker whose claim already resolved", async () => {
-    send.mockRejectedValueOnce(conditionFailed());
-
-    await expect(
-      new Repository("test-table").markCrRefreshUnavailable(
-        "#ABC123",
-        "job-1",
-        "2026-07-18T12:00:00.000Z",
-      ),
-    ).resolves.toBeUndefined();
-  });
-
-  it("reports a refresh claim lost to a concurrent request", async () => {
-    send.mockRejectedValueOnce(conditionFailed());
-
-    await expect(
-      new Repository("test-table").claimCrRefresh(
-        "#ABC123",
-        "job-1",
-        "2026-07-18T12:00:00.000Z",
-        "2026-07-18T06:00:00.000Z",
-        "2026-07-18T11:00:00.000Z",
-      ),
-    ).resolves.toBe(false);
+    const put = send.mock.calls[0]?.[0].input;
+    expect(put.ConditionExpression).toBe(
+      "attribute_not_exists(fetchedAt) OR fetchedAt <= :fetchedAt",
+    );
   });
 
   it("rejects a war clock save that raced another observation", async () => {

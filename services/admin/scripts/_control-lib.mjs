@@ -93,7 +93,7 @@ async function batchCrProfiles(doc, tags) {
             [TABLE_NAME]: {
               Keys: keys,
               ProjectionExpression:
-                "pk, sk, #tag, #status, #name, clan, accountAge, cards, fetchedAt, refreshRequestedAt, updatedAt",
+                "pk, sk, #tag, #status, #name, clan, cards, fetchedAt, updatedAt",
               ExpressionAttributeNames: {
                 "#tag": "tag",
                 "#status": "status",
@@ -139,12 +139,10 @@ function cleanCrProfile(snapshot, tag) {
     status: snapshot?.status ?? "unavailable",
     name: snapshot?.name,
     clan: snapshot?.clan,
-    accountAge: snapshot?.accountAge,
     cardCount: Array.isArray(snapshot?.cards)
       ? snapshot.cards.length
       : undefined,
     fetchedAt: snapshot?.fetchedAt,
-    refreshRequestedAt: snapshot?.refreshRequestedAt,
     updatedAt: snapshot?.updatedAt,
   };
 }

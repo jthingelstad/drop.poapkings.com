@@ -156,7 +156,7 @@ npm run verify:non-browser # complete gate except Playwright
 - `apps/admin` — the desktop-first private Control Room (managed host + tailnet).
 - `services/api` — the TypeScript HTTP backend (DynamoDB, Lambda Web Functions).
 - `services/admin` — the loopback-only adapter over sanctioned referee scripts.
-- `services/api/src/elixir-mcp.ts` — the server-only Elixir Integration REST client.
+- `services/api/src/elixir-oauth.ts` — Sign in with Elixir, Drop's only Elixir client.
 - `packages/contracts` — shared request/response types.
 - `packages/game-data` — the committed `cards.json` snapshot.
 - `infra` — CloudFormation.

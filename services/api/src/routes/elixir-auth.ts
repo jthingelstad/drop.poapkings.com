@@ -36,7 +36,7 @@ import type { HttpResponse } from "../http.js";
 import { ELIXIR_RETURN_PATH } from "@elixir-drop/contracts";
 import { ElixirOAuthClient, pkcePair, randomState } from "../elixir-oauth.js";
 import type { ElixirFailure, ElixirSelfPlayer } from "../elixir-oauth.js";
-import { enqueueRefresh } from "../refresh-jobs.js";
+import { recordCrProfileFromElixir } from "../cr-profile.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
 import { isRecruiterInviteReference } from "../recruiter.js";
@@ -266,19 +266,20 @@ export async function elixirCallback(
     if (bound === "missing_profile")
       return failTo(config.appUrl, "login_expired");
     if (bound !== "bound") return failTo(config.appUrl, bound);
-    if (link.playerTag && link.playerTag !== target.playerTag) {
+    if (link.playerTag && link.playerTag !== target.playerTag)
       await repository.updateProfile(sub, { playerTag: link.playerTag });
-      await enqueueRefresh(config, {
-        version: 1,
-        type: "player-profile",
-        sub,
-        playerId: target.playerId,
-      });
-    }
   } else if (!target) {
     // It lives as long as the credential that will apply it.
     await repository.savePendingElixirLink(sub, link, credentialExpiresAt);
   }
+  // The chosen player's name and clan, from the same read that proved the
+  // player is theirs. This is the only time Drop learns them (2026-11-13).
+  if (bindable && link.playerTag)
+    await recordCrProfileFromElixir(
+      repository,
+      link.candidates.find((c) => c.playerTag === link.playerTag),
+      link.checkedAt,
+    );
   // Hand off to the redemption route with a credential Elixir already
   // proved. Recruiter credit rides only on an account this creates.
   const recruiterSub =
@@ -321,6 +322,8 @@ export function buildLink(input: {
     relationship: p.relationship,
     verified: p.verified,
     ...(p.clanTag ? { clanTag: p.clanTag } : {}),
+    ...(p.clanTag && p.clanName ? { clanName: p.clanName } : {}),
+    ...(p.clanTag && p.clanRole ? { clanRole: p.clanRole } : {}),
   }));
   // The Drop tag when it is one of their players. A tag typed into Drop by
   // hand that is not stays exactly as it is, unverified (Jamie, 2026-11-12),
@@ -410,13 +413,10 @@ export async function selectElixirPlayer({
     updated = await repository.updateProfile(session.sub, {
       playerTag: chosen.playerTag,
     });
-    await enqueueRefresh(config, {
-      version: 1,
-      type: "player-profile",
-      sub: session.sub,
-      playerId: profile.playerId,
-    });
   }
+  // Name and clan as of the sign-in that listed this player; the next Sign
+  // in with Elixir brings them up to date.
+  await recordCrProfileFromElixir(repository, chosen, profile.elixir.checkedAt);
   const crProfile = updated.playerTag
     ? await repository.getCrProfile(updated.playerTag)
     : undefined;

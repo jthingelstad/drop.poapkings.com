@@ -5,7 +5,6 @@ export {
 } from "@elixir-drop/contracts";
 import type {
   AccountTag,
-  ClashRoyaleAccountAge,
   ClashRoyaleClan,
   ClashRoyaleProfile,
   CrWarClock,
@@ -104,6 +103,8 @@ export interface ElixirCandidate {
   relationship: "primary" | "alt";
   verified: boolean;
   clanTag?: string;
+  clanName?: string;
+  clanRole?: string;
 }
 
 export interface PlayerProfile {
@@ -313,15 +314,17 @@ export interface RefereeDecision {
   schemaVersion: "1";
 }
 
+// A player's name and clan as Elixir's sign-in read (`GET /api/v1/me`)
+// gave them, written at Sign in with Elixir and when a person picks one of
+// their players (2026-11-13). Drop never fetches one in the background.
+// Snapshots written before then may carry other statuses and fields; they
+// are read as "not read yet" unless `ready`.
 export interface CrProfileSnapshot {
   tag: string;
   status: "pending" | "ready" | "not_found" | "unavailable";
-  jobId?: string;
   name?: string;
   clan?: ClashRoyaleClan;
-  accountAge?: ClashRoyaleAccountAge;
   fetchedAt?: string;
-  refreshRequestedAt?: string;
   updatedAt: string;
 }
 

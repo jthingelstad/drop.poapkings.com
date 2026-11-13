@@ -34,7 +34,6 @@ const repository = vi.hoisted(() => ({
   rankedAccess: vi.fn(async () => "allowed" as const),
   refereeDecisions: vi.fn(async () => new Map()),
 }));
-const requestCrProfileRefresh = vi.hoisted(() => vi.fn());
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     attachRecruiter = repository.attachRecruiter;
@@ -67,10 +66,6 @@ vi.mock("../src/repository.js", () => ({
     refereeDecisions = repository.refereeDecisions;
   },
 }));
-vi.mock("../src/cr-refresh.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
-  return { ...actual, requestCrProfileRefresh };
-});
 import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1000);
@@ -140,10 +135,9 @@ describe("Clash Royale refresh scheduling", () => {
     process.env.CR_REQUEST_QUEUE_URL = "https://sqs.example/requests";
     repository.getCrProfile.mockResolvedValue(snapshot);
     repository.getCrWarClock.mockResolvedValue(undefined);
-    requestCrProfileRefresh.mockResolvedValue(snapshot);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
-  it("durably enqueues an attached tag after a successful sign-in", async () => {
+  it("reads no player profile after a sign-in (retired 2026-11-13)", async () => {
     repository.peekMagicLink.mockResolvedValue({
       email: profile.email,
       source: "elixir",
@@ -154,25 +148,13 @@ describe("Clash Royale refresh scheduling", () => {
       token: "a".repeat(32),
     });
     expect(response.statusCode).toBe(200);
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
-    expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
-      version: 1,
-      type: "player-profile",
-      sub: profile.sub,
-      playerId: profile.playerId,
-    });
+    expect(enqueueRefresh).not.toHaveBeenCalled();
   });
-  it("queues enrichment without waiting for external services when a session returns", async () => {
+  it("queues nothing when a session slides forward", async () => {
     repository.getProfile.mockResolvedValue(profile);
     const response = await invoke("POST", "/auth/refresh", undefined, true);
     expect(response.statusCode).toBe(200);
-    expect(enqueueRefresh).toHaveBeenCalledWith(expect.any(Object), {
-      version: 1,
-      type: "player-profile",
-      sub: profile.sub,
-      playerId: profile.playerId,
-    });
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
+    expect(enqueueRefresh).not.toHaveBeenCalled();
   });
   it("the retired email sign-in route answers 404 and mails nothing", async () => {
     const response = await invoke("POST", "/auth/request", {
@@ -417,7 +399,6 @@ describe("Clash Royale refresh scheduling", () => {
     const response = await invoke("GET", "/me", undefined, true);
     expect(response.statusCode).toBe(200);
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
   it("refuses a typed player tag: a player comes from the Elixir account", async () => {
     repository.getProfile.mockResolvedValue(profile);
@@ -441,7 +422,6 @@ describe("Clash Royale refresh scheduling", () => {
       clearPlayerTag: true,
     });
     expect(enqueueRefresh).not.toHaveBeenCalled();
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
   it("accepts a safe signed card-inspired name without the exact card title", async () => {
     const favoriteCardId = 26000018;
@@ -539,6 +519,5 @@ describe("Clash Royale refresh scheduling", () => {
       currentWeek: 2,
     });
     expect(repository.getCrProfile).not.toHaveBeenCalled();
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
 });

@@ -174,4 +174,27 @@ describe("GET /leaderboards scope", () => {
     });
     expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
   });
+  it.each([undefined, "pending", "unavailable", "not_found"] as const)(
+    "sends a player Drop has not read (%s) to Sign in with Elixir, never to wait",
+    async (status) => {
+      repository.getCrProfile.mockResolvedValue(
+        status && {
+          tag: "#PLAYER",
+          status,
+          // A clan left on a snapshot that is not ready is not trusted.
+          clan: { tag: "#CLAN", name: "POAP KINGS" },
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      );
+      const result = await dispatch(
+        leaderboardEvent("mode=surge&scope=clan", true),
+      );
+      if (!result || typeof result === "string") throw new Error("no result");
+      expect(result.statusCode).toBe(409);
+      expect(JSON.parse(result.body ?? "{}")).toMatchObject({
+        error: { code: "clan_profile_missing" },
+      });
+      expect(repository.clanAllTimeLeaderboard).not.toHaveBeenCalled();
+    },
+  );
 });

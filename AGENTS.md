@@ -49,24 +49,25 @@ Every other doc points back here instead of keeping its own copy of this list.
    and `infra` owns cloud definitions. Do
    not import service implementation files directly across those boundaries.
 2. **Drop never calls the Clash Royale API.** Not the browser, not Lambda, not
-   any script. It reads Clash Royale data from **Elixir**, the hub that records
-   that history, through Elixir's Integration REST API (`/api/v1`) with Drop's
-   own integration key (`services/api/src/elixir-mcp.ts`). The season clock is
-   Drop's own (`season-clock.ts`, 2026-11-13): first Monday to first Monday,
+   any script, and **talks to Elixir only to sign people in** (Jamie,
+   2026-11-13: "The only thing that I have a strong opinion on is that Elixir
+   Drop uses Elixir authentication"; the point is that Drop never slows Elixir
+   down). Sign in with Elixir (`services/api/src/elixir-oauth.ts`) is
+   authorize, token, `GET /oauth/userinfo` and `GET /api/v1/me`, and that is
+   every Elixir URL Drop reaches. The `/me` answer that proves which players
+   are the person's also gives the chosen player's name and clan, stored then
+   (`cr-profile.ts`); Drop never reads a profile at any other time. The season
+   clock is Drop's own (`season-clock.ts`): first Monday to first Monday,
    10:00 UTC boundaries, the same calendar Elixir's policy clock computed,
-   never one clan's observed race and no request to anyone. Player enrichment reads the recorded profile at
-   `GET /api/v1/players/{tag}` and takes it as Elixir has it
-   (`elixir-player.ts`). **Drop writes nothing to Elixir** (Jamie,
-   2026-11-12: "no writing to Elixir and ONLY authenticating and getting a
-   verified clash Royale account"): no profile refresh, no player added to an
-   Elixir account. Its only non-GET to Elixir is the OAuth token request, and
-   `services/api/tests/no-elixir-writes.test.ts` pins that. The contract is Elixir's;
-   "Elixir integration API" below points at it. Drop is a downstream reader of
-   that seam and never reaches into another app; the hub never pushes into
-   Drop. Returning-session enrichment and stale clock reads use a dedicated
-   FIFO refresh worker so player requests do not wait for the hub. Clock jobs
-   finalize the old season before advancing the cache; keep those retries
-   durable. The website still reads the committed
+   never one clan's observed race and no request to anyone. **Drop writes
+   nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and ONLY
+   authenticating and getting a verified clash Royale account"): its only
+   non-GET to Elixir is the OAuth token request. Drop holds no Elixir
+   integration key. `services/api/tests/no-elixir-writes.test.ts` pins the
+   allowed URLs, the one POST and the retired endpoints. The hub never pushes
+   into Drop. The FIFO refresh worker now carries only the season clock;
+   clock jobs finalize the old season before advancing the cache, so keep
+   those retries durable. The website still reads the committed
    `packages/game-data/cards.json` snapshot.
    The fixed-IP `cr-api-bridge`, both of its SQS queues, its IAM user and its
    Mac host were **retired 2026-09-06**. Do not reintroduce a direct Supercell
@@ -75,9 +76,9 @@ Every other doc points back here instead of keeping its own copy of this list.
    credential is for `apps/web/scripts/refresh-cards.mjs`, a manual, host-only
    script that regenerates the committed card snapshot. It is gitignored: never
    commit it, expose it to the browser, place it in CI, or put it in Lambda
-   configuration. The runtime credential Drop does hold is the Elixir
-   integration key `ELIXIR_INTEGRATION_KEY` (legacy `ELIXIR_MCP_KEY` kept for
-   rollback), which reaches only the API stack's Lambda functions.
+   configuration. Drop's only Elixir credential is its OAuth client secret
+   (`ELIXIR_OAUTH_CLIENT_SECRET`, runtime secret, API function only); the
+   integration key was retired on 2026-11-13.
 4. **The public website remains private S3 + CloudFront with hash routing.**
    Vite uses `base: '/'`; CloudFront routes `/api/*`, `/share/*`, `/share-assets/*`, `/updates/*`,
    and `/feed.xml` to a Node 24 Lambda Web Function through OAC; other requests
@@ -507,11 +508,13 @@ production run. A successful exact-head validation triggers
   games that require authentic deck coherence. New modes should work from the
   committed `cards.json` facts only. (Rationale and the set-aside ideas live in
   `GAMES.md` → "Current product constraint".)
-- **CR profile snapshots are practice context, not rank context.** Store CR name,
-  clan, Years Played account age, and card _count_. Do not add experience,
-  arenas, trophies, wins, or card levels, and do not render the CR card
-  collection (removed — it has no use in Drop; the count stays). Player tags
-  remain unverified ownership. Drop's own arena (below) is a native construct
+- **CR profile snapshots are practice context, not rank context.** Store CR name
+  and clan, as the person's Sign in with Elixir read gave them; nothing else
+  (Years Played went with the profile read on 2026-11-13). Do not add
+  experience, arenas, trophies, wins, or card levels. A snapshot that is not
+  `ready` reads as "not read yet: sign in with Elixir again", never as
+  loading, and nothing polls for it. A tag typed into Drop before 2026-11-12
+  gets no snapshot and is never shown as verified. Drop's own arena (below) is a native construct
   from Player XP — unrelated to CR arenas.
 - **Badges are ladders, and awarding is a pure function of counters.** A badge is
   ONE monotonic counter plus an ordered rung list (`BADGES` in
@@ -771,25 +774,22 @@ mergeCommit`, never the branch's SHA.
 
 ## Elixir integration API
 
-Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`, reads only: recorded player profiles. The game policy clock
-read was retired on 2026-11-13; Drop computes the same calendar itself.
-Profile refresh requests were retired on 2026-11-12 (Drop writes nothing to
-Elixir). Automatic collection enrollment was retired on 2026-10-02;
-saved tags do not start an ongoing Elixir recording. The canonical contract and setup
-are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
-`../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
+Drop is a Sign in with Elixir client and nothing more (2026-11-13). It
+reaches `/oauth/authorize`, `/oauth/token` (its one POST), `/oauth/userinfo`
+(the account id and address, scope `account:email`) and `GET /api/v1/me` (the
+person's own players, scope `cr:read`). Retired: the recorded-profile read
+`GET /api/v1/players/{tag}` and the game policy clock `GET /api/v1/game/clock`
+(both 2026-11-13), profile refresh requests and `POST /me/players`
+(2026-11-12), and collection enrollment (2026-10-02). The canonical contract
+is `../elixir-mcp/packages/contracts/integration-api.openapi.json` and
+`../elixir-mcp/apps/site/src/docs/integrations.md`. Do not copy them.
 
-`ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
-key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
-the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
-origin. Login, session refresh and a player choice enqueue generation-bound
-refresh jobs. The worker re-reads the recorded profile with one GET, whatever
-its age; it never asks Elixir to fetch. Source `observed_at` supplies profile
-freshness. A tag Elixir has not recorded is `not_found` (no retry); other
-failures retry in SQS; stale values remain useful. The collection sync script
-and collection configuration are retired. Sign in with Elixir, consent,
-verified identity selection and the person's authorized account access remain.
+`ELIXIR_MCP_BASE_URL` stays the issuer. The runtime secret's only Elixir name
+is `ELIXIR_OAUTH_CLIENT_SECRET`; names it still holds that no function lists
+are ignored. The chosen player's name and clan are written at the sign-in
+callback and at `POST /me/elixir/select`, from the candidates that sign-in
+listed; a later sign-in brings them up to date. A `player-profile` job left on
+the refresh queue from before the change is acknowledged and dropped.
 
 Saved CR tags remain optional, and unverified unless Elixir verified them. No Drop identities, scores, XP or
 badges are uploaded. The clock is policy-based, with season/day boundaries at

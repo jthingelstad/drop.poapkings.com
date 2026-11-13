@@ -61,24 +61,14 @@ export async function getLeaderboards(context: RouteContext) {
         "player_tag_required",
       );
     const crProfile = await repository.getCrProfile(profile.playerTag);
-    if (!crProfile?.clan) {
-      if (!crProfile || crProfile.status === "pending")
+    if (crProfile?.status !== "ready" || !crProfile.clan) {
+      // Drop learns a clan only at Sign in with Elixir (2026-11-13), so a
+      // player it has not read is not "loading": nothing will fetch it.
+      if (crProfile?.status !== "ready")
         throw new HttpError(
           409,
-          "Drop is still loading your Clash Royale clan. Try again shortly.",
-          "clan_profile_pending",
-        );
-      if (crProfile.status === "not_found")
-        throw new HttpError(
-          409,
-          "That Clash Royale player tag was not found.",
-          "player_tag_not_found",
-        );
-      if (crProfile.status === "unavailable")
-        throw new HttpError(
-          503,
-          "Your Clash Royale clan is briefly unavailable. Try again.",
-          "clan_profile_unavailable",
+          "Drop learns your clan when you sign in with Elixir. Sign in with Elixir again.",
+          "clan_profile_missing",
         );
       throw new HttpError(
         409,

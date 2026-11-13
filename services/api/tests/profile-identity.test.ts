@@ -22,10 +22,6 @@ vi.mock("../src/names.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/names.js")>();
   return { ...actual, generateNameOptions };
 });
-vi.mock("../src/cr-refresh.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/cr-refresh.js")>();
-  return { ...actual, requestCrProfileRefresh: vi.fn() };
-});
 import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1000);

@@ -514,23 +514,20 @@ export type ClashRoyaleProfileStatus =
 export interface ClashRoyaleClan {
   tag: string;
   name: string;
-  badgeId: number;
+  /** Absent since 2026-11-13: Elixir's sign-in read has no badge id. */
+  badgeId?: number;
   role?: string;
 }
 
-export interface ClashRoyaleAccountAge {
-  days?: number;
-  years?: number;
-}
-
+/** A player's name and clan as Elixir knew them at the person's last Sign in
+ * with Elixir (2026-11-13). Drop never fetches them in the background, so
+ * anything but `ready` means "not read yet": sign in with Elixir again. */
 export interface ClashRoyaleProfile {
   tag: string;
   status: ClashRoyaleProfileStatus;
   name?: string;
   clan?: ClashRoyaleClan;
-  accountAge?: ClashRoyaleAccountAge;
   fetchedAt?: string;
-  refreshRequestedAt?: string;
 }
 
 export interface CrWarClock {

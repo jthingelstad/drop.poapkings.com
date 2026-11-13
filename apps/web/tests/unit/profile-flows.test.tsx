@@ -858,24 +858,23 @@ describe('Profile interactive flows', () => {
     })
     await mount()
     await fire(byText(container, 'Account') as Element)
-    expect(container.textContent).toContain('Loading #ABC')
-
-    await act(async () => {
-      account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'not_found' } } as never
-    })
-    await flush()
-    expect(container.textContent).toContain('Elixir has no record of #ABC yet.')
-
-    await act(async () => {
-      account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'unavailable' } } as never
-    })
-    await flush()
-    expect(container.textContent).toContain('Profile refresh delayed')
+    // Drop reads name and clan only at Sign in with Elixir (2026-11-13): every
+    // status but ready says so, and none promises a background retry.
+    const notRead = '#ABC: sign in with Elixir again to show its name and clan.'
+    expect(container.textContent).toContain(notRead)
+    for (const status of ['not_found', 'unavailable'] as const) {
+      await act(async () => {
+        account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status } } as never
+      })
+      await flush()
+      expect(container.textContent).toContain(notRead)
+      expect(container.textContent).not.toContain('retry automatically')
+    }
   })
 
   // --- Polling + message transitions ---------------------------------------
 
-  it('polls refreshAccount while the CR profile is pending', async () => {
+  it('never polls for a CR profile, even one an older API calls pending', async () => {
     await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', clashRoyale: { tag: '#X', status: 'pending' } })
     vi.mocked(api.getMe).mockClear()
     vi.mocked(api.getMe).mockResolvedValue({ player: account.player.value as never, recentRuns: [] })
@@ -885,9 +884,9 @@ describe('Profile interactive flows', () => {
       render(<Profile />, container)
     })
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_100)
+      await vi.advanceTimersByTimeAsync(10_000)
     })
-    expect(vi.mocked(api.getMe)).toHaveBeenCalled()
+    expect(vi.mocked(api.getMe)).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
 })
