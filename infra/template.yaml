@@ -944,10 +944,8 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # The hand-kept runtime secret (services/api/src/runtime-secrets.ts).
-              - Effect: Allow
-                Action: secretsmanager:GetSecretValue
-                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:elixir-drop-runtime-??????
+              # No runtime secret: the worker advances Drop's own season
+              # clock and season posts, and calls nothing outside AWS.
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
@@ -975,7 +973,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-refresh
-      Description: Refresh cached hub data outside player requests
+      Description: Advance the season clock and post season results
       Architectures:
         - arm64
       Runtime: nodejs24.x
@@ -995,8 +993,6 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
-          RUNTIME_SECRET_ID: elixir-drop-runtime
-          ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
 
   RefreshEventSource:
     Type: AWS::Lambda::EventSourceMapping

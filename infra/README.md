@@ -179,8 +179,9 @@ JSON object whose keys are the env names `SESSION_SECRET`, `TELEMETRY_PEPPER`,
 Elixir integration key (`ELIXIR_INTEGRATION_KEY`, legacy `ELIXIR_MCP_KEY`) was
 retired on 2026-11-13; no function reads those names, so they can be deleted
 from the secret at any time. Jamie keeps it by hand in the console; the
-stack does not own it and no deploy writes it. Only the API, refresh and
-result-consumer roles may read it (the refresh worker no longer does) (never the referee role, CI, or the browser).
+stack does not own it and no deploy writes it. Only the API and
+result-consumer roles may read it (never the refresh worker, the referee role,
+CI, or the browser).
 No stack parameter or function environment carries a credential, so no function
 configuration or retained Web Function revision holds a copy (since 2026-11-04).
 The functions get only `RUNTIME_SECRET_ID`; `services/api/src/runtime-secrets.ts`
@@ -262,8 +263,9 @@ provider. The provider
 owns policy create/update/delete because the native policy resource schema does
 not yet admit Web Function ARNs; it has no application secrets or data access. The stack provisions a separate refresh FIFO
 queue, DLQ, worker role and Lambda. API requests may send work; only the worker
-consumes it. The worker has table access plus MCP credentials, with no
-sign-in, mail, Bedrock, S3 publication or referee-correlation credentials.
+consumes it. The worker has table access only: it advances Drop's own season
+clock and season posts, and holds no secret, Elixir URL, sign-in, mail,
+Bedrock, S3 publication or referee-correlation credential.
 
 The worker processes one message per invocation with concurrency capped at two.
 FIFO groups serialize the clock and each player; duplicate jobs within five

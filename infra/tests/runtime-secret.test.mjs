@@ -19,7 +19,6 @@ const SECRET_ARN =
 void describe("runtime secret (infra/README.md, Runtime secret)", () => {
   for (const [fn, role] of [
     ["ApiWebRevision", "ApiRole"],
-    ["RefreshFunction", "RefreshRole"],
     ["CrResultFunction", "CrResultRole"],
   ]) {
     void it(`${fn} names the secret and ${role} may read only it`, () => {
@@ -36,6 +35,7 @@ void describe("runtime secret (infra/README.md, Runtime secret)", () => {
   void it("no other role can read a secret", () => {
     for (const role of [
       "WebPolicyRole",
+      "RefreshRole",
       "RefereeReadRole",
       "RunReportsRole",
       "DropControlRole",
@@ -47,7 +47,15 @@ void describe("runtime secret (infra/README.md, Runtime secret)", () => {
       assert.ok(text, `${role} exists`);
       assert.doesNotMatch(text, /secretsmanager/);
     }
-    assert.equal(template.match(/secretsmanager:GetSecretValue/g)?.length, 3);
+    assert.equal(template.match(/secretsmanager:GetSecretValue/g)?.length, 2);
+  });
+
+  void it("the refresh worker names no secret and no Elixir URL", () => {
+    // It advances Drop's own season clock (2026-11-13) and reaches nothing
+    // outside AWS.
+    const fn = resource("RefreshFunction") ?? "";
+    assert.ok(fn, "RefreshFunction exists");
+    assert.doesNotMatch(fn, /RUNTIME_SECRET_ID|ELIXIR_MCP_BASE_URL/);
   });
 
   void it("never resolves a secret into a function environment", () => {

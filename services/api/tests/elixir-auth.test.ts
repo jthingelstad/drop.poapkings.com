@@ -25,7 +25,6 @@ const config = {
   appUrl: "https://drop.test",
   nameModelId: "m",
   elixirMcpBaseUrl: "https://elixir.test",
-  warClockClanTag: "#J2RGCRVG",
   elixirOAuthClientId: "client123",
 } as RouteContext["config"];
 function event(
