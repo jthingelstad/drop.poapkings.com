@@ -83,7 +83,8 @@ describe("Drop talks to Elixir only to sign people in", () => {
     // serves its own `/players/` and `/me/...` routes, so those need the
     // API prefix; Drop never had a clock route of its own.
     const prefix = path === "/game/clock" ? "(/api/v1)?" : "/api/v1";
-    const literal = new RegExp(`["'\`]${prefix}${path}`.replace(/\//g, "\\/"));
+    // Paths are letters and slashes, so they need no escaping here.
+    const literal = new RegExp(`["'\`]${prefix}${path}`);
     expect(
       files.filter(({ text }) => literal.test(text)).map(({ name }) => name),
     ).toEqual([]);
