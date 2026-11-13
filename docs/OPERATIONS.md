@@ -152,8 +152,9 @@ identity), or verification fails.
 **Boundaries and clock.** A season is the Clash Royale season.
 
 - Its ID is the positive season number everywhere (Season 136 is `136`).
-- The clock is Elixir's policy clock, `GET /api/v1/game/clock`, accepted only
-  as `source: "policy"`, with season and day boundaries at 10:00 UTC.
+- The clock is Drop's own calendar (`services/api/src/season-clock.ts`,
+  since 2026-11-13): first Monday to first Monday, season and day boundaries
+  at 10:00 UTC. It calls nothing, so an Elixir outage cannot stop a season.
 - Clock jobs finalize the old season before advancing the cache.
 - An EventBridge Scheduler run (`elixir-drop-prod-war-clock`, hourly at :05 UTC)
   queues a clock job, so a season closes at 10:05 UTC on the first Monday
@@ -168,9 +169,8 @@ identity), or verification fails.
   2. The queue's dead letters: `elixir-drop-prod-refresh-dlq.fifo` holds
      clock jobs that exhausted their retries (no alarm watches it since
      2026-11-03).
-  3. The worker's errors: `/elixir-drop/refresh` for a thrown clock job or a
-     failing hub read (`GET /api/v1/game/clock`), and the worker's Lambda
-     errors.
+  3. The worker's errors: `/elixir-drop/refresh` for a thrown clock job
+     (finalization or the table), and the worker's Lambda errors.
 
   It returns to OK on its own after a whole clock hour with a save. Never set
   its state by hand to test it.

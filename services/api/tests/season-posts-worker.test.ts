@@ -4,10 +4,6 @@ import type { UpdateEntry } from "../src/player-updates.js";
 import type { Repository } from "../src/repository.js";
 import type { SeasonPostsRecord } from "../src/season-posts.js";
 
-const clock = vi.hoisted(() => vi.fn());
-vi.mock("../src/elixir-war-clock.js", () => ({
-  fetchWarClockFromHub: clock,
-}));
 import { processRefreshJob } from "../src/refresh-worker.js";
 
 const config = {
@@ -80,12 +76,6 @@ describe("season posts ride the war-clock job", () => {
     vi.useFakeTimers({ now: new Date("2026-12-07T10:05:00.000Z") });
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
-    clock.mockReset();
-    clock.mockResolvedValue({
-      crSeasonId: 139,
-      observedAt: "2026-12-07T10:05:00.000Z",
-      seasonEndsAt: "2027-01-04T10:00:00.000Z",
-    });
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -104,10 +94,6 @@ describe("season posts ride the war-clock job", () => {
     // A duplicated job inside the freshness window, then the next hourly run.
     await processRefreshJob(job, config, repo as unknown as Repository);
     vi.setSystemTime(new Date("2026-12-07T11:05:00.000Z"));
-    clock.mockResolvedValue({
-      crSeasonId: 139,
-      observedAt: "2026-12-07T11:05:00.000Z",
-    });
     await processRefreshJob(job, config, repo as unknown as Repository);
     expect(repo.updates.size).toBe(2);
     expect(repo.publishUpdate).toHaveBeenCalledTimes(2);
@@ -125,10 +111,6 @@ describe("season posts ride the war-clock job", () => {
     // The live board moves after the close; the post must not.
     repo.setBoard([{ rank: 1, score: 9_000, player: { publicName: "Late" } }]);
     vi.setSystemTime(new Date("2026-12-07T11:05:00.000Z"));
-    clock.mockResolvedValue({
-      crSeasonId: 139,
-      observedAt: "2026-12-07T11:05:00.000Z",
-    });
     await processRefreshJob(job, config, repo as unknown as Repository);
     const results = repo.updates.get("season-138-final-results");
     expect(results?.body).toContain("Surge: Log at **11.720s**.");
@@ -157,12 +139,11 @@ describe("season posts ride the war-clock job", () => {
 
   it("posts nothing when no season closed", async () => {
     const repo = store();
-    clock.mockResolvedValue({
-      crSeasonId: 138,
-      observedAt: "2026-12-07T10:05:00.000Z",
-    });
+    // Half an hour before the season 139 reset: still season 138.
+    vi.setSystemTime(new Date("2026-12-07T09:35:00.000Z"));
     await processRefreshJob(job, config, repo as unknown as Repository);
     expect(repo.createSeasonPosts).not.toHaveBeenCalled();
     expect(repo.updates.size).toBe(0);
+    expect(repo.clock()?.crSeasonId).toBe(138);
   });
 });

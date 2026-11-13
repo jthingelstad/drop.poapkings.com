@@ -215,9 +215,10 @@ export function runRecordResponse(
     ...(reviewExplanation ? { reviewExplanation } : {}),
   };
 }
-// The bridge used to push this every five minutes forever. Reading it
-// on demand behind the same interval costs a call only when somebody is
-// actually using Drop, and the stored clock is the cache.
+// The stored clock is the season Drop last advanced to (season-clock.ts
+// computes it; the worker finalizes the closing season before saving the
+// next). A read older than five minutes asks the serialized worker to
+// advance it, besides the hourly schedule.
 const WAR_CLOCK_TTL_MS = 5 * 60 * 1000;
 export async function currentWarClock(
   repository: Repository,
@@ -232,7 +233,7 @@ export async function currentWarClock(
     });
     return undefined;
   }
-  if (!config?.elixirMcpKey) return stored;
+  if (!config) return stored;
   const observedAt = stored?.observedAt ? Date.parse(stored.observedAt) : 0;
   if (Number.isFinite(observedAt) && Date.now() - observedAt < WAR_CLOCK_TTL_MS)
     return stored;

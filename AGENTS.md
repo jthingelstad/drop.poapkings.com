@@ -52,9 +52,9 @@ Every other doc points back here instead of keeping its own copy of this list.
    any script. It reads Clash Royale data from **Elixir**, the hub that records
    that history, through Elixir's Integration REST API (`/api/v1`) with Drop's
    own integration key (`services/api/src/elixir-mcp.ts`). The season clock is
-   `GET /api/v1/game/clock`, accepted only as `source: "policy"`
-   (`elixir-war-clock.ts`): 10:00 UTC boundaries, never one clan's observed
-   race. Player enrichment reads the recorded profile at
+   Drop's own (`season-clock.ts`, 2026-11-13): first Monday to first Monday,
+   10:00 UTC boundaries, the same calendar Elixir's policy clock computed,
+   never one clan's observed race and no request to anyone. Player enrichment reads the recorded profile at
    `GET /api/v1/players/{tag}` and takes it as Elixir has it
    (`elixir-player.ts`). **Drop writes nothing to Elixir** (Jamie,
    2026-11-12: "no writing to Elixir and ONLY authenticating and getting a
@@ -604,9 +604,10 @@ production run. A successful exact-head validation triggers
 - **A season ID is the positive Clash Royale season number everywhere.**
   Season 135 is stored and returned as numeric `135`; calendar-shaped values
   such as `2026-08` are retired migration inputs, never application keys. Every
-  label and deep link uses the same number (`season=135`). The CR war clock is
-  authoritative; the calendar fallback advances from Drop's verified Season
-  134 launch anchor only when no usable clock remains.
+  label and deep link uses the same number (`season=135`). The stored clock,
+  which Drop computes itself (`season-clock.ts`), is authoritative; the
+  calendar fallback in `seasons.ts` covers only a missing or stale stored
+  clock, from the same verified Season 134 anchor.
 
 ---
 
@@ -771,7 +772,8 @@ mergeCommit`, never the branch's SHA.
 ## Elixir integration API
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`, reads only: the game policy clock and recorded player profiles.
+REST `/api/v1`, reads only: recorded player profiles. The game policy clock
+read was retired on 2026-11-13; Drop computes the same calendar itself.
 Profile refresh requests were retired on 2026-11-12 (Drop writes nothing to
 Elixir). Automatic collection enrollment was retired on 2026-10-02;
 saved tags do not start an ongoing Elixir recording. The canonical contract and setup
@@ -790,7 +792,7 @@ and collection configuration are retired. Sign in with Elixir, consent,
 verified identity selection and the person's authorized account access remain.
 
 Saved CR tags remain optional, and unverified unless Elixir verified them. No Drop identities, scores, XP or
-badges are uploaded. The new clock is explicitly policy-based, with supplied
-season/day boundaries at 10:00 UTC; it is not a clan observation. Finalization
+badges are uploaded. The clock is policy-based, with season/day boundaries at
+10:00 UTC computed by Drop; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.
 Manual host-only card refresh continues to use Supercell directly.
