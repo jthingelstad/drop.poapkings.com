@@ -704,19 +704,7 @@ test('public profiles omit the First Drop tile when that player did not earn it'
   await expect(page.getByText('First Drop', { exact: true })).toHaveCount(0)
 })
 
-test('a player chosen from Elixir resolves through the bridge profile states', async ({ page }, testInfo) => {
-  // The mocked CR profile carries CDN-shaped iconUrls (as the bridge relays);
-  // serve them a pixel so no browser logs a 404.
-  await page.route('https://api-assets.clashroyale.com/**', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'image/png',
-      body: Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-        'base64'
-      )
-    })
-  )
+test('a player chosen from Elixir shows the name and clan from the sign-in read', async ({ page }, testInfo) => {
   await page.unroute(testApiRoute)
   await page.unroute('**/api-config.json')
   await page.route('**/api-config.json', (route) =>
@@ -768,7 +756,15 @@ test('a player chosen from Elixir resolves through the bridge profile states', a
           player: {
             ...basePlayer,
             playerTag: '#20JJJ2CCRU',
-            clashRoyale: { tag: '#20JJJ2CCRU', status: 'pending' }
+            // The API records the snapshot from the sign-in read as the
+            // player is chosen, so it answers ready at once; nothing polls.
+            clashRoyale: {
+              tag: '#20JJJ2CCRU',
+              status: 'ready',
+              name: 'King Thing',
+              clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', role: 'leader' },
+              fetchedAt: '2026-09-12T18:00:00.000Z'
+            }
           }
         })
       })
@@ -787,20 +783,8 @@ test('a player chosen from Elixir resolves through the bridge profile states', a
                   tag: '#20JJJ2CCRU',
                   status: 'ready',
                   name: 'King Thing',
-                  clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', badgeId: 16000000, role: 'leader' },
-                  cards: [
-                    {
-                      id: 26000000,
-                      name: 'Knight',
-                      iconUrl: 'https://api-assets.clashroyale.com/cards/300/knight.png'
-                    },
-                    {
-                      id: 26000001,
-                      name: 'Archers',
-                      iconUrl: 'https://api-assets.clashroyale.com/cards/300/archers.png'
-                    }
-                  ],
-                  fetchedAt: '2026-07-18T13:27:25.039Z'
+                  clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', role: 'leader' },
+                  fetchedAt: '2026-09-12T18:00:00.000Z'
                 }
               }
             : basePlayer,
