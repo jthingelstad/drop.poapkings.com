@@ -281,7 +281,7 @@ export default function Leaderboards() {
     return () => controller.abort()
   }, [isXp, isOffline, currentAccountStatus, currentPlayer, xpReload.value, xpTimeline, xpLoading, xpError])
 
-  // Keep polling while a just-saved player tag resolves to a clan.
+  // Keep polling while a just-chosen player resolves to a clan.
   useEffect(() => {
     if (!isClan || !currentPlayer?.playerTag || currentClan || crStatus !== 'pending') return
     const interval = window.setInterval(() => void refreshAccount().catch(() => undefined), 2_000)
@@ -313,21 +313,21 @@ export default function Leaderboards() {
         href: scopedSignInHref
       },
       'tag-required': {
-        state: 'Clan tag needed',
-        line: 'Drop uses your public Clash Royale profile to find your current clan.',
-        label: 'Add player tag',
+        state: 'Player needed',
+        line: 'Choose a Clash Royale player from your Elixir account so Drop can find your current clan.',
+        label: 'Choose player',
         href: '/profile?edit=player-tag'
       },
       'profile-pending': {
         state: 'Loading your clan',
-        line: 'Your player tag is saved. Drop is fetching its public Clash Royale profile.',
+        line: 'Your player is chosen. Drop is reading its Clash Royale profile from Elixir.',
         label: 'View profile',
         href: '/profile'
       },
       'profile-missing': {
-        state: 'Clan tag not found',
-        line: 'Check the tag on your profile, then open Clan again.',
-        label: 'Edit player tag',
+        state: 'Profile not found',
+        line: 'Elixir has no record of your player yet. Choose a player from your Elixir account, then open Clan again.',
+        label: 'Choose player',
         href: '/profile?edit=player-tag'
       },
       'no-clan': {

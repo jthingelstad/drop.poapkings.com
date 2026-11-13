@@ -117,7 +117,7 @@ describe('ElixirConnection', () => {
     expect(accountMock.chooseElixirPlayer).toHaveBeenCalledWith('#VJQV8G8RL')
   })
 
-  it('an unverified choice points at Elixir → Verify; a refused track is explained; there is no disconnect', async () => {
+  it('an unverified choice points at Elixir → Verify; there is no disconnect', async () => {
     draw(
       <ElixirConnection
         player={{
@@ -128,17 +128,38 @@ describe('ElixirConnection', () => {
             checkedAt: '2026-09-12T18:00:00.000Z',
             playerTag: ALT.playerTag,
             verified: false,
-            candidates: [KING, ALT],
-            trackRefused: '#2PP'
+            candidates: [KING, ALT]
           }
         }}
       />
     )
     expect(host.querySelector('a[href="https://elixir.poapkings.com/console/account/verify"]')).not.toBeNull()
-    expect(host.textContent).toContain('#2PP')
+    expect(host.textContent).not.toContain('would not add')
     const current = host.querySelector<HTMLButtonElement>('.ed-elixir__candidate--current')!
     expect(current.disabled).toBe(true)
     expect([...host.querySelectorAll('button')].some((b) => /disconnect/i.test(b.textContent ?? ''))).toBe(false)
+  })
+
+  it('points to Elixir when the account has no player, and keeps a typed tag as not verified', () => {
+    draw(
+      <ElixirConnection
+        player={{
+          ...base,
+          playerTag: '#2PP',
+          elixir: {
+            linkedAt: '2026-09-12T18:00:00.000Z',
+            checkedAt: '2026-09-12T18:00:00.000Z',
+            verified: false,
+            candidates: []
+          }
+        }}
+      />
+    )
+    expect(host.textContent).toContain(
+      'Your Elixir account has no Clash Royale player yet. Add one at elixir.poapkings.com, then sign in with Elixir again to choose it here.'
+    )
+    expect(host.querySelector('a[href="https://elixir.poapkings.com"]')).not.toBeNull()
+    expect(host.textContent).toContain('Drop keeps the tag you typed in before, #2PP, as not verified.')
   })
 
   it('surfaces a failure from the account layer', async () => {

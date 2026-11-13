@@ -55,9 +55,12 @@ Every other doc points back here instead of keeping its own copy of this list.
    `GET /api/v1/game/clock`, accepted only as `source: "policy"`
    (`elixir-war-clock.ts`): 10:00 UTC boundaries, never one clan's observed
    race. Player enrichment reads the recorded profile at
-   `GET /api/v1/players/{tag}` and, when it is missing or older than six hours,
-   requests `POST /api/v1/profile-refreshes` and polls
-   `/profile-refreshes/{id}` (`elixir-player.ts`). The contract is Elixir's;
+   `GET /api/v1/players/{tag}` and takes it as Elixir has it
+   (`elixir-player.ts`). **Drop writes nothing to Elixir** (Jamie,
+   2026-11-12: "no writing to Elixir and ONLY authenticating and getting a
+   verified clash Royale account"): no profile refresh, no player added to an
+   Elixir account. Its only non-GET to Elixir is the OAuth token request, and
+   `services/api/tests/no-elixir-writes.test.ts` pins that. The contract is Elixir's;
    "Elixir integration API" below points at it. Drop is a downstream reader of
    that seam and never reaches into another app; the hub never pushes into
    Drop. Returning-session enrichment and stale clock reads use a dedicated
@@ -279,6 +282,11 @@ production run. A successful exact-head validation triggers
   Elixir** (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with
   Elixir") lets a player pick one of their Elixir "you"/"alt" players as the
   Drop tag and inherit Elixir's verification as the `verified` account tag.
+  A tag is never typed in any more (2026-11-12): `PATCH /me` refuses a new
+  tag (`player_from_elixir`), a tag typed in before stays as it is,
+  unverified, and a signed-in player with no player on their Elixir account
+  is sent to elixir.poapkings.com to add one. Sign-in asks only for
+  `cr:read account:email`.
   It is the only sign-in. An `ELIXIR#<accountId>` pointer names the Drop
   account an Elixir account opens; without one, the proven email finds the
   account (`sub = sha256(email)`) and the pointer is written. A Drop account
@@ -763,8 +771,9 @@ mergeCommit`, never the branch's SHA.
 ## Elixir integration API
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`: game policy clock, recorded player profiles, asynchronous profile
-refreshes. Automatic collection enrollment was retired on 2026-10-02;
+REST `/api/v1`, reads only: the game policy clock and recorded player profiles.
+Profile refresh requests were retired on 2026-11-12 (Drop writes nothing to
+Elixir). Automatic collection enrollment was retired on 2026-10-02;
 saved tags do not start an ongoing Elixir recording. The canonical contract and setup
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
@@ -772,14 +781,15 @@ are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
 key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
 the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
-origin. Login and tag save enqueue generation-bound refresh jobs. The worker
-reads recorded data or requests a durable collector refresh without collection
-membership or enrollment. Source `observed_at` supplies profile freshness.
-Failures retry in SQS; stale values remain useful. The collection sync script
+origin. Login, session refresh and a player choice enqueue generation-bound
+refresh jobs. The worker re-reads the recorded profile with one GET, whatever
+its age; it never asks Elixir to fetch. Source `observed_at` supplies profile
+freshness. A tag Elixir has not recorded is `not_found` (no retry); other
+failures retry in SQS; stale values remain useful. The collection sync script
 and collection configuration are retired. Sign in with Elixir, consent,
 verified identity selection and the person's authorized account access remain.
 
-Saved CR tags remain optional and unverified. No Drop identities, scores, XP or
+Saved CR tags remain optional, and unverified unless Elixir verified them. No Drop identities, scores, XP or
 badges are uploaded. The new clock is explicitly policy-based, with supplied
 season/day boundaries at 10:00 UTC; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.

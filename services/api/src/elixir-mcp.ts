@@ -31,28 +31,25 @@ export function configured(
     ? { baseUrl: config.baseUrl, token: config.token }
     : undefined;
 }
-export async function apiRequest<T>(
+/** A GET against Elixir's integration API: the only kind of request this
+ * client sends. Drop writes nothing to Elixir (Jamie, 2026-11-12), so there
+ * is no method parameter and no body to send. */
+export async function apiGet<T>(
   config: ElixirMcpConfig,
-  method: string,
   path: string,
-  body?: unknown,
   fetcher: ElixirMcpFetch = fetch as unknown as ElixirMcpFetch,
-  idempotencyKey?: string,
 ): Promise<T> {
   const ready = configured(config);
   if (!ready)
     throw new ElixirMcpError("Elixir API is not configured", 0, "unconfigured");
   return measure("elixir.api", async () => {
     const response = await fetcher(`${ready.baseUrl}/api/v1${path}`, {
-      method,
+      method: "GET",
       signal: AbortSignal.timeout(3000),
       headers: {
         Authorization: `Bearer ${ready.token}`,
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     const payload = (await response.json()) as { data?: T; code?: string };
     if (!response.ok)

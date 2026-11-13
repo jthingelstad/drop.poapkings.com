@@ -9,6 +9,20 @@ function when(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+// What a signed-in player with no player on their Elixir account sees: Drop
+// reads players from Elixir and adds none itself (Jamie, 2026-11-12).
+export function NoElixirPlayer() {
+  return (
+    <p class="ed-account__line ed-account__muted">
+      Your Elixir account has no Clash Royale player yet. Add one at{' '}
+      <a class="text-link" href="https://elixir.poapkings.com" rel="noreferrer">
+        elixir.poapkings.com
+      </a>
+      , then sign in with Elixir again to choose it here.
+    </p>
+  )
+}
+
 // The Elixir block on Account. A Drop account is an Elixir account, so there
 // is no disconnect: before the first sign-in that reads the person's players
 // (an account from the email-sign-in days), it offers that check; after it,
@@ -99,12 +113,13 @@ export default function ElixirConnection({ player }: { player: Player }) {
           (one battle with a deck Elixir names), then sign in with Elixir again to pick up the checkmark.
         </div>
       )}
-      {link.trackRefused && (
+      {!link.playerTag && player.playerTag && (
         <div class="ed-account__line ed-account__muted">
-          Elixir would not add <span class="ed-profile__reference">{link.trackRefused}</span> to your account (its
-          player slots may be full), so it cannot be chosen here.
+          Drop keeps the tag you typed in before, <span class="ed-profile__reference">{player.playerTag}</span>, as not
+          verified.
         </div>
       )}
+      {link.candidates.length === 0 && <NoElixirPlayer />}
       {(needsChoice || canSwitch) && (
         <div class="ed-elixir__picker" role="group" aria-label="Which of your Elixir players Drop shows">
           <div class="ed-account__label">{needsChoice ? 'Choose the player Drop shows' : 'Your Elixir players'}</div>

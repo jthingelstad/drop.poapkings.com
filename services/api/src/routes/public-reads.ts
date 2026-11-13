@@ -57,7 +57,7 @@ export async function getLeaderboards(context: RouteContext) {
     if (!profile.playerTag)
       throw new HttpError(
         409,
-        "Add a Clash Royale player tag to see clan rankings.",
+        "Choose your Clash Royale player to see clan rankings.",
         "player_tag_required",
       );
     const crProfile = await repository.getCrProfile(profile.playerTag);

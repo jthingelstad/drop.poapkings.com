@@ -342,6 +342,7 @@ describe('Profile interactive flows', () => {
       getNameOptions: vi.fn(),
       getSeasonHistory: vi.fn(),
       patchMe: vi.fn(),
+      selectElixirPlayer: vi.fn(),
       deleteMe: vi.fn(),
       getMe: vi.fn(),
       redeemLogin: vi.fn(),
@@ -577,54 +578,56 @@ describe('Profile interactive flows', () => {
     expect(selected?.getAttribute('aria-pressed')).toBe('true')
   })
 
-  // --- Player tag step (reached from Account via ?edit=player-tag) ---------
+  // --- Player step (reached from Account via ?edit=player-tag) -------------
+  // A player is picked from the Elixir account; a tag is never typed in
+  // (Jamie, 2026-11-12).
 
-  it('saves a player tag and closes back to You', async () => {
+  const elixirLink = (candidates: unknown[]) => ({
+    linkedAt: '2026-09-12T18:00:00.000Z',
+    checkedAt: '2026-09-12T18:00:00.000Z',
+    verified: false,
+    candidates
+  })
+  const KING = { playerTag: '#20JJJ2CCRU', name: 'King Thing', relationship: 'primary', verified: true }
+
+  it('picks a player from the Elixir account and closes back to You', async () => {
     router.route.value = '/profile?edit=player-tag'
-    vi.mocked(api.patchMe).mockResolvedValue({
-      player: {
-        ...basePlayer,
-        favoriteCardId: 26000000,
-        playerTag: '#ABC',
-        clashRoyale: { tag: '#ABC', status: 'pending' }
-      }
-    })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    vi.mocked(api.selectElixirPlayer).mockResolvedValue({
+      player: { ...basePlayer, favoriteCardId: 26000000, playerTag: KING.playerTag }
+    } as never)
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', elixir: elixirLink([KING]) })
     await mount()
 
-    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
-    await typeInto(tagInput, '#ABC')
-    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
+    expect(container.querySelector('input[aria-label="Clash Royale player tag"]')).toBeNull()
+    await fire(container.querySelector('.ed-elixir__candidate') as Element)
 
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: '#ABC' })
+    expect(vi.mocked(api.selectElixirPlayer)).toHaveBeenCalledWith('live', KING.playerTag)
+    expect(vi.mocked(api.patchMe)).not.toHaveBeenCalled()
     expect(container.querySelector('.ed-idsetup')).toBeNull()
   })
 
-  it('removes a player tag when the field is cleared', async () => {
+  it('points a signed-in player with no Elixir player to Elixir, and keeps a typed tag as not verified', async () => {
     router.route.value = '/profile?edit=player-tag'
-    vi.mocked(api.patchMe).mockResolvedValue({ player: { ...basePlayer, favoriteCardId: 26000000 } })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', playerTag: '#OLD' })
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', playerTag: '#OLD', elixir: elixirLink([]) })
     await mount()
 
-    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
-    await typeInto(tagInput, '')
-    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
-
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: null })
+    expect(container.textContent).toContain('Your Elixir account has no Clash Royale player yet.')
+    expect(container.querySelector('a[href="https://elixir.poapkings.com"]')).not.toBeNull()
+    expect(container.textContent).toContain('#OLD')
+    expect(container.textContent).toContain('as not verified')
+    expect(container.querySelector('.ed-elixir__candidate')).toBeNull()
   })
 
-  it('surfaces a tag save failure and stays on the tag step', async () => {
+  it('surfaces a choice failure and stays on the player step', async () => {
     router.route.value = '/profile?edit=player-tag'
-    vi.mocked(api.patchMe).mockRejectedValue(new Error('tag rejected'))
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
+    vi.mocked(api.selectElixirPlayer).mockRejectedValue(new Error('choice rejected'))
+    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', elixir: elixirLink([KING]) })
     await mount()
 
-    const tagInput = container.querySelector('.ed-idsetup__tagform input') as HTMLInputElement
-    await typeInto(tagInput, '#BAD')
-    await fire(container.querySelector('.ed-idsetup__tagform') as Element, 'submit')
+    await fire(container.querySelector('.ed-elixir__candidate') as Element)
 
-    expect(container.textContent).toContain('tag rejected')
-    expect(container.querySelector('.ed-idsetup__tagform')).not.toBeNull()
+    expect(container.textContent).toContain('choice rejected')
+    expect(container.querySelector('.ed-elixir__candidate')).not.toBeNull()
   })
 
   // --- Delete-account flow -------------------------------------------------
@@ -861,7 +864,7 @@ describe('Profile interactive flows', () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'not_found' } } as never
     })
     await flush()
-    expect(container.textContent).toContain('could not find #ABC')
+    expect(container.textContent).toContain('Elixir has no record of #ABC yet.')
 
     await act(async () => {
       account.player.value = { ...account.player.value, clashRoyale: { tag: '#ABC', status: 'unavailable' } } as never

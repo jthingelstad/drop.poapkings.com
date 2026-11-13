@@ -97,8 +97,7 @@ export const elixirConnectionSchema = z.object({
   playerName: z.optional(nonEmptyString),
   verified: z.boolean(),
   verifiedAt: z.optional(isoDateTime),
-  candidates: z.array(elixirCandidateSchema),
-  trackRefused: z.optional(nonEmptyString)
+  candidates: z.array(elixirCandidateSchema)
 })
 
 export const playerSchema = z.object({

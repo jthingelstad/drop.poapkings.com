@@ -215,7 +215,7 @@ export async function elixirCallback(
   const token = exchanged.tokens.accessToken;
   // Who, in order: a person with their players (not an agent's grant),
   // then the address.
-  let players = await client.selfPlayers(token);
+  const players = await client.selfPlayers(token);
   if (!players.ok) return failTo(config.appUrl, players.code);
   const who = await client.userinfo(token);
   if (!who.ok) return failTo(config.appUrl, who.code);
@@ -250,24 +250,6 @@ export async function elixirCallback(
   // own address, but this sign-in does not touch its connection.
   const bindable =
     !target?.elixirAccountId || target.elixirAccountId === accountId;
-  // If Drop already shows a tag that is not on their Elixir account, add it
-  // there as an alt so it can be chosen (Jamie, 2026-09-12). A refusal is
-  // recorded, never fatal.
-  let trackRefused: string | undefined;
-  const dropTag = bindable ? target?.playerTag : undefined;
-  if (dropTag && !players.players.some((p) => p.playerTag === dropTag)) {
-    const tracked = await client.trackAlt(token, dropTag);
-    if (tracked.ok) {
-      const again = await client.selfPlayers(token);
-      if (again.ok) players = again;
-    } else {
-      trackRefused = dropTag;
-      console.warn("Elixir would not track the Drop tag", {
-        requestId: request.requestId,
-        toolCode: "toolCode" in tracked ? tracked.toolCode : undefined,
-      });
-    }
-  }
   // The link and the pointer, written now for an existing account; a
   // brand-new account gets both at redemption (the profile does not exist
   // yet), from the pending item the redemption reads back.
@@ -277,7 +259,6 @@ export async function elixirCallback(
     players: players.players,
     currentTag: target?.playerTag,
     previous: target?.elixir,
-    trackRefused,
     now: new Date().toISOString(),
   });
   if (target && bindable) {
@@ -312,11 +293,15 @@ export async function elixirCallback(
     pollId: login.pollId,
     ...(recruiterSub ? { recruiterSub } : {}),
   });
-  // Land on the picker when there is a choice to make or something to say;
-  // otherwise where the person was going.
+  // Land on the picker when there is a choice to make or something to say
+  // (no player at all: Account points to Elixir); otherwise where the
+  // person was going. A tag typed into Drop before 2026-11-12 that is not
+  // on the Elixir account is kept, so it needs no attention by itself.
+  const keptTag = !link.playerTag && Boolean(target?.playerTag);
   const needsAttention =
     bindable &&
-    (!link.playerTag || link.candidates.length > 1 || Boolean(trackRefused));
+    (link.candidates.length > 1 ||
+      (!link.playerTag && (link.candidates.length > 0 || !keptTag)));
   const returnTo = needsAttention ? ELIXIR_RETURN_PATH : login.returnTo;
   return redirect(
     `${config.appUrl}/#/auth?token=${encodeURIComponent(magicToken)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}&via=elixir`,
@@ -328,7 +313,6 @@ export function buildLink(input: {
   players: ElixirSelfPlayer[];
   currentTag?: string;
   previous?: ElixirLink;
-  trackRefused?: string;
   now: string;
 }): ElixirLink {
   const candidates: ElixirCandidate[] = input.players.map((p) => ({
@@ -338,15 +322,17 @@ export function buildLink(input: {
     verified: p.verified,
     ...(p.clanTag ? { clanTag: p.clanTag } : {}),
   }));
-  // Keep the previous choice if it is still theirs; else the Drop tag if it
-  // is now among their players; else a lone player chooses itself; else
-  // the person chooses.
+  // The Drop tag when it is one of their players. A tag typed into Drop by
+  // hand that is not stays exactly as it is, unverified (Jamie, 2026-11-12),
+  // until the person picks one of theirs: nothing is chosen over it. With
+  // no Drop tag, the previous choice if it is still theirs, else a lone
+  // player chooses itself, else the person chooses.
   const still = (tag?: string) =>
     tag ? candidates.find((c) => c.playerTag === tag) : undefined;
-  const chosen =
-    still(input.previous?.playerTag) ??
-    still(input.currentTag) ??
-    (candidates.length === 1 ? candidates[0] : undefined);
+  const chosen = input.currentTag
+    ? still(input.currentTag)
+    : (still(input.previous?.playerTag) ??
+      (candidates.length === 1 ? candidates[0] : undefined));
   return {
     accountId: input.accountId,
     linkedAt: input.previous?.linkedAt ?? input.now,
@@ -369,7 +355,6 @@ export function buildLink(input: {
         }
       : {}),
     candidates,
-    ...(input.trackRefused ? { trackRefused: input.trackRefused } : {}),
   };
 }
 // POST /me/elixir/select — choose which of your Elixir players Drop shows.

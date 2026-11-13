@@ -581,7 +581,6 @@ export interface ElixirConnection {
   verified: boolean;
   verifiedAt?: string;
   candidates: ElixirCandidate[];
-  trackRefused?: string;
 }
 
 export interface Player {
@@ -1020,7 +1019,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     progressive: false,
-    requirement: "Add a Clash Royale player tag to your profile",
+    requirement: "Choose a Clash Royale player for your profile",
   },
   {
     slug: "herald",

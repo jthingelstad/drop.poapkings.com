@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { apiRequest } from "../src/elixir-mcp.js";
+import { apiGet } from "../src/elixir-mcp.js";
 import {
   fetchPlayerFromHub,
   normalizeRecordedPlayer,
@@ -27,7 +27,7 @@ const recorded = {
 };
 it("uses bearer REST for an encoded player resource", async () => {
   const fetcher = vi.fn(async () => reply(recorded));
-  await apiRequest(config, "GET", "/players/%232PYQ0", undefined, fetcher);
+  await apiGet(config, "/players/%232PYQ0", fetcher);
   expect(fetcher).toHaveBeenCalledWith(
     "https://elixir.example/api/v1/players/%232PYQ0",
     expect.objectContaining({
@@ -53,35 +53,26 @@ it("retains recorded source time and never refreshes on an authentication failur
   expect(denied).toHaveBeenCalledTimes(1);
   expect(normalizeRecordedPlayer({})).toBeUndefined();
 });
-it("requests an asynchronous refresh for missing or stale data, and propagates pending", async () => {
-  const fetcher = vi
-    .fn()
-    .mockResolvedValueOnce(reply({ code: "not_recorded" }, 404))
-    .mockResolvedValue(
-      reply(
-        { id: "00000000-0000-4000-8000-000000000001", status: "pending" },
-        202,
-      ),
-    );
+it("reads a missing or stale profile with GET alone and never asks Elixir to refresh it", async () => {
+  const missing = vi.fn(async () => reply({ code: "not_recorded" }, 404));
   await expect(
-    fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher, async () => {}),
-  ).rejects.toMatchObject({ code: "refresh_pending" });
-  expect(fetcher.mock.calls[1]![0]).toBe(
-    "https://elixir.example/api/v1/profile-refreshes",
-  );
-  expect(fetcher.mock.calls[1]![1].headers["Idempotency-Key"]).toContain(
-    "profile:#2PYQ0:",
-  );
-  const stale = vi
-    .fn()
-    .mockResolvedValueOnce(
-      reply({ ...recorded, observed_at: "2025-01-01T00:00:00Z" }),
-    )
-    .mockResolvedValueOnce(reply({ status: "complete", profile: recorded }));
+    fetchPlayerFromHub(dropConfig, "#2PYQ0", missing),
+  ).rejects.toMatchObject({ code: "not_recorded" });
+  expect(missing).toHaveBeenCalledTimes(1);
+  const old = { ...recorded, observed_at: "2025-01-01T00:00:00Z" };
+  const stale = vi.fn(async () => reply(old));
+  // An old reading is still the record: Drop keeps it and its source time.
   expect(await fetchPlayerFromHub(dropConfig, "#2PYQ0", stale)).toMatchObject({
-    observedAt: recorded.observed_at,
+    observedAt: old.observed_at,
   });
-  expect(stale).toHaveBeenCalledTimes(2);
+  expect(stale).toHaveBeenCalledTimes(1);
+  for (const call of [
+    ...missing.mock.calls,
+    ...stale.mock.calls,
+  ] as unknown as [string, RequestInit][]) {
+    expect(call[1].method).toBe("GET");
+    expect(call[1].body).toBeUndefined();
+  }
 });
 it("refuses absent config and malformed responses", async () => {
   const fetcher = vi.fn(async () => ({
@@ -91,18 +82,12 @@ it("refuses absent config and malformed responses", async () => {
     text: async () => "",
   }));
   await expect(
-    apiRequest(
-      { baseUrl: config.baseUrl },
-      "GET",
-      "/game/clock",
-      undefined,
-      fetcher,
-    ),
+    apiGet({ baseUrl: config.baseUrl }, "/game/clock", fetcher),
   ).rejects.toMatchObject({ code: "unconfigured" });
   expect(fetcher).not.toHaveBeenCalled();
-  await expect(
-    apiRequest(config, "GET", "/game/clock", undefined, fetcher),
-  ).rejects.toMatchObject({ code: "invalid_response" });
+  await expect(apiGet(config, "/game/clock", fetcher)).rejects.toMatchObject({
+    code: "invalid_response",
+  });
 });
 const calendar = {
   source: "policy",
@@ -194,24 +179,4 @@ describe("a season rollover still closes the previous season", () => {
     });
     expect(calls).toEqual([]);
   });
-});
-
-it("polls an accepted profile refresh in the background before falling back to queue retry", async () => {
-  const id = "00000000-0000-4000-8000-000000000002";
-  const fetcher = vi
-    .fn()
-    .mockResolvedValueOnce(reply({ code: "not_recorded" }, 404))
-    .mockResolvedValueOnce(reply({ id, status: "pending" }, 202))
-    .mockResolvedValueOnce(
-      reply({ id, status: "complete", profile: recorded }),
-    );
-  const sleep = vi.fn(async () => {});
-  expect(
-    await fetchPlayerFromHub(dropConfig, "#2PYQ0", fetcher, sleep),
-  ).toMatchObject({ observedAt: recorded.observed_at });
-  expect(sleep).toHaveBeenCalledWith(5000);
-  expect(fetcher.mock.calls[2]![0]).toBe(
-    `https://elixir.example/api/v1/profile-refreshes/${id}`,
-  );
-  expect(fetcher.mock.calls[2]![1].method).toBe("GET");
 });

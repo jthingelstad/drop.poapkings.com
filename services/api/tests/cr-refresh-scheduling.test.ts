@@ -419,41 +419,29 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
   });
-  it("durably enqueues a tag when the player explicitly saves it", async () => {
-    repository.updateProfile.mockResolvedValue(profile);
-    const response = await invoke(
-      "PATCH",
-      "/me",
-      { playerTag: profile.playerTag },
-      true,
+  it("refuses a typed player tag: a player comes from the Elixir account", async () => {
+    repository.getProfile.mockResolvedValue(profile);
+    const response = await invoke("PATCH", "/me", { playerTag: "#2PP" }, true);
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(String(response.body)).error.code).toBe(
+      "player_from_elixir",
     );
-    expect(response.statusCode).toBe(200);
-    expect(requestCrProfileRefresh).not.toHaveBeenCalled();
-    expect(enqueueRefresh).toHaveBeenCalledWith(expect.anything(), {
-      version: 1,
-      type: "player-profile",
-      sub: profile.sub,
-      playerId: profile.playerId,
-    });
+    expect(repository.updateProfile).not.toHaveBeenCalled();
+    expect(enqueueRefresh).not.toHaveBeenCalled();
   });
-  it("keeps the saved player tag out of refresh failure logs", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    repository.updateProfile.mockResolvedValue(profile);
-    requestCrProfileRefresh.mockRejectedValue(
-      new Error(`provider detail for ${profile.playerTag}`),
-    );
-    const response = await invoke(
-      "PATCH",
-      "/me",
-      { playerTag: profile.playerTag },
-      true,
-    );
+  it("clearing a tag typed in before still works and asks Elixir for nothing", async () => {
+    repository.getProfile.mockResolvedValue(profile);
+    repository.updateProfile.mockResolvedValue({
+      ...profile,
+      playerTag: undefined,
+    });
+    const response = await invoke("PATCH", "/me", { playerTag: "" }, true);
     expect(response.statusCode).toBe(200);
+    expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
+      clearPlayerTag: true,
+    });
+    expect(enqueueRefresh).not.toHaveBeenCalled();
     expect(requestCrProfileRefresh).not.toHaveBeenCalled();
-    expect(enqueueRefresh).toHaveBeenCalled();
-    const logged = JSON.stringify(log.mock.calls);
-    expect(logged).not.toContain(profile.playerTag);
-    expect(logged).not.toContain("provider detail");
   });
   it("accepts a safe signed card-inspired name without the exact card title", async () => {
     const favoriteCardId = 26000018;

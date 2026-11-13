@@ -704,7 +704,7 @@ test('public profiles omit the First Drop tile when that player did not earn it'
   await expect(page.getByText('First Drop', { exact: true })).toHaveCount(0)
 })
 
-test('saved player tag resolves through the bridge profile states', async ({ page }, testInfo) => {
+test('a player chosen from Elixir resolves through the bridge profile states', async ({ page }, testInfo) => {
   // The mocked CR profile carries CDN-shaped iconUrls (as the bridge relays);
   // serve them a pixel so no browser logs a 404.
   await page.route('https://api-assets.clashroyale.com/**', (route) =>
@@ -737,10 +737,17 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
     levelStartGames: 10,
     nextLevelGames: 25,
     createdAt: '2026-07-18T00:00:00.000Z',
-    updatedAt: '2026-07-18T00:00:00.000Z'
+    updatedAt: '2026-07-18T00:00:00.000Z',
+    elixir: {
+      linkedAt: '2026-09-12T18:00:00.000Z',
+      checkedAt: '2026-09-12T18:00:00.000Z',
+      verified: false,
+      candidates: [{ playerTag: '#20JJJ2CCRU', name: 'King Thing', relationship: 'primary', verified: true }]
+    }
   }
   const session = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
   let saved = false
+  let patched = false
   await page.route(testApiRoute, async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname === '/auth/refresh') {
@@ -748,6 +755,11 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
       return
     }
     if (url.pathname === '/me' && route.request().method() === 'PATCH') {
+      patched = true
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      return
+    }
+    if (url.pathname === '/me/elixir/select' && route.request().method() === 'POST') {
       saved = true
       await route.fulfill({
         status: 200,
@@ -804,12 +816,13 @@ test('saved player tag resolves through the bridge profile states', async ({ pag
     localStorage.setItem('elixirdrop:session:v1', JSON.stringify(storedSession))
   }, session)
 
-  // Adding a player tag opens step 3 of the identity flow (Account routes here).
+  // Choosing a player opens step 3 of the identity flow (Account routes here).
+  // There is no field to type a tag into: the player comes from Elixir.
   await page.goto('/#/profile?edit=player-tag')
-  const tagInput = page.getByPlaceholder('#PLAYER_TAG')
-  await expect(tagInput).toBeVisible()
-  await tagInput.fill('20JJJ2CCRU')
-  await page.getByRole('button', { name: /PLAY AS/ }).click()
+  await expect(page.getByRole('heading', { name: 'Choose your Clash Royale player' })).toBeVisible()
+  await expect(page.getByRole('textbox')).toHaveCount(0)
+  await page.getByRole('button', { name: /King Thing/ }).click()
+  expect(patched).toBe(false)
   // Back on the You view, the resolved CR profile renders in Account.
   await page.getByRole('tab', { name: 'Account' }).click()
 

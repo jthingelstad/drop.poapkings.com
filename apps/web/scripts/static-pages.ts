@@ -265,7 +265,7 @@ ${pageSections([
   section(
     'Your account',
     `${paragraph(
-      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address only to recognize your account, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores an optional Clash Royale player tag. All of it is removed when you delete your account.'
+      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address only to recognize your account, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores which Clash Royale player from your Elixir account you chose, or a player tag you typed in before Drop stopped taking typed tags. All of it is removed when you delete your account.'
     )}`
   ),
   section(
@@ -277,12 +277,12 @@ ${pageSections([
   section(
     'What other players can see',
     paragraph(
-      'Leaderboards can show your generated Drop name, favorite card, scores, total games, and attached player tag. When you attach a tag, Drop also shows public Clash Royale clan, card collection, and account-age data. Card levels, trophies, arenas, and experience level are not shown.'
+      'Leaderboards can show your generated Drop name, favorite card, scores, total games, and chosen player tag. When you choose a player, Drop also shows public Clash Royale clan, card collection, and account-age data. Card levels, trophies, arenas, and experience level are not shown.'
     )
   ),
   section(
     'Services Drop uses',
-    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Supercell&rsquo;s Clash Royale API supplies public data for an optional player tag.</li></ul>'
+    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>Elixir also supplies the public Clash Royale profile it has recorded for your chosen player. Drop only reads from Elixir: it never adds a player to your Elixir account or asks Elixir to record anything.</li></ul>'
   ),
   section(
     'Fair Play',
@@ -672,7 +672,7 @@ function xpBody(): string {
     ),
     section(
       'What does not earn XP',
-      '<p>Starting without completing, replaying, sharing, installing, signing in, choosing a Drop name or favorite card, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Adding a Clash Royale player tag is the one profile action that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
+      '<p>Starting without completing, replaying, sharing, installing, signing in, choosing a Drop name or favorite card, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Choosing a Clash Royale player is the one profile action that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
     ),
     section(
       'Opening balance and retroactive awards',

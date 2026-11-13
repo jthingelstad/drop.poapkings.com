@@ -96,9 +96,6 @@ export interface ElixirLink {
   verifiedAt?: string;
   // What Elixir offered at the last sign-in, so the picker needs no token.
   candidates: ElixirCandidate[];
-  // A tag Drop asked Elixir to add and Elixir refused (a full tier, ...),
-  // so the profile can say so.
-  trackRefused?: string;
 }
 
 export interface ElixirCandidate {

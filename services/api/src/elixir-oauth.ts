@@ -4,11 +4,13 @@
 // Drop the INTEGRATION reading the record with its own key. Here the person
 // signs in to Elixir and Drop holds their token for the length of one
 // callback: long enough to learn which players are theirs (`GET
-// /api/v1/me`), who they are (`/oauth/userinfo`, scope account:email) and,
-// when their Drop tag is not on their Elixir account yet, to add it (`POST
-// /api/v1/me/players`). Nothing here is stored; the token pair is dropped
-// when the callback ends (Jamie, 2026-09-12: re-check at sign-in, never in
-// the background).
+// /api/v1/me`) and who they are (`/oauth/userinfo`, scope account:email).
+// Drop only reads: it authenticates the person and learns their verified
+// Clash Royale players, and writes nothing to Elixir (Jamie, 2026-11-12: "no
+// writing to Elixir and ONLY authenticating and getting a verified clash
+// Royale account"). The token request is the one POST, and it is OAuth's own.
+// Nothing here is stored; the token pair is dropped when the callback ends
+// (Jamie, 2026-09-12: re-check at sign-in, never in the background).
 //
 // Drop is a program, not an agent, so it reads Elixir's JSON API, not MCP
 // (Jamie, 2026-09-25; Elixir Clan did the same on 2026-09-23). The grant's
@@ -21,7 +23,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-export const ELIXIR_SIGN_IN_SCOPE = "cr:read recordings:write account:email";
+export const ELIXIR_SIGN_IN_SCOPE = "cr:read account:email";
 const TIMEOUT_MS = 20_000;
 
 export interface ElixirTokens {
@@ -209,11 +211,10 @@ export class ElixirOAuthClient {
     };
   }
 
-  private async api(
+  // Reads only: Drop sends Elixir's JSON API nothing but GETs.
+  private async get(
     accessToken: string,
-    method: "GET" | "POST",
     path: string,
-    body?: Record<string, unknown>,
   ): Promise<
     | { ok: true; data: Record<string, unknown> }
     | (ElixirFailure & { toolCode?: string })
@@ -221,13 +222,11 @@ export class ElixirOAuthClient {
     let response: Response;
     try {
       response = await this.fetchImpl(`${this.resource}${path}`, {
-        method,
+        method: "GET",
         headers: {
           authorization: `Bearer ${accessToken}`,
           accept: "application/json",
-          ...(body ? { "content-type": "application/json" } : {}),
         },
-        ...(body ? { body: JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (error) {
@@ -268,7 +267,7 @@ export class ElixirOAuthClient {
   async selfPlayers(
     accessToken: string,
   ): Promise<{ ok: true; players: ElixirSelfPlayer[] } | ElixirFailure> {
-    const answer = await this.api(accessToken, "GET", "/me");
+    const answer = await this.get(accessToken, "/me");
     if (!answer.ok) return answer;
     const principal = answer.data.principal as { kind?: string } | undefined;
     if (principal?.kind !== "person")
@@ -292,22 +291,6 @@ export class ElixirOAuthClient {
       });
     }
     return { ok: true, players };
-  }
-
-  // Add the Drop-saved tag to the person's Elixir account as an alt (Jamie,
-  // 2026-09-12: "if they have a tag that is not tracked it should be
-  // added"). The first player on an empty account becomes the primary
-  // regardless. Refusals (a full tier, an invalid tag) are reported, never
-  // fatal: the person still signs in and picks from what is tracked.
-  async trackAlt(
-    accessToken: string,
-    playerTag: string,
-  ): Promise<{ ok: true } | (ElixirFailure & { toolCode?: string })> {
-    const answer = await this.api(accessToken, "POST", "/me/players", {
-      player_tag: playerTag,
-      relationship: "alt",
-    });
-    return answer.ok ? { ok: true } : answer;
   }
 }
 

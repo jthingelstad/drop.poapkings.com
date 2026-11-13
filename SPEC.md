@@ -936,16 +936,20 @@ Authenticated public identity is centered on one favorite card:
   player name. The optional Clash Royale tag stays out of setup; finishing
   returns to the requested game (or Home) and defers the tag reminder for seven
   days on that device.
-- Clash Royale player tags are separate and unverified. Saving or reading a
-  stale tag queues a refresh; snapshots are fresh for six hours and shared by
-  tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
+- A signed-in player's Clash Royale player comes from their Elixir account
+  (any primary or alt); a tag is never typed in (2026-11-12). A tag typed in
+  before stays as it was, unverified; only a tag Elixir verified carries the
+  mark. A signed-in player with no player on their Elixir account is pointed to
+  elixir.poapkings.com to add one. Choosing a player or reading a stale tag
+  queues a re-read of Elixir's recorded profile; snapshots are fresh for six
+  hours and shared by tag. Drop shows CR name, clan, gameplay-derived Years Played account age, and
   the owned-card _count_. Experience, arena, trophies, wins, card levels, and
   the card collection grid are excluded — the grid has no use in Drop, only the
   count is shown. Drop's own arena (per-player, from Player XP) is native and
   unrelated to CR arenas.
 - A signed-in player without a player tag is prompted at most once every seven
   days on that device. The reminder never appears during active play, does not
-  stack over a release notice, and opens Profile directly at the tag field.
+  stack over a release notice, and opens Profile directly at the player step.
 - Every game uses the complete canonical card catalog; ranked runs place on the
   seasonal leaderboard while Practice is unranked. The attached collection
   remains loaded and stored, but is not used for challenge generation and is not
@@ -1273,8 +1277,12 @@ Supercell's Fan Content Policy. Not endorsed by Supercell._
 ## Elixir integration API
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`: game policy clock, recorded player profiles, asynchronous profile
-refreshes. Automatic collection enrollment was retired on 2026-10-02;
+REST `/api/v1`, reads only: the game policy clock and recorded player profiles.
+**Drop writes nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and
+ONLY authenticating and getting a verified clash Royale account"): profile
+refresh requests and adding a player to an Elixir account were removed, and
+the only non-GET Drop sends Elixir is the OAuth token request
+(`services/api/tests/no-elixir-writes.test.ts`). Automatic collection enrollment was retired on 2026-10-02;
 saved tags do not start an ongoing Elixir recording. The canonical contract and setup
 are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `../elixir-mcp/packages/contracts/integration-api.openapi.json`. Do not copy them.
@@ -1282,10 +1290,11 @@ are in `../elixir-mcp/apps/site/src/docs/integrations.md` and
 `ELIXIR_INTEGRATION_KEY` in the runtime secret holds the REST-audience integration
 key; the legacy `ELIXIR_MCP_KEY` is only used if no new key is configured, though
 the API and refresh still require the secret to hold both. `ELIXIR_MCP_BASE_URL` stays the hub
-origin. Login and tag save enqueue generation-bound refresh jobs. The worker
-reads recorded data or requests a durable collector refresh without collection
-membership or enrollment. Source `observed_at` supplies profile freshness.
-Failures retry in SQS; stale values remain useful. The collection sync script
+origin. Login, session refresh and a player choice enqueue generation-bound
+refresh jobs. The worker re-reads the recorded profile with one GET, whatever
+its age, and never asks Elixir to fetch. Source `observed_at` supplies profile
+freshness. A tag Elixir has not recorded becomes `not_found` without a retry;
+other failures retry in SQS; stale values remain useful. The collection sync script
 and collection configuration are retired. Sign in with Elixir, consent,
 verified identity selection and the person's authorized account access remain.
 
@@ -1308,7 +1317,8 @@ day). Drop is an OAuth client at Elixir's door (`ELIXIR_OAUTH_CLIENT_ID`,
 registered by `infra/scripts/register-elixir-client.mjs`; empty disables the
 button). `ELIXIR_OAUTH_CLIENT_SECRET` (in the `elixir-drop-runtime` secret) is
 sent as `client_secret` on the
-token request. The grant is `cr:read recordings:write account:email` for Elixir's
+token request. The grant is `cr:read account:email` (narrowed from
+`cr:read recordings:write account:email` on 2026-11-12) for Elixir's
 JSON API (`resource` `/api/v1`, 2026-09-25: Drop is a program, not an agent,
 so it reads the JSON API, never MCP). `account:email` is offered only to the
 Elixir family's own apps (every redirect on a family origin), and `GET
@@ -1337,9 +1347,9 @@ Flow: `POST /auth/elixir/start` (optional session bearer) stores
 minutes, single use) and answers the Elixir URL; the browser leaves for consent
 (a two-step form, the code typed on the page). `GET /auth/elixir/callback`
 exchanges the code, reads `GET /api/v1/me` (which must name a **person**
-principal, and lists the account's players), reads userinfo, adds a Drop-saved
-tag that is not on the Elixir account as an alt (`POST /api/v1/me/players`; a
-refusal is recorded as `trackRefused`, never fatal), writes the connection and pointer, mints a **proven sign-in link** (`MAGIC#` with
+principal, and lists the account's players), reads userinfo, writes the
+connection and pointer (a Drop-saved tag that is not on the Elixir account
+stays as it is, unverified; it is never added to Elixir, 2026-11-12), mints a **proven sign-in link** (`MAGIC#` with
 `source: "elixir"` and the resolved `sub`) and 303s to `/#/auth?token=…&via=elixir`,
 which redeems on arrival. The existing `/auth/poll` handoff covers an installed
 PWA whose chain finished in another browsing context. A browser that started
@@ -1361,12 +1371,14 @@ link and the pending connection. No Elixir token is stored; the pair
 is dropped when the callback ends.
 
 Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,
-verified, verifiedAt?, candidates[], trackRefused? }` plus a denormalized
+verified, verifiedAt?, candidates[] }` plus a denormalized
 `elixirVerified` for the boards' sparse projection. Candidates are the
 account's primary and alts only (never friends or watched players). One
 candidate is chosen silently; more land the person on the Account scope's
-picker (`POST /me/elixir/select`, candidates only, becomes `playerTag` through
-the ordinary tag-save path). The app has no disconnect since 2026-10-12; the
+picker (`POST /me/elixir/select`, candidates only, becomes `playerTag`). A
+lone candidate never replaces a tag typed in before; that player picks it on
+the Account picker. `PATCH /me` takes no new tag: anything but the stored tag
+or an empty value is refused (403 `player_from_elixir`). The app has no disconnect since 2026-10-12; the
 `DELETE /me/elixir` route remains and clears only the displayed connection
 (the tag stays, the mark and the link go), never the pointer or
 `elixirAccountId`. A tag saved by hand keeps the mark only if it is the
