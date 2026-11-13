@@ -4,8 +4,6 @@ import {
   fetchPlayerFromHub,
   normalizeRecordedPlayer,
 } from "../src/elixir-player.js";
-import { toWarClock, fetchWarClockFromHub } from "../src/elixir-war-clock.js";
-import { seasonForDate } from "../src/seasons.js";
 const config = { baseUrl: "https://elixir.example", token: "svt_test" };
 const dropConfig = {
   elixirMcpBaseUrl: config.baseUrl,
@@ -82,46 +80,14 @@ it("refuses absent config and malformed responses", async () => {
     text: async () => "",
   }));
   await expect(
-    apiGet({ baseUrl: config.baseUrl }, "/game/clock", fetcher),
+    apiGet({ baseUrl: config.baseUrl }, "/players/%2320JJJ2CCRU", fetcher),
   ).rejects.toMatchObject({ code: "unconfigured" });
   expect(fetcher).not.toHaveBeenCalled();
-  await expect(apiGet(config, "/game/clock", fetcher)).rejects.toMatchObject({
+  await expect(
+    apiGet(config, "/players/%2320JJJ2CCRU", fetcher),
+  ).rejects.toMatchObject({
     code: "invalid_response",
   });
-});
-const calendar = {
-  source: "policy",
-  as_of: "2026-09-08T12:00:00Z",
-  season_id: 136,
-  section_index: 0,
-  period_index: 1,
-  day_kind: "training",
-  season_started_at: "2026-09-07T10:00:00Z",
-  season_ends_at: "2026-10-05T10:00:00Z",
-  day_started_at: "2026-09-08T10:00:00Z",
-  day_ends_at: "2026-09-09T10:00:00Z",
-};
-it("uses explicit policy boundaries and expires the old season at reset", async () => {
-  const clock = toWarClock(calendar);
-  expect(clock).toMatchObject({
-    clockSource: "policy",
-    seasonStartsAt: calendar.season_started_at,
-    seasonEndsAt: calendar.season_ends_at,
-  });
-  expect(clock.sourceClanTag).toBeUndefined();
-  const fetcher = vi.fn(async () => reply(calendar));
-  await fetchWarClockFromHub(dropConfig, new Date(), fetcher);
-  expect(fetcher).toHaveBeenCalledWith(
-    "https://elixir.example/api/v1/game/clock",
-    expect.objectContaining({ method: "GET" }),
-  );
-  const stored = { ...clock, updatedAt: clock.observedAt };
-  expect(seasonForDate(new Date("2026-10-05T09:59:59Z"), stored).id).toBe(136);
-  expect(seasonForDate(new Date("2026-10-05T10:00:00Z"), stored).id).toBe(137);
-  expect(() =>
-    toWarClock({ ...calendar, day_ends_at: calendar.day_started_at }),
-  ).toThrow();
-  expect(() => toWarClock({ ...calendar, source: "observation" })).toThrow();
 });
 it("keeps only rendered recorded facts and rejects incomplete clan data", () => {
   expect(

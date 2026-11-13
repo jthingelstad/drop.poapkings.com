@@ -4,6 +4,11 @@ import {
   type Season,
 } from "@elixir-drop/contracts";
 import type { StoredCrWarClock } from "./types.js";
+import {
+  calendarSeasonNumber,
+  firstMondayAtReset,
+  seasonStartAtOrBefore,
+} from "./season-clock.js";
 
 const RESET_HOUR_UTC = 10;
 const CLOCK_FRESH_MS = 2 * 60 * 60 * 1_000;
@@ -16,21 +21,6 @@ const MAX_SEASON_MS = 5 * WEEK_MS;
 // The period rail is a catalog of Drop boards, not a generic CR calendar, so
 // it must never advertise the empty seasons before the game existed.
 const FIRST_DROP_SEASON_START_MS = Date.UTC(2026, 6, 6, RESET_HOUR_UTC);
-const FIRST_DROP_SEASON_MONTH = 2026 * 12 + 6;
-
-function firstMondayAtReset(year: number, monthIndex: number): Date {
-  const first = new Date(Date.UTC(year, monthIndex, 1, RESET_HOUR_UTC));
-  const daysUntilMonday = (8 - first.getUTCDay()) % 7;
-  first.setUTCDate(first.getUTCDate() + daysUntilMonday);
-  return first;
-}
-
-function calendarSeasonNumber(date: Date): number {
-  return (
-    FIRST_DROP_SEASON_ID +
-    (date.getUTCFullYear() * 12 + date.getUTCMonth() - FIRST_DROP_SEASON_MONTH)
-  );
-}
 
 function seasonStartingAt(date: Date, id = calendarSeasonNumber(date)): Season {
   const next = firstMondayAtReset(
@@ -153,15 +143,7 @@ export function seasonForDate(
   const carried = clock ? seasonFromStaleClock(input, clock) : undefined;
   if (carried) return carried;
 
-  const thisMonth = firstMondayAtReset(
-    input.getUTCFullYear(),
-    input.getUTCMonth(),
-  );
-  const season = seasonStartingAt(
-    input.getTime() >= thisMonth.getTime()
-      ? thisMonth
-      : firstMondayAtReset(input.getUTCFullYear(), input.getUTCMonth() - 1),
-  );
+  const season = seasonStartingAt(seasonStartAtOrBefore(input));
   const startsAt = new Date(season.startsAt);
   const currentWeek =
     Math.floor((input.getTime() - startsAt.getTime()) / (7 * DAY_MS)) + 1;

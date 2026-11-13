@@ -31,9 +31,10 @@ guest**: a guest run is dealt the same server-signed challenge and scored the
 same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
 history, no Discord) — the summary nudges the visitor to sign in before the next
 game so future scores can be recorded. A player session, opened only by Sign
-in with Elixir, unlocks recording and ranking. Dynamic Clash Royale player enrichment and the
-global game-policy clock come from the Elixir Integration REST API through Drop's
-asynchronous refresh worker.
+in with Elixir, unlocks recording and ranking. Dynamic Clash Royale player
+enrichment comes from the Elixir Integration REST API through Drop's
+asynchronous refresh worker; the season clock is Drop's own calendar
+(`season-clock.ts`).
 
 The only outbound ties are ordinary links:
 
@@ -73,7 +74,7 @@ The repository uses npm workspaces:
 The API uses a native Node 24 HTTP server on Lambda Web Functions behind
 CloudFront OAC, DynamoDB, SQS, Bedrock,
 the Elixir Integration REST API, and CloudFormation. A dedicated encrypted FIFO
-queue carries player-profile and policy-clock refresh work to a separate Lambda;
+queue carries player-profile and season-clock refresh work to a separate Lambda;
 the public request path continues serving cached values while refreshes run.
 
 Current public website stack:
@@ -149,16 +150,22 @@ Refresh model:
 
 The static refresher is the only implemented direct Clash Royale API consumer.
 Dynamic backend work is queued to Drop's refresh worker, which reads recorded
-profiles and the policy clock from the Elixir Integration REST API; Lambda and
-browsers never call Supercell directly.
+profiles from the Elixir Integration REST API; Lambda and browsers never call
+Supercell directly.
 
-The runtime policy clock supplies the positive integer season ID plus fixed
-season/day boundaries at 10:00 UTC. The refresh worker finalizes the prior season
+The season clock is Drop's own (`services/api/src/season-clock.ts`, since
+2026-11-13; it was Elixir's `GET /api/v1/game/clock`, which computed the same
+calendar). It supplies the positive integer season ID plus fixed season/day
+boundaries at 10:00 UTC: a season runs from the first Monday of a month to the
+first Monday of the next, each week is three training days then four war days,
+the last week is Colosseum, and the season number counts months from Season
+134 (2026-07-06), the river-race `seasonId` (cr-agent-api-docs `clans.md` and
+`locations.md`). The refresh worker finalizes the prior season
 before advancing the stored clock, and idempotent markers protect retries. An
 hourly scheduled clock job (:05 UTC) means the finalize never waits for a visitor. The UI
 shows the season, current week, phase, and days left in the week. Cached values stay
-useful during integration outages; the verified Season 134 calendar anchor is the
-bounded fallback when no usable recorded clock remains.
+useful if the worker stalls; `seasons.ts` answers from the same calendar when
+no fresh stored clock remains.
 
 Normalization rules:
 
@@ -1277,7 +1284,8 @@ Supercell's Fan Content Policy. Not endorsed by Supercell._
 ## Elixir integration API
 
 Drop is an admin-provisioned platform integration. Runtime calls use Elixir's
-REST `/api/v1`, reads only: the game policy clock and recorded player profiles.
+REST `/api/v1`, reads only: recorded player profiles. The game policy clock
+read was retired on 2026-11-13; Drop computes the same calendar itself.
 **Drop writes nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and
 ONLY authenticating and getting a verified clash Royale account"): profile
 refresh requests and adding a player to an Elixir account were removed, and
@@ -1389,7 +1397,7 @@ green check on the owner profile, public profile, and every leaderboard scope,
 and like every account tag it authorizes nothing. Verification is Elixir's
 fact, re-read only at an Elixir sign-in ("Re-check with Elixir"); the profile
 shows `checkedAt`. Elixir's one-verified-claim-per-tag rule is what keeps the
-mark meaningful across Drop accounts. The new clock is explicitly policy-based, with supplied
-season/day boundaries at 10:00 UTC; it is not a clan observation. Finalization
+mark meaningful across Drop accounts. The clock is policy-based, with
+season/day boundaries at 10:00 UTC computed by Drop; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.
 Manual host-only card refresh continues to use Supercell directly.

@@ -171,8 +171,9 @@ use and which reintroduces a CDN dependency for gameplay art.
 
 Drop reads Clash Royale data from Elixir, the hub that records it, through
 Elixir's Integration REST API (`/api/v1`) with Drop's own integration key. The
-season clock is `GET /api/v1/game/clock`, Elixir's policy clock: season, week
-and day boundaries at 10:00 UTC, not an observation of any one clan's race. A
+season clock is Drop's own calculation (`services/api/src/season-clock.ts`):
+season, week and day boundaries at 10:00 UTC from the first-Monday calendar,
+not an observation of any one clan's race and not a request to Elixir. A
 player's profile is the recorded one at `GET /api/v1/players/{tag}`, taken as
 Elixir has it. Drop writes nothing to Elixir (2026-11-12): it never asks for a
 fresh read and never adds a player to an Elixir account; its one non-GET is
@@ -182,8 +183,8 @@ Drop no longer calls Supercell at runtime at all.
 
 The API stores one current clock and uses it to partition completed runs, reset
 leaderboards, and show the current war week; a clock job finalizes the old
-season before it caches the new one. The first-Monday 10:00 UTC calculation
-remains only as a fallback when no usable clock remains.
+season before it caches the new one. The same first-Monday 10:00 UTC
+calculation answers directly when the stored clock is missing or stale.
 
 ---
 

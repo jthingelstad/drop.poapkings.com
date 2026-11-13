@@ -14,8 +14,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../src/season-posts.js", () => ({
   publishPendingSeasonPosts: mocks.seasonPosts,
 }));
-vi.mock("../src/elixir-war-clock.js", () => ({
-  fetchWarClockFromHub: mocks.clock,
+vi.mock("../src/season-clock.js", () => ({
+  policyClock: mocks.clock,
 }));
 vi.mock("../src/podium.js", () => ({
   finalizePreviousSeasonIfNeeded: mocks.finalize,
@@ -82,7 +82,7 @@ describe("durable refresh worker", () => {
 
   it("finalizes the old season before advancing the stored clock", async () => {
     const incoming = { crSeasonId: 136, observedAt: new Date().toISOString() };
-    mocks.clock.mockResolvedValue(incoming);
+    mocks.clock.mockReturnValue(incoming);
     await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
     expect(mocks.finalize).toHaveBeenCalledWith(repo, incoming);
     expect(mocks.saveCrWarClock).toHaveBeenCalledWith(incoming);
@@ -92,7 +92,7 @@ describe("durable refresh worker", () => {
   });
 
   it("publishes owed season posts after the clock is saved", async () => {
-    mocks.clock.mockResolvedValue({ crSeasonId: 139 });
+    mocks.clock.mockReturnValue({ crSeasonId: 139 });
     await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
     expect(mocks.seasonPosts).toHaveBeenCalledWith(repo);
     expect(mocks.saveCrWarClock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -110,7 +110,7 @@ describe("durable refresh worker", () => {
   });
 
   it("still tries owed season posts when finalization fails, and keeps the failure", async () => {
-    mocks.clock.mockResolvedValue({ crSeasonId: 139 });
+    mocks.clock.mockReturnValue({ crSeasonId: 139 });
     mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));
     await expect(
       processRefreshJob({ version: 1, type: "war-clock" }, config, repo),
@@ -122,7 +122,7 @@ describe("durable refresh worker", () => {
   it("logs one saved-clock line for the staleness metric", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const incoming = { crSeasonId: 138, observedAt: new Date().toISOString() };
-    mocks.clock.mockResolvedValue(incoming);
+    mocks.clock.mockReturnValue(incoming);
     mocks.finalize.mockResolvedValue({ seasonId: 137 });
     await processRefreshJob({ version: 1, type: "war-clock" }, config, repo);
     expect(info).toHaveBeenCalledWith({
@@ -135,7 +135,7 @@ describe("durable refresh worker", () => {
 
   it("logs no saved-clock line when the clock is not saved", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    mocks.clock.mockResolvedValue({ crSeasonId: 138 });
+    mocks.clock.mockReturnValue({ crSeasonId: 138 });
     mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));
     await expect(
       processRefreshJob({ version: 1, type: "war-clock" }, config, repo),
@@ -145,7 +145,7 @@ describe("durable refresh worker", () => {
   });
 
   it("retains the old clock and retries failed finalization without consuming later FIFO work", async () => {
-    mocks.clock.mockResolvedValue({ crSeasonId: 136 });
+    mocks.clock.mockReturnValue({ crSeasonId: 136 });
     mocks.finalize.mockRejectedValueOnce(new Error("database unavailable"));
     const jobs = event([{ version: 1, type: "war-clock" }, job]);
     expect(await refreshHandler(jobs)).toEqual({

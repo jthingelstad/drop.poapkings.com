@@ -52,4 +52,12 @@ describe("Drop sends Elixir reads only", () => {
     const call = text.lastIndexOf("this.fetchImpl(", post);
     expect(text.slice(call, post)).toContain("/oauth/token");
   });
+
+  it("never reads Elixir's game clock; Drop computes its own", () => {
+    // Retired 2026-11-13: season-clock.ts gives the same calendar answers.
+    const readers = files
+      .filter(({ text }) => /["'`]\/(api\/v1\/)?game\/clock/.test(text))
+      .map(({ name }) => name);
+    expect(readers).toEqual([]);
+  });
 });
