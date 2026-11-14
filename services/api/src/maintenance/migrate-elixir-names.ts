@@ -8,7 +8,7 @@ import {
 } from "../elixir-identity.js";
 import { Repository } from "../repository.js";
 import type { ElixirLink } from "../types.js";
-import { isCloudEngineerIdentity } from "./export-elixir-avatars.js";
+import { isCloudEngineerIdentity } from "./cloud-engineer.js";
 
 // Retire Drop's made-up identity once (2026-11-14). From this change a
 // signed-in player shows the Clash Royale game name of their Elixir

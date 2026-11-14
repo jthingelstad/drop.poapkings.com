@@ -7,10 +7,10 @@ import {
   canonicalOutputCheck,
   avatarImportBody,
   MAX_PAIRS,
-  isCloudEngineerIdentity,
   parseAvatarExportArgs,
   planAvatarExport,
 } from "../src/maintenance/export-elixir-avatars.js";
+import { isCloudEngineerIdentity } from "../src/maintenance/cloud-engineer.js";
 
 const ACCT_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const ACCT_B = "bbbbbbbb-0000-4000-8000-000000000002";
