@@ -322,6 +322,30 @@ AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run backfill:elixir-identity
 node scripts/production-lock.mjs run --purpose "Elixir identity backfill" -- env AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run backfill:elixir-identity --workspace=@elixir-drop/api -- --accounts /tmp/accounts.json --map /tmp/pairings.json --apply
 ```
 
+## Profile image export
+
+Drop's profile image (the profile's `favoriteCardId`, cropped by CSS) moved
+into Elixir on 2026-11-14, and Elixir imports Drop's choices once.
+`src/maintenance/export-elixir-avatars.ts` lists `{ elixirAccountId,
+favoriteCardId }` for every profile that has both, for that import. It is
+read only: one Scan of the `PLAYER#`/`PROFILE` rows, projecting those two
+fields, and it takes no lock. It requires the cloud-engineer identity
+(`ProjectsCloudEngineer/projects-cloud-engineer` in Jamie's account) before
+any read.
+
+Card ids are Clash Royale's on both sides (Elixir's `avatar_card_id` is its
+`card.card_id`), so nothing is mapped; a card Drop's catalog does not hold is
+left out and counted, and so is an account found on two profiles. The file
+holds account ids and card ids only, no address, name, tag, sub or player id.
+`--out` names where it goes, outside the repository (a path inside it is
+refused, and a relative path means the directory the command was typed in);
+it is written mode 0600 and never over an existing file. Standard output is
+counts only:
+
+```sh
+AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run export:elixir-avatars --workspace=@elixir-drop/api -- --out ~/drop-avatars.json
+```
+
 ## Season-number storage migration
 
 `scripts/migrate-season-numbers.mjs` is the bounded one-time DynamoDB migration
