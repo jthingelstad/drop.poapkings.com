@@ -28,9 +28,8 @@ Three deliberately separate capabilities feed it:
   who a player is can be edited here. The name, the picture and the Clash
   Royale player tag all come from the player's Elixir account at each sign-in,
   so a correction belongs on Elixir. Email is visible but cannot be edited.
-  The role still holds the `TransactWriteItems` grant the retired tag
-  correction used; removing it is an infrastructure change for a later pull
-  request.
+  The `elixir-drop-control` role holds no write grant: the
+  `TransactWriteItems` grant the retired profile correction used is gone.
 - Player Updates invoke `scripts/player-updates.mjs`. The CLI reads a
   dedicated bearer token from the repository's mode-0600 `.env` and calls the
   API directly, so the Control Room needs no AWS session for this action. It

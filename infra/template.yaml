@@ -28,9 +28,6 @@ Parameters:
   AlarmEmail:
     Type: String
     Default: drop@poapkings.com
-  NameModelId:
-    Type: String
-    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
   WebVersion:
     Type: String
     Default: ""
@@ -520,13 +517,6 @@ Resources:
                 Resource:
                   - !GetAtt DataTable.Arn
                   - !Sub "${DataTable.Arn}/index/*"
-              # Scoped to the configured Haiku inference profile plus the
-              # Anthropic foundation models it routes to — not Resource: "*".
-              - Effect: Allow
-                Action: bedrock:InvokeModel
-                Resource:
-                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${NameModelId}
-                  - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -682,11 +672,12 @@ Resources:
   # service. This is deliberately separate from RefereeReadRole: referee
   # evidence remains pseudonymous, while this role can project the small set of
   # account and CR snapshot fields Jamie needs for support. It cannot read
-  # magic links, sessions, run/evidence bodies, scores, or secrets, and its only
-  # write is an atomic public-profile correction plus an immutable CONTROL#
-  # audit event. Email is readable for support but absent from the write list.
-  # (The grants Drop's retired newsletter backfill used went with it on
-  # 2026-10-12.)
+  # magic links, sessions, run/evidence bodies, scores, or secrets, and it
+  # writes nothing: the name, picture and tag come from Elixir since
+  # 2026-11-14, and the public-profile correction grant (profile and audit
+  # writes) went with the profile editor. It can still read the audit events
+  # of earlier corrections. (The grants Drop's retired
+  # newsletter backfill used went with it on 2026-10-12.)
   DropControlRole:
     Type: AWS::IAM::Role
     Properties:
@@ -757,32 +748,6 @@ Resources:
                       - pk
                       - sk
                       - playerId
-                      - changedFields
-                      - before
-                      - after
-                      - reason
-                      - operator
-                      - changedAt
-                      - schemaVersion
-              - Effect: Allow
-                Action: dynamodb:TransactWriteItems
-                Resource: !GetAtt DataTable.Arn
-                Condition:
-                  ForAllValues:StringLike:
-                    dynamodb:LeadingKeys:
-                      - PLAYER#*
-                      - CONTROL#PLAYER#*
-                  ForAllValues:StringEquals:
-                    dynamodb:Attributes:
-                      - pk
-                      - sk
-                      - playerId
-                      - publicName
-                      - favoriteCardId
-                      - playerTag
-                      - GSI2PK
-                      - GSI2SK
-                      - updatedAt
                       - changedFields
                       - before
                       - after
@@ -865,7 +830,6 @@ Resources:
           RUNTIME_SECRET_ID: elixir-drop-runtime
           REFRESH_QUEUE_URL: !Ref RefreshQueue
           APP_URL: !Ref AppUrl
-          NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
           ELIXIR_OAUTH_CLIENT_ID:
             !If [
@@ -1231,7 +1195,6 @@ Resources:
           TABLE_NAME: !Ref DataTable
           RUNTIME_SECRET_ID: elixir-drop-runtime
           APP_URL: !Ref AppUrl
-          NAME_MODEL_ID: !Ref NameModelId
           ELIXIR_MCP_BASE_URL: !Ref ElixirMcpBaseUrl
 
   CrResultEventSource:

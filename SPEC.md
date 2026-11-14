@@ -74,7 +74,7 @@ The repository uses npm workspaces:
 | `infra`               | CloudFormation and SDK deployment automation | Implemented |
 
 The API uses a native Node 24 HTTP server on Lambda Web Functions behind
-CloudFront OAC, DynamoDB, SQS, Bedrock,
+CloudFront OAC, DynamoDB, SQS,
 Sign in with Elixir, and CloudFormation. A dedicated encrypted FIFO
 queue carries season-clock work to a separate Lambda;
 the public request path continues serving cached values while it runs.
@@ -1276,7 +1276,8 @@ Referee reads and decisions remain adapters over the sanctioned
 a distinct child-process path in `services/admin/scripts/control-*.mjs`, run
 under `DropControlRole`: it can project only account/profile and CR snapshot
 fields, and edits no identity: the name, picture and `playerTag` come from
-Elixir since 2026-11-14, so a correction is made on Elixir. Its earlier
+Elixir since 2026-11-14, so a correction is made on Elixir, and the role holds
+no write grant. Its earlier
 corrections stay readable as immutable
 `CONTROL#PLAYER#{playerId}/CHANGE#...` audit items. Email is visible but is the
 authentication key and therefore read-only; the role cannot read sign-in links, Elixir identity

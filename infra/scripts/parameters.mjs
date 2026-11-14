@@ -15,7 +15,6 @@ const PRESERVED_PARAMETERS = [
   ["AppUrl", ["APP_URL"]],
   // Operational alarms go to the monitored drop@ mailbox.
   ["AlarmEmail", ["ELIXIR_DROP_ALARM_EMAIL"]],
-  ["NameModelId", ["NAME_MODEL_ID"]],
   // The front-end build sha. CI always supplies it (deploy.yml sets
   // WEB_VERSION: github.sha), so preserving only affects an API-only deploy —
   // and there the live web build is unchanged, not unknown. Blanking it would

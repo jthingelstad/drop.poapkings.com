@@ -479,8 +479,6 @@ const values = {
     process.env.ELIXIR_DROP_WEB_CERTIFICATE_ARN,
   ELIXIR_DROP_STACK_NAME: stackName,
   FASTMAIL_JMAP_TOKEN: jmapToken,
-  NAME_MODEL_ID:
-    existingEnv.NAME_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 };
 await writeFile(envPath, serializeEnv(values), { mode: 0o600 });
 await chmod(envPath, 0o600);
