@@ -13,6 +13,7 @@
     "recover:rain-runs": "esbuild src/maintenance/recover-rain-runs.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-rain-runs.cjs && node dist/recover-rain-runs.cjs",
     "recover:practice-run": "esbuild src/maintenance/recover-practice-run.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/recover-practice-run.cjs && node dist/recover-practice-run.cjs",
     "backfill:elixir-identity": "esbuild src/maintenance/backfill-elixir-identity.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/backfill-elixir-identity.cjs && node dist/backfill-elixir-identity.cjs",
+    "export:elixir-avatars": "esbuild src/maintenance/export-elixir-avatars.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/export-elixir-avatars.cjs && node dist/export-elixir-avatars.cjs",
     "build": "node scripts/build.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
