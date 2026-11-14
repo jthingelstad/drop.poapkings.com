@@ -103,8 +103,9 @@ addresses so crawlers can receive per-run metadata.
 
 ### API refresh latency boundary
 
-Returning-session renewal and public season-clock reads do not await external
-refreshes. They enqueue deduplicated FIFO work; `refresh-worker.ts` reads current
+Returning-session renewal (which slides only a profile whose identity has
+been read from Elixir; "Sign in with Elixir" above) and public season-clock
+reads do not await external refreshes. They enqueue deduplicated FIFO work; `refresh-worker.ts` reads current
 account state and refreshes the hub cache.
 The worker serializes season-clock changes and completes prior-season awards
 before saving an incoming clock. Enqueue failures preserve the cached response;
@@ -950,6 +951,15 @@ gone:
   collapsed, 32 characters) and escaped at every output.
 - A published share keeps the name and picture it was frozen with; a profile
   share refreshed later takes the current ones.
+- A session slides forward (`POST /auth/refresh`, a fresh 28 days at each
+  app load) only for a profile with `identityFromElixirAt`. A profile last
+  signed in before identity came from Elixir gets its own session back,
+  same token and same expiry, so the made-up name, picture and typed tag it
+  still shows last no longer than that session. The web app ends a session
+  that has 24 hours or less left (the life of a Practice run) at load, as an
+  ordinary sign-out, so no game is cut off mid-run; the player is a guest
+  with local play intact and signs in with Elixir again from the GUEST chip,
+  You or a game's sign-in prompt, which brings the real identity.
 - A signed-in player's Clash Royale player is the primary player on their
   Elixir account, or none (2026-11-14). Only a tag Elixir verified carries
   the mark. A signed-in player with no primary player has no tag and is
@@ -1396,7 +1406,10 @@ verified, verifiedAt?, candidates[] }` plus a denormalized
 account's primary and alts only (never friends or watched players). The
 primary player becomes `playerTag` at each sign-in, whatever was stored
 before; with no primary the tag is cleared, and an alt never becomes the tag.
-The cleared value is kept once in `legacyIdentity`. There is no picker
+The clear rides in the same identity write as the name and picture
+(`applyElixirIdentity`'s `clearPlayerTag`, at the callback and at a new
+account's redemption), so the first one keeps the cleared value in
+`legacyIdentity` beside them. There is no picker
 (2026-11-14; `POST /me/elixir/select` answers 404). `PATCH /me` refuses any
 `playerTag` (400 `player_from_elixir`). There is no disconnect: `DELETE
 /me/elixir` was removed on 2026-11-14 and answers 404. The Control Room

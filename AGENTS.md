@@ -296,7 +296,11 @@ production run. A successful exact-head validation triggers
   (the old value kept in `legacyIdentity`), and a signed-in player with no
   primary player is sent to Elixir's `/settings/players` to add one. Account's
   "Refresh from Elixir" runs the same sign-in from the signed-in state and
-  returns to Account; Elixir is read at no other time. Neither the API nor
+  returns to Account; Elixir is read at no other time. A session slides
+  forward only once the profile's identity has been read from Elixir: one
+  last signed in before that keeps its session to its expiry and no longer
+  (the web app ends it at load in its last 24 hours, as an ordinary
+  sign-out), so the next sign-in brings the real identity. Neither the API nor
   the Control Room offers a way to edit any of it. Sign-in asks only for
   `cr:read account:email`.
   It is the only sign-in. An `ELIXIR#<accountId>` pointer names the Drop
