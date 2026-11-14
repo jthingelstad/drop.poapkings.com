@@ -13,6 +13,7 @@ import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { paginateScan } from "@aws-sdk/lib-dynamodb";
 import { favoriteCard } from "../cards.js";
 import { client } from "../dynamo.js";
+import { isCloudEngineerIdentity } from "./cloud-engineer.js";
 
 // Export Drop's profile images for Elixir's one-time import (2026-11-14).
 //
@@ -50,10 +51,6 @@ export const MAX_PAIRS = 5000;
 // tag, Drop sub or player id. It is written where the operator names
 // (--out), never inside the repository (which is public), with mode 0600,
 // and an existing file is never overwritten. Standard output is counts only.
-
-export const EXPECTED_ACCOUNT = "999153317627";
-const EXPECTED_ROLE_SESSION =
-  "assumed-role/ProjectsCloudEngineer/projects-cloud-engineer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -109,20 +106,6 @@ export function parseAvatarExportArgs(
   // npm runs a workspace script from the workspace directory; a relative
   // path means the directory the operator typed the command in.
   return { out: resolve(env.INIT_CWD || process.cwd(), out), tableName };
-}
-
-/** True for the cloud-engineer session in Jamie's account, and nothing else:
- *  not the jamie profile, not a deploy role, not a user key. */
-export function isCloudEngineerIdentity(identity: {
-  Account?: string;
-  Arn?: string;
-}): boolean {
-  return (
-    identity.Account === EXPECTED_ACCOUNT &&
-    typeof identity.Arn === "string" &&
-    identity.Arn.startsWith(`arn:aws:sts::${EXPECTED_ACCOUNT}:`) &&
-    identity.Arn.includes(EXPECTED_ROLE_SESSION)
-  );
 }
 
 /** Refuse an output path inside the repository: the repository is public,
