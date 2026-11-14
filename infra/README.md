@@ -57,9 +57,10 @@ session, or interactive login.
 The private fixed-host Control Room assumes two other roles. The referee role
 remains pseudonymous and writes only `REFEREE#` overlays. The separate
 `elixir-drop-control` account-support role can project an explicit allowlist of
-profile and Clash snapshot fields (including email) and can only transact an
-audited public-profile correction with a `CONTROL#PLAYER#` event. Email is not
-in its write allowlist, and sign-in links, Elixir identity pointers, sessions,
+profile and Clash snapshot fields (including email). Its grant still allows
+an audited public-profile correction with a `CONTROL#PLAYER#` event, but
+since 2026-11-14 nothing uses it: the name, picture and tag come from Elixir,
+and removing the grant is a follow-up. Email is not in its write allowlist, and sign-in links, Elixir identity pointers, sessions,
 run/evidence bodies, scores, XP, deletes, and secrets are outside the role. (The
 grants Drop's retired Buttondown backfill used went with it on 2026-10-12.)
 

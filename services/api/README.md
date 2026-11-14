@@ -62,7 +62,6 @@ CPU and active environment time are environment-level measurements.
 ## Routes
 
 - `POST /auth/elixir/start`, `GET /auth/elixir/callback`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
-- `DELETE /me/elixir`
 - `GET /me`, `PATCH /me`, `DELETE /me`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
 - `GET /practice/resume`, `POST /practice/checkpoint`
@@ -275,10 +274,14 @@ Since 2026-11-14 the name and picture come from the person's Elixir account,
 read from `GET /api/v1/me` at each Sign in with Elixir by
 `src/elixir-identity.ts`, the one adapter that knows that shape:
 
-- `publicName` is the game name of the account's primary player, only when
-  Elixir has verified it, tidied (NFC, whitespace collapsed, control and
-  format characters removed, 32 characters). No verified primary: removed,
-  and every output shows "Elixir Player".
+- `publicName` is the game name of the account's primary player, whether or
+  not Elixir has verified it (the `verified` account tag is separate), tidied
+  (NFC, whitespace collapsed, control and format characters removed, 32
+  characters). No primary, or a name that tidies to nothing: removed, and
+  every output shows "Elixir Player".
+- `playerTag` is the primary player's tag, never an alt's. A sign-in with no
+  primary removes it, with its GSI2 keys and `elixirVerified`, and keeps the
+  old value in `legacyIdentity`.
 - `favoriteCardId` is the profile image's card id (`avatar.card_id`, or a flat
   `avatar_card_id`). `null`, or a card the catalog does not hold, removes it;
   a `/me` without either field leaves it as it is. `art_url` and `crop` are
@@ -288,8 +291,13 @@ read from `GET /api/v1/me` at each Sign in with Elixir by
   The callback applies it to a bindable account; a first sign-in carries it
   in the pending link to the redemption.
 - `PATCH /me` refuses `publicName`, `favoriteCardId` and `nameToken` (400
-  `identity_from_elixir`). The name generator, its model call, the name
-  token and the player picker (`POST /me/elixir/select`) are removed.
+  `identity_from_elixir`) and `playerTag` (400 `player_from_elixir`); it
+  takes only `lastOpenedUpdates`. The name generator, its model call, the
+  name token, the player picker (`POST /me/elixir/select`) and the
+  disconnect (`DELETE /me/elixir`) are removed.
+- A signed-in `POST /auth/elixir/start` is link mode: the callback re-reads
+  `/me` for the same account and returns to `returnTo`. The web app's
+  "Refresh from Elixir" uses it with `/profile?scope=account`.
 
 Names are escaped at every output: share pages, Open Graph tags, season
 posts, and the Control Room. A published share keeps the name it was frozen
@@ -297,13 +305,15 @@ with.
 
 ## Elixir name migration
 
-`src/maintenance/migrate-elixir-names.ts` clears the made-up names that are
-left until each person's next sign-in. Each profile's stored Elixir
-candidates (from its last sign-in) give the verified primary player's name;
-the profile gets that name, or no name, and its made-up name and card are kept
-in `legacyIdentity`. It never touches the picture (Elixir imports Drop's
-cards; the next sign-in brings Elixir's), skips a profile already written from
-Elixir, and writes conditionally, so a sign-in in between wins. Output is
+`src/maintenance/migrate-elixir-names.ts` brings every profile no sign-in
+has reached since 2026-11-14 to the identity rules now. Each profile's stored
+Elixir candidates (from its last sign-in) give the primary player's name,
+verified or not; the profile gets that name, or no name ("Elixir Player").
+The picture Drop let the person choose is cleared (Elixir has imported
+Drop's pictures, so the next sign-in brings back what they have there). A tag
+that is not the stored primary's is cleared with its mark. The old name,
+card and tag are kept once in `legacyIdentity`. It skips a profile already
+written from Elixir, and writes conditionally, so a sign-in in between wins. Output is
 counts only; it is a dry run by default, requires `ProjectsCloudEngineer`,
 and an apply runs under the production lock:
 

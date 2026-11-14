@@ -672,8 +672,8 @@ timestamp remain internal; only the earned badge is public.
 Sign-in return destinations are an exact shared allowlist, never an arbitrary
 internal or external URL. The browser and API accept each shipped game route,
 `/profile?edit=player-tag`, canonical non-default You scopes, and canonical
-account-owned Ladder scopes. The tag route lets a signed-out player reach the Clash
-Royale tag editor after redemption. App routes match exact pathnames; resource
+account-owned Ladder scopes. The old tag route stays accepted so links
+already sent still work; it opens Account. App routes match exact pathnames; resource
 identity stays in path segments, while canonical `scope`, `mode`, `season`, and
 `period` query parameters own view selection. Defaults are omitted, unknown routes
 return Home, and unknown, appended, or conflicting parameters are discarded.
@@ -929,7 +929,8 @@ Authenticated public identity comes from the person's Elixir account
 gone:
 
 - The name is the Clash Royale game name of the account's **primary** player,
-  never an alt's, and only once Elixir has verified that player. The picture
+  never an alt's, whether or not Elixir has verified that player; only a
+  verified player carries the mark. The picture
   is the profile image the person set in Elixir: a card id, drawn from Drop's
   own committed art with Drop's CSS crop, never altered. Both are read from
   `GET /api/v1/me` at each Sign in with Elixir and stored on the profile
@@ -937,20 +938,26 @@ gone:
   sign-in keeps the made-up name and card once in `legacyIdentity`.
   `services/api/src/elixir-identity.ts` is the one place that knows `/me`'s
   shape.
-- An account with no verified primary player shows "Elixir Player"; one
+- An account with no primary player, or whose player's name tidies to
+  nothing, shows "Elixir Player"; one
   with no picture shows the Drop app icon. Neither blocks play: `/runs/start`
   needs only a profile.
 - `PATCH /me` refuses `publicName`, `favoriteCardId` and `nameToken` (400
-  `identity_from_elixir`); the You header's Edit opens Elixir. Names are
+  `identity_from_elixir`) and `playerTag` (400 `player_from_elixir`); it
+  takes only `lastOpenedUpdates`. The You header's "Edit on Elixir" opens
+  `https://elixir.poapkings.com/settings/profile`. Names are
   tidied when stored (control and direction characters out, whitespace
   collapsed, 32 characters) and escaped at every output.
 - A published share keeps the name and picture it was frozen with; a profile
   share refreshed later takes the current ones.
 - A signed-in player's Clash Royale player is the primary player on their
-  Elixir account; a tag is never typed in (2026-11-12). A tag typed in
-  before stays, unverified, only until a sign-in finds a primary player; only
-  a tag Elixir verified carries the mark. A signed-in player with no player on
-  their Elixir account is pointed to elixir.poapkings.com to add one. The
+  Elixir account, or none (2026-11-14). Only a tag Elixir verified carries
+  the mark. A signed-in player with no primary player has no tag and is
+  pointed to `https://elixir.poapkings.com/settings/players` to add one; an
+  unverified one is pointed to the same page to verify it. Account's
+  "Refresh from Elixir" starts Sign in with Elixir from the signed-in state
+  (link mode, the same account) and returns to Account with what Elixir has
+  now. The
   primary player's CR name and clan come from the same sign-in read (`GET
 /api/v1/me`) and are stored by tag when the person signs in; the next Sign in with Elixir brings them
   up to date, and Drop reads them at no other time (2026-11-13). A tag with no
@@ -1258,10 +1265,10 @@ Referee reads and decisions remain adapters over the sanctioned
 `scripts/referee-*.mjs` and the pseudonymous `RefereeReadRole`. Account support is
 a distinct child-process path in `services/admin/scripts/control-*.mjs`, run
 under `DropControlRole`: it can project only account/profile and CR snapshot
-fields, and can atomically correct the unverified `playerTag` (the name and
-picture come from Elixir since 2026-11-14 and are not editable here) while
-writing an immutable
-`CONTROL#PLAYER#{playerId}/CHANGE#...` audit item. Email is visible but is the
+fields, and edits no identity: the name, picture and `playerTag` come from
+Elixir since 2026-11-14, so a correction is made on Elixir. Its earlier
+corrections stay readable as immutable
+`CONTROL#PLAYER#{playerId}/CHANGE#...` audit items. Email is visible but is the
 authentication key and therefore read-only; the role cannot read sign-in links, Elixir identity
 pointers, poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
 scores, evidence, XP, or delete data. Production requires the exact
@@ -1311,8 +1318,8 @@ runtime secret's only Elixir name. No refresh job reads a profile: a
 and dropped. The collection sync script and collection configuration are
 retired.
 
-Saved CR tags remain optional and unverified **unless Elixir has proven them**
-(below). No Drop identities, scores, XP or badges are uploaded.
+A player tag is the Elixir account's primary player, and is verified only
+**when Elixir has proven it** (below). No Drop identities, scores, XP or badges are uploaded.
 
 ### Sign in with Elixir (2026-09-12; the only sign-in since 2026-10-12)
 
@@ -1387,20 +1394,18 @@ Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,
 verified, verifiedAt?, candidates[] }` plus a denormalized
 `elixirVerified` for the boards' sparse projection. Candidates are the
 account's primary and alts only (never friends or watched players). The
-primary player becomes `playerTag` at each sign-in, over a tag typed in
-before; with no primary, the stored tag stays if it is one of the account's
-players or was typed in. There is no picker (2026-11-14; `POST
-/me/elixir/select` answers 404). `PATCH /me` takes no new tag: anything but the stored tag
-or an empty value is refused (403 `player_from_elixir`). The app has no disconnect since 2026-10-12; the
-`DELETE /me/elixir` route remains and clears only the displayed connection
-(the tag stays, the mark and the link go), never the pointer or
-`elixirAccountId`. A tag saved by hand keeps the mark only if it is the
-Elixir-proven one; clearing the tag clears the mark.
+primary player becomes `playerTag` at each sign-in, whatever was stored
+before; with no primary the tag is cleared, and an alt never becomes the tag.
+The cleared value is kept once in `legacyIdentity`. There is no picker
+(2026-11-14; `POST /me/elixir/select` answers 404). `PATCH /me` refuses any
+`playerTag` (400 `player_from_elixir`). There is no disconnect: `DELETE
+/me/elixir` was removed on 2026-11-14 and answers 404. The Control Room
+edits no tag.
 
 The mark is the `verified` account tag (`accountTagsFor`), rendered as Elixir's
 green check on the owner profile, public profile, and every leaderboard scope,
 and like every account tag it authorizes nothing. Verification is Elixir's
-fact, re-read only at an Elixir sign-in ("Re-check with Elixir"); the profile
+fact, re-read only at an Elixir sign-in ("Refresh from Elixir"); the profile
 shows `checkedAt`. Elixir's one-verified-claim-per-tag rule is what keeps the
 mark meaningful across Drop accounts. The clock is policy-based, with
 season/day boundaries at 10:00 UTC computed by Drop; it is not a clan observation. Finalization
