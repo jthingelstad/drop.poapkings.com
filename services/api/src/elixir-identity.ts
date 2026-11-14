@@ -23,14 +23,16 @@
 //   keeps the picture it has. `null` means the person has none: Drop clears
 //   it.
 //
-// The name is the `players[]` row that is the primary player (`is_primary`,
-// relationship `primary`; `principal.subject` names the same player), and
-// only when Elixir has verified it (`claim_status: "verified"`): an unverified
-// claim is anyone's typed tag, and showing its name would let a person wear
-// someone else's. Names are display text from a game that allows almost
-// anything, so they are tidied here (control and direction characters out,
-// whitespace collapsed, length capped) and escaped at every output. Elixir
-// stores them unchanged; this tidy is Drop's own.
+// The name is the game name of the `players[]` row that is the primary
+// player (`is_primary`, relationship `primary`; `principal.subject` names the
+// same player), whether or not Elixir has verified it, because that is how
+// Elixir itself shows people. Whether it is verified (`claim_status:
+// "verified"`) is a separate fact: Drop shows its verified mark beside the
+// name only then (`account-tags.ts`), so an unverified name is never shown
+// as proven. Names are display text from a game that allows almost anything,
+// so they are tidied here (control and direction characters out, whitespace
+// collapsed, length capped) and escaped at every output. Elixir stores them
+// unchanged; this tidy is Drop's own.
 
 import { favoriteCard } from "./cards.js";
 
@@ -46,8 +48,8 @@ export interface ElixirSelfPlayer {
 }
 
 export interface ElixirIdentity {
-  /** The verified primary player's game name, tidied; undefined when the
-   *  account has no verified primary player. */
+  /** The primary player's game name, tidied, verified or not; undefined
+   *  when the account has no primary player or its name tidies to nothing. */
   primaryName?: string;
   /** The profile image's card id. `undefined`: `/me` does not carry the
    *  field (keep what Drop has). `null`: no image, or a card Drop's catalog
@@ -116,9 +118,7 @@ export function parseElixirMe(data: Record<string, unknown>): {
   return {
     players,
     identity: {
-      ...(primary?.verified && primary.name
-        ? { primaryName: primary.name }
-        : {}),
+      ...(primary?.name ? { primaryName: primary.name } : {}),
       ...(avatarCardId !== undefined ? { avatarCardId } : {}),
     },
   };

@@ -9,7 +9,7 @@ import {
   reconcileBadgeCounters,
 } from "../badges.js";
 import { publicCrProfile } from "../cr-profile.js";
-import { badRequest, HttpError } from "../errors.js";
+import { HttpError } from "../errors.js";
 import { hasFirstDropBadge } from "../first-drop.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
@@ -21,7 +21,6 @@ import {
 import { deletePlayerShareImages } from "../share-assets.js";
 import type { CrProfileSnapshot, RefereeDecision } from "../types.js";
 import type { Repository } from "../repository.js";
-import { normalizePlayerTag } from "../validation.js";
 import { settleBadgeXp } from "../xp-awards.js";
 import { buildXpTimeline } from "../xp-timeline.js";
 import {
@@ -575,45 +574,19 @@ export async function deleteMe({ request, config, repository }: RouteContext) {
   return json(200, { ok: true });
 }
 
-// PATCH /me — stamp the Updates read time, or clear the player tag. The
-// name and the picture are not Drop's to set any more: they come from the
-// person's Elixir account at sign-in (Jamie, 2026-11-14), so a client that
-// still sends them is told so. The tag is the Elixir account's primary
-// player, written at sign-in; a tag typed in before 2026-11-12 stays until
-// then, and any other tag sent here is refused.
+// PATCH /me — stamp the Updates read time. Nothing about who a person is
+// is Drop's to set: the name, the picture and the player tag all come from
+// the person's Elixir account at sign-in (2026-11-14), so a client that
+// still sends one is told so and nothing is written.
 export async function patchMe({ request, config, repository }: RouteContext) {
   const session = sessionFor(request, config.sessionSecret, true);
   const body = bodyOf(request);
-  const updates: {
-    clearPlayerTag?: boolean;
-    lastOpenedUpdates?: string;
-  } = {};
-
-  // Opening the Updates view stamps the read time. The server owns the clock so
-  // an unread indicator cannot be spoofed forward by a wrong device time.
-  if (Object.hasOwn(body, "lastOpenedUpdates")) {
-    updates.lastOpenedUpdates = new Date().toISOString();
-  }
-
-  if (Object.hasOwn(body, "playerTag")) {
-    let tag: string | undefined;
-    try {
-      // A mistyped tag is the most common profile input; it must answer
-      // with the validation message, not a generic 500.
-      tag = normalizePlayerTag(body.playerTag);
-    } catch (error) {
-      throw badRequest(error);
-    }
-    if (tag) {
-      const stored = await repository.getProfile(session.sub);
-      if (tag !== stored?.playerTag)
-        throw new HttpError(
-          403,
-          "Drop shows the primary player on your Elixir account.",
-          "player_from_elixir",
-        );
-    } else updates.clearPlayerTag = true;
-  }
+  if (Object.hasOwn(body, "playerTag"))
+    throw new HttpError(
+      400,
+      "Your player comes from your Elixir account. Change it on Elixir, then refresh from Elixir.",
+      "player_from_elixir",
+    );
   if (
     Object.hasOwn(body, "publicName") ||
     Object.hasOwn(body, "favoriteCardId") ||
@@ -621,9 +594,16 @@ export async function patchMe({ request, config, repository }: RouteContext) {
   )
     throw new HttpError(
       400,
-      "Your name and picture come from your Elixir account. Change them on Elixir, then sign in again.",
+      "Your name and picture come from your Elixir account. Change them on Elixir, then refresh from Elixir.",
       "identity_from_elixir",
     );
+  const updates: { lastOpenedUpdates?: string } = {};
+
+  // Opening the Updates view stamps the read time. The server owns the clock so
+  // an unread indicator cannot be spoofed forward by a wrong device time.
+  if (Object.hasOwn(body, "lastOpenedUpdates")) {
+    updates.lastOpenedUpdates = new Date().toISOString();
+  }
   if (!Object.keys(updates).length)
     throw new HttpError(400, "No profile changes were provided.");
   const profile = await repository.updateProfile(session.sub, updates);

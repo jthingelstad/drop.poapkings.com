@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  migrationWrite,
   parseNameMigrationArgs,
   planNameMigration,
 } from "../src/maintenance/migrate-elixir-names.js";
@@ -13,13 +14,14 @@ const candidate = (extra: Record<string, unknown>) =>
     ...extra,
   }) as never;
 
-describe("the one-time name migration", () => {
-  it("names a profile by its verified primary, and retires every other made-up name", () => {
+describe("the one-time identity migration", () => {
+  it("names a profile by its primary, verified or not, and retires every other made-up name", () => {
     const { plans, counts } = planNameMigration([
       {
         sub: "a",
         publicName: "Pancake Patrol",
         favoriteCardId: 26000018,
+        playerTag: "#20JJJ2CCRU",
         elixir: {
           candidates: [
             candidate({
@@ -31,43 +33,113 @@ describe("the one-time name migration", () => {
           ],
         },
       },
-      { sub: "b", publicName: "Bone Parade", favoriteCardId: 26000010 },
+      {
+        sub: "b",
+        publicName: "Bone Parade",
+        favoriteCardId: 26000010,
+        playerTag: "#2PYQ0",
+      },
       {
         sub: "c",
         publicName: "Skarmy Picnic",
-        elixir: { candidates: [candidate({ verified: false })] },
+        elixir: {
+          candidates: [candidate({ verified: false, name: "Sample Primary" })],
+        },
       },
       {
         sub: "d",
         publicName: "Mini P Griddle",
+        playerTag: "#2PYQ0C",
         elixir: { candidates: [candidate({ relationship: "alt" })] },
       },
       {
         sub: "e",
+        publicName: "Goblin Brunch",
+        elixir: { candidates: [candidate({ name: " " })] },
+      },
+      {
+        sub: "f",
         publicName: "King Thing",
         identityFromElixirAt: "2026-11-14T12:00:00.000Z",
       },
     ]);
     expect(counts).toEqual({
-      primary_name: 1,
-      no_connection: 1,
-      primary_unverified: 1,
-      no_primary: 1,
-      already_from_elixir: 1,
+      outcomes: {
+        primary_name: 2,
+        primary_unnamed: 1,
+        no_connection: 1,
+        no_primary: 1,
+        already_from_elixir: 1,
+      },
+      picturesCleared: 2,
+      tagsCleared: 2,
     });
     expect(plans).toEqual([
       {
         sub: "a",
         primaryName: "King Thing",
-        before: { publicName: "Pancake Patrol", favoriteCardId: 26000018 },
+        clearPlayerTag: false,
+        before: {
+          publicName: "Pancake Patrol",
+          favoriteCardId: 26000018,
+          playerTag: "#20JJJ2CCRU",
+        },
       },
       {
         sub: "b",
-        before: { publicName: "Bone Parade", favoriteCardId: 26000010 },
+        clearPlayerTag: true,
+        before: {
+          publicName: "Bone Parade",
+          favoriteCardId: 26000010,
+          playerTag: "#2PYQ0",
+        },
       },
-      { sub: "c", before: { publicName: "Skarmy Picnic" } },
-      { sub: "d", before: { publicName: "Mini P Griddle" } },
+      {
+        sub: "c",
+        primaryName: "Sample Primary",
+        clearPlayerTag: false,
+        before: { publicName: "Skarmy Picnic" },
+      },
+      {
+        sub: "d",
+        clearPlayerTag: true,
+        before: { publicName: "Mini P Griddle", playerTag: "#2PYQ0C" },
+      },
+      {
+        sub: "e",
+        clearPlayerTag: false,
+        before: { publicName: "Goblin Brunch" },
+      },
     ]);
+  });
+
+  it("leaves no made-up name or Drop-chosen picture behind when applied", () => {
+    const { plans } = planNameMigration([
+      { sub: "a", publicName: "Pancake Patrol", favoriteCardId: 26000018 },
+      {
+        sub: "b",
+        publicName: "Skarmy Picnic",
+        favoriteCardId: 26000010,
+        playerTag: "#20JJJ2CCRU",
+        elixir: { candidates: [candidate({ verified: false })] },
+      },
+    ]);
+    const writes = plans.map(migrationWrite);
+    // No primary name: the stored name is removed, so Drop shows
+    // "Elixir Player"; every picture is cleared.
+    expect(writes[0]).toEqual({
+      identity: { avatarCardId: null },
+      options: { firstTimeOnly: true, clearPlayerTag: false },
+    });
+    expect(writes[1]).toEqual({
+      identity: { primaryName: "King Thing", avatarCardId: null },
+      options: { firstTimeOnly: true, clearPlayerTag: false },
+    });
+    for (const write of writes) {
+      expect(write.identity).not.toHaveProperty("publicName");
+      expect(write.identity.avatarCardId).toBeNull();
+      expect(write.options.firstTimeOnly).toBe(true);
+    }
   });
 
   it("tidies a stored name from before the adapter tidied names", () => {

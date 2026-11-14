@@ -53,7 +53,6 @@ import {
   bodyOf,
   clientIpHash,
   MAGIC_LINK_SECONDS,
-  profileResponse,
   type RouteContext,
   sessionFor,
   sha256,
@@ -257,7 +256,6 @@ export async function elixirCallback(
   const link = buildLink({
     accountId,
     players: players.players,
-    currentTag: target?.playerTag,
     previous: target?.elixir,
     now: new Date().toISOString(),
   });
@@ -266,10 +264,15 @@ export async function elixirCallback(
     if (bound === "missing_profile")
       return failTo(config.appUrl, "login_expired");
     if (bound !== "bound") return failTo(config.appUrl, bound);
+    // The Drop tag is the Elixir account's primary player, or nothing: a tag
+    // typed into Drop before 2026-11-12 goes once a sign-in finds no
+    // primary player to put in its place.
     if (link.playerTag && link.playerTag !== target.playerTag)
       await repository.updateProfile(sub, { playerTag: link.playerTag });
+    else if (!link.playerTag && target.playerTag)
+      await repository.updateProfile(sub, { clearPlayerTag: true });
     // What Drop shows for them, from the same read (2026-11-14): the
-    // verified primary player's name and the profile image set in Elixir.
+    // primary player's name and the profile image set in Elixir.
     await repository.applyElixirIdentity(sub, players.identity, target);
   } else if (!target) {
     // It lives as long as the credential that will apply it.
@@ -303,12 +306,10 @@ export async function elixirCallback(
     ...(recruiterSub ? { recruiterSub } : {}),
   });
   // Land on Account's Elixir section only when there is something to say
-  // (no player at all: it points to Elixir); otherwise where the person was
-  // going. There is no choice to make any more: Drop shows the primary
-  // player (2026-11-14). A tag typed into Drop before 2026-11-12 on an
-  // account with no primary player is kept, so it needs no attention.
-  const keptTag = !link.playerTag && Boolean(target?.playerTag);
-  const needsAttention = bindable && !link.playerTag && !keptTag;
+  // (no primary player: it points to Elixir); otherwise where the person was
+  // going. There is no choice to make: Drop shows the primary player
+  // (2026-11-14).
+  const needsAttention = bindable && !link.playerTag;
   const returnTo = needsAttention ? ELIXIR_RETURN_PATH : login.returnTo;
   return redirect(
     `${config.appUrl}/#/auth?token=${encodeURIComponent(magicToken)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}&via=elixir`,
@@ -318,7 +319,6 @@ export async function elixirCallback(
 export function buildLink(input: {
   accountId: string;
   players: ElixirSelfPlayer[];
-  currentTag?: string;
   previous?: ElixirLink;
   now: string;
 }): ElixirLink {
@@ -331,14 +331,11 @@ export function buildLink(input: {
     ...(p.clanTag && p.clanName ? { clanName: p.clanName } : {}),
     ...(p.clanTag && p.clanRole ? { clanRole: p.clanRole } : {}),
   }));
-  // The account's primary player, never an alt (Jamie, 2026-11-14: Drop
+  // The account's primary player, never an alt, and nothing else: Drop
   // shows the primary player's name, so the tag beside it is the same
-  // player). With no primary player, a tag already on Drop that is one of
-  // theirs stays, and a tag typed by hand before 2026-11-12 that is not stays
-  // exactly as it is, unverified: nothing is chosen over it.
-  const still = (tag?: string) =>
-    tag ? candidates.find((c) => c.playerTag === tag) : undefined;
-  const chosen = primaryPlayer(candidates) ?? still(input.currentTag);
+  // player. With no primary player there is no tag; the person adds one on
+  // Elixir. A tag already on Drop is never kept in its place.
+  const chosen = primaryPlayer(candidates);
   return {
     accountId: input.accountId,
     linkedAt: input.previous?.linkedAt ?? input.now,
@@ -362,24 +359,5 @@ export function buildLink(input: {
       : {}),
     candidates,
   };
-}
-// DELETE /me/elixir — clear the connection's display: the tag stays; the
-// mark and the player list go. The account's Elixir identity (the pointer
-// and `elixirAccountId`) stays, because a Drop account is an Elixir account
-// (2026-10-12); the next sign-in with Elixir writes the connection again.
-export async function disconnectElixir({
-  request,
-  config,
-  repository,
-}: RouteContext) {
-  const session = sessionFor(request, config.sessionSecret, true);
-  const profile = await repository.clearElixirLink(session.sub);
-  const crProfile = profile.playerTag
-    ? await repository.getCrProfile(profile.playerTag)
-    : undefined;
-  const rankedAccess = await repository.rankedAccess(profile.playerId);
-  return json(200, {
-    player: profileResponse(profile, crProfile, rankedAccess),
-  });
 }
 export type { ElixirFailure };

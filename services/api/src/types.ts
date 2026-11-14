@@ -115,7 +115,11 @@ export interface PlayerProfile {
   // The made-up name and Player Card a profile had before Elixir's identity
   // replaced them, kept once so the change can be undone. Internal only;
   // never returned by an API or projected to an index.
-  legacyIdentity?: { publicName?: string; favoriteCardId?: number };
+  legacyIdentity?: {
+    publicName?: string;
+    favoriteCardId?: number;
+    playerTag?: string;
+  };
   playerTag?: string;
   elixir?: ElixirLink;
   // Denormalized from `elixir` for the board's sparse projection: true only
