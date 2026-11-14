@@ -1016,7 +1016,7 @@ export const BADGES = [
     kind: "count",
     rungs: [1],
     progressive: false,
-    requirement: "Choose a Clash Royale player for your profile",
+    requirement: "Have a primary Clash Royale player on your Elixir account",
   },
   {
     slug: "herald",
