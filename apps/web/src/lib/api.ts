@@ -314,8 +314,8 @@ export function getXpTimeline(sessionToken: string, signal?: AbortSignal) {
 
 export function patchMe(
   sessionToken: string,
+  // The name, picture and player tag come from Elixir; PATCH /me refuses them.
   updates: {
-    playerTag?: string | null
     // The server stamps the read time; any value here is just the trigger.
     lastOpenedUpdates?: string
   }

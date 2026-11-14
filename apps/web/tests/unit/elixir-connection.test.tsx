@@ -86,7 +86,31 @@ describe('ElixirConnection', () => {
     expect(host.textContent).toContain('King Thing')
     expect(host.querySelector('.ed-elixir__verified')).not.toBeNull()
     expect(host.querySelector('.ed-elixir__picker')).toBeNull()
-    expect(host.textContent).toContain('Re-check with Elixir')
+    expect(host.textContent).toContain('Refresh from Elixir')
+  })
+
+  it('refreshes from Elixir in one tap, through the same sign-in, back to Account', async () => {
+    draw(
+      <ElixirConnection
+        player={{
+          ...base,
+          playerTag: KING.playerTag,
+          elixir: {
+            linkedAt: '2026-09-12T18:00:00.000Z',
+            checkedAt: '2026-09-12T18:00:00.000Z',
+            playerTag: KING.playerTag,
+            playerName: 'King Thing',
+            verified: true,
+            candidates: [KING]
+          }
+        }}
+      />
+    )
+    const buttons = [...host.querySelectorAll('button')]
+    expect(buttons.map((b) => b.textContent)).toEqual(['Refresh from Elixir'])
+    await click(buttons[0]!)
+    expect(accountMock.beginElixirLogin).toHaveBeenCalledWith('/profile?scope=account')
+    expect(host.querySelector('input')).toBeNull()
   })
 
   it("never offers a picker, even with an alt on the account; the name and picture are Elixir's", () => {
@@ -109,11 +133,13 @@ describe('ElixirConnection', () => {
     expect(host.querySelector('.ed-elixir__picker')).toBeNull()
     expect(host.querySelector('.ed-elixir__candidate')).toBeNull()
     expect(host.textContent).not.toContain('Sample Alt')
-    expect(host.textContent).toContain('Your name and picture come from your Elixir account')
-    expect(host.querySelector('a[href="https://elixir.poapkings.com/"]')).not.toBeNull()
+    expect(host.textContent).toContain('Your name, picture and player come from your Elixir account.')
+    expect(host.querySelector('a[href="https://elixir.poapkings.com/settings/profile"]')?.textContent).toBe(
+      'Change them on Elixir'
+    )
   })
 
-  it('an unverified primary points at Elixir → Verify; there is no disconnect', async () => {
+  it('an unverified primary shows its name, never the mark, and points at Elixir to verify it', async () => {
     draw(
       <ElixirConnection
         player={{
@@ -123,24 +149,31 @@ describe('ElixirConnection', () => {
             linkedAt: '2026-09-12T18:00:00.000Z',
             checkedAt: '2026-09-12T18:00:00.000Z',
             playerTag: KING.playerTag,
+            playerName: 'King Thing',
             verified: false,
             candidates: [{ ...KING, verified: false }]
           }
         }}
       />
     )
-    expect(host.querySelector('a[href="https://elixir.poapkings.com/console/account/verify"]')).not.toBeNull()
+    expect(host.textContent).toContain('King Thing')
+    expect(host.querySelector('.ed-elixir__verified')).toBeNull()
+    expect(host.querySelector('a[href="https://elixir.poapkings.com/settings/players"]')?.textContent).toBe(
+      'Verify it on Elixir'
+    )
+    expect(host.textContent).toContain(
+      'Not verified yet. Verify it on Elixir, then refresh from Elixir to get the checkmark.'
+    )
     expect(host.textContent).not.toContain('would not add')
     expect(host.querySelector('.ed-elixir__unverified')).not.toBeNull()
     expect([...host.querySelectorAll('button')].some((b) => /disconnect/i.test(b.textContent ?? ''))).toBe(false)
   })
 
-  it('points to Elixir when the account has no player, and keeps a typed tag as not verified', () => {
+  it('points to Elixir when the account has no player, and shows no tag', () => {
     draw(
       <ElixirConnection
         player={{
           ...base,
-          playerTag: '#2PP',
           elixir: {
             linkedAt: '2026-09-12T18:00:00.000Z',
             checkedAt: '2026-09-12T18:00:00.000Z',
@@ -151,10 +184,11 @@ describe('ElixirConnection', () => {
       />
     )
     expect(host.textContent).toContain(
-      'Your Elixir account has no Clash Royale player yet. Add one at elixir.poapkings.com, then sign in with Elixir again.'
+      'Your Elixir account has no Clash Royale player yet. Add one on Elixir, then refresh from Elixir.'
     )
-    expect(host.querySelector('a[href="https://elixir.poapkings.com"]')).not.toBeNull()
-    expect(host.textContent).toContain('Drop keeps the tag you typed in before, #2PP, as not verified.')
+    expect(host.querySelector('a[href="https://elixir.poapkings.com/settings/players"]')).not.toBeNull()
+    expect(host.querySelector('.ed-profile__reference')).toBeNull()
+    expect(host.textContent).not.toContain('typed')
   })
 
   it('surfaces a failure from the account layer', async () => {

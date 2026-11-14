@@ -4,53 +4,61 @@ import { beginElixirLogin } from '../lib/account'
 import { ELIXIR_RETURN_PATH } from '@elixir-drop/contracts'
 import Icon from './Icon'
 
-/** Where a person changes the name and picture Drop shows: their Elixir
- *  account. Drop has no screen of its own for either (2026-11-14). */
-export const ELIXIR_URL = 'https://elixir.poapkings.com/'
+/** Where a person changes the name and picture Drop shows: the primary
+ *  player and the picture on their Elixir profile. Drop has no screen of its
+ *  own for either (2026-11-14). */
+export const ELIXIR_PROFILE_URL = 'https://elixir.poapkings.com/settings/profile'
+/** Where a person adds a Clash Royale player to Elixir, or verifies one. */
+export const ELIXIR_PLAYERS_URL = 'https://elixir.poapkings.com/settings/players'
 
 function when(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-// What a signed-in player with no player on their Elixir account sees: Drop
-// reads players from Elixir and adds none itself (Jamie, 2026-11-12).
-export function NoElixirPlayer() {
+// What a signed-in player with no primary player on their Elixir account
+// sees: Drop reads the player from Elixir and adds none itself.
+function NoElixirPlayer() {
   return (
     <p class="ed-account__line ed-account__muted">
-      Your Elixir account has no Clash Royale player yet. Add one at{' '}
-      <a class="text-link" href="https://elixir.poapkings.com" rel="noreferrer">
-        elixir.poapkings.com
+      Your Elixir account has no Clash Royale player yet.{' '}
+      <a class="text-link" href={ELIXIR_PLAYERS_URL} rel="noreferrer">
+        Add one on Elixir
       </a>
-      , then sign in with Elixir again.
+      , then refresh from Elixir.
     </p>
   )
 }
 
-// The Elixir block on Account. A Drop account is an Elixir account, so there
-// is no disconnect: before the first sign-in that reads the person's players
-// (an account from the email-sign-in days), it offers that check; after it,
-// the primary player Drop shows and whether Elixir has verified it. There is
-// nothing to choose (2026-11-14): Drop shows the account's primary player,
-// never an alt, and the name and picture set in Elixir. Both are re-read
-// when you sign in with Elixir again.
+// The Elixir block on Account. A Drop account is an Elixir account, and
+// everything here is Elixir's: the primary player, whether Elixir has
+// verified it, the name and the picture. Drop offers no way to change any of
+// it. Elixir is read only at a sign-in, so "Refresh from Elixir" starts that
+// same Sign in with Elixir flow from this signed-in state; it returns here
+// with what Elixir has now. Before the first sign-in that read the person's
+// players (an account from the email-sign-in days) it offers that check.
 export default function ElixirConnection({ player }: { player: Player }) {
   const busy = useSignal(false)
   const error = useSignal('')
   const link = player.elixir
 
-  async function run(action: () => Promise<void>) {
+  async function refresh() {
     if (busy.value) return
     busy.value = true
     error.value = ''
     try {
-      await action()
+      await beginElixirLogin(ELIXIR_RETURN_PATH)
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : 'That did not work. Try again.'
-    } finally {
       busy.value = false
     }
   }
+
+  const failure = error.value && (
+    <div class="ed-edit__msg ed-edit__msg--err" role="alert">
+      {error.value}
+    </div>
+  )
 
   if (!link) {
     return (
@@ -65,19 +73,11 @@ export default function ElixirConnection({ player }: { player: Player }) {
           account. Check with Elixir to bring in your Clash Royale name and the profile picture you set there.
         </div>
         <div class="ed-account__actions">
-          <button
-            class="ed-btn ed-btn--ghost ed-btn--sm"
-            disabled={busy.value}
-            onClick={() => void run(() => beginElixirLogin(ELIXIR_RETURN_PATH))}
-          >
+          <button class="ed-btn ed-btn--ghost ed-btn--sm" disabled={busy.value} onClick={() => void refresh()}>
             {busy.value ? 'Opening Elixir…' : 'Check with Elixir'}
           </button>
         </div>
-        {error.value && (
-          <div class="ed-edit__msg ed-edit__msg--err" role="alert">
-            {error.value}
-          </div>
-        )}
+        {failure}
       </div>
     )
   }
@@ -100,7 +100,7 @@ export default function ElixirConnection({ player }: { player: Player }) {
           )}
         </div>
       ) : (
-        <div class="ed-account__line">Connected, no primary player yet</div>
+        <div class="ed-account__line">No Clash Royale player</div>
       )}
       <div class="ed-account__line ed-account__muted">
         Connected {when(link.linkedAt)} · checked {when(link.checkedAt)}
@@ -108,42 +108,27 @@ export default function ElixirConnection({ player }: { player: Player }) {
       </div>
       {!link.verified && link.playerTag && (
         <div class="ed-account__line ed-account__muted">
-          Prove this player under{' '}
-          <a class="text-link" href="https://elixir.poapkings.com/console/account/verify" rel="noreferrer">
-            Elixir → Verify
-          </a>{' '}
-          (one battle with a deck Elixir names), then sign in with Elixir again to pick up the checkmark.
+          Not verified yet.{' '}
+          <a class="text-link" href={ELIXIR_PLAYERS_URL} rel="noreferrer">
+            Verify it on Elixir
+          </a>
+          , then refresh from Elixir to get the checkmark.
         </div>
       )}
-      {!link.playerTag && player.playerTag && (
-        <div class="ed-account__line ed-account__muted">
-          Drop keeps the tag you typed in before, <span class="ed-profile__reference">{player.playerTag}</span>, as not
-          verified.
-        </div>
-      )}
-      {link.candidates.length === 0 && <NoElixirPlayer />}
+      {!link.playerTag && <NoElixirPlayer />}
       <div class="ed-account__line ed-account__muted">
-        Your name and picture come from your{' '}
-        <a class="text-link" href={ELIXIR_URL} rel="noreferrer">
-          Elixir
-        </a>{' '}
-        account: the primary player's Clash Royale name and the profile picture you set there. Change them on Elixir,
-        then re-check.
+        Your name, picture and player come from your Elixir account.{' '}
+        <a class="text-link" href={ELIXIR_PROFILE_URL} rel="noreferrer">
+          Change them on Elixir
+        </a>
+        , then refresh.
       </div>
       <div class="ed-account__actions">
-        <button
-          class="ed-btn ed-btn--ghost ed-btn--sm"
-          disabled={busy.value}
-          onClick={() => void run(() => beginElixirLogin(ELIXIR_RETURN_PATH))}
-        >
-          Re-check with Elixir
+        <button class="ed-btn ed-btn--ghost ed-btn--sm" disabled={busy.value} onClick={() => void refresh()}>
+          {busy.value ? 'Opening Elixir…' : 'Refresh from Elixir'}
         </button>
       </div>
-      {error.value && (
-        <div class="ed-edit__msg ed-edit__msg--err" role="alert">
-          {error.value}
-        </div>
-      )}
+      {failure}
     </div>
   )
 }

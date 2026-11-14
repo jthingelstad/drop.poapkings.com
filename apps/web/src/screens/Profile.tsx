@@ -34,7 +34,7 @@ import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
 import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
-import ElixirConnection, { ELIXIR_URL } from '../components/ElixirConnection'
+import ElixirConnection, { ELIXIR_PROFILE_URL } from '../components/ElixirConnection'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
@@ -100,7 +100,7 @@ export default function Profile() {
         >
           <span class="tap-face">Sign In</span>
         </button>
-        <div class="ed-profile-guest__note">No password — we email you a one-tap link.</div>
+        <div class="ed-profile-guest__note">Your Drop account is your Elixir account.</div>
         <button class="ed-textlink" onClick={() => navigate('/')}>
           Keep playing as guest
         </button>
@@ -135,7 +135,7 @@ export default function Profile() {
           />
           <a
             class="ed-profile__edit tap-fx"
-            href={ELIXIR_URL}
+            href={ELIXIR_PROFILE_URL}
             rel="noreferrer"
             title="Your name and picture come from Elixir"
           >
@@ -432,10 +432,10 @@ function UpdatesScope() {
             <strong>No Clash Royale player yet</strong>
             <small>
               Drop shows the primary player on your Elixir account, with its clan and clan rankings. Add one on Elixir,
-              then sign in again.
+              then refresh from Elixir on Account.
             </small>
           </div>
-          <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate('/profile?edit=player-tag')}>
+          <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate(ELIXIR_RETURN_PATH)}>
             Open Account
           </button>
         </div>

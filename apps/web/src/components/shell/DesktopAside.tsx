@@ -23,6 +23,7 @@ import { player } from '../../lib/account'
 import { offline } from '../../lib/api-availability'
 import type { GameMode } from '@elixir-drop/contracts'
 import PlayerAvatar from '../PlayerAvatar'
+import AccountTags from '../AccountTags'
 
 // Ten rows instead of six — the room the departed Falling Cards control freed,
 // now that the feed is the only thing in this column and stretches to its
@@ -86,7 +87,10 @@ export default function DesktopAside() {
               >
                 <PlayerAvatar favoriteCardId={a.player.favoriteCardId} size="small" />
                 <span class="ed-rail-live__text">
-                  <span class="ed-rail-live__name">{a.player.id === meId ? 'You' : a.player.publicName}</span>
+                  <span class="ed-rail-live__name">
+                    {a.player.id === meId ? 'You' : a.player.publicName}
+                    {a.player.id !== meId && <AccountTags tags={a.player.accountTags} />}
+                  </span>
                   <span class="ed-rail-live__action">{activityAction(a.mode, a.score, a.runCount)}</span>
                 </span>
                 <span class="ed-rail-live__when">{activityWhen(a.achievedAt)}</span>
