@@ -1,6 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { realpath, writeFile } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { paginateScan } from "@aws-sdk/lib-dynamodb";
 import { favoriteCard } from "../cards.js";
@@ -109,10 +117,29 @@ export function isCloudEngineerIdentity(identity: {
  *  and a list of account ids does not belong in it, ignored or not. */
 export function assertOutsideRepository(out: string, repositoryRoot: string) {
   const inside = relative(repositoryRoot, out);
-  if (!inside || (!inside.startsWith("..") && !isAbsolute(inside)))
+  // Outside means the first path component is "..", not merely a name that
+  // starts with two dots (a directory called "..exports" is inside).
+  const outside =
+    isAbsolute(inside) || inside === ".." || inside.startsWith(`..${sep}`);
+  if (!inside || !outside)
     throw new Error(
       "--out must be outside the repository; name a path such as ~/drop-avatars.json",
     );
+}
+
+/** The path the export would really write: the output's existing parent
+ *  directory and the repository root resolved through symlinks, so a
+ *  directory link into the checkout cannot carry the file inside it. */
+export async function canonicalOutputCheck(
+  out: string,
+  repositoryRoot: string,
+): Promise<string> {
+  const parent = await realpath(dirname(out)).catch(() => {
+    throw new Error(`--out's directory must already exist: ${dirname(out)}`);
+  });
+  const target = join(parent, basename(out));
+  assertOutsideRepository(target, await realpath(repositoryRoot));
+  return target;
 }
 
 export function planAvatarExport(
@@ -223,6 +250,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     encoding: "utf8",
   }).trim();
   assertOutsideRepository(args.out, repositoryRoot);
+  const out = await canonicalOutputCheck(args.out, repositoryRoot);
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
   if (!region) throw new Error("Set AWS_REGION before running the export");
   const identity = await new STSClient({ region }).send(
@@ -238,7 +266,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     profiles.push(profile);
   const plan = planAvatarExport(profiles);
   await writeFile(
-    args.out,
+    out,
     `${JSON.stringify(avatarExportDocument(plan, new Date()), null, 2)}\n`,
     { mode: 0o600, flag: "wx" },
   );

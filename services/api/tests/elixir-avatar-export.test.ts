@@ -1,6 +1,10 @@
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   assertOutsideRepository,
+  canonicalOutputCheck,
   avatarExportDocument,
   isCloudEngineerIdentity,
   parseAvatarExportArgs,
@@ -139,5 +143,34 @@ describe("profile image export", () => {
     expect(() =>
       assertOutsideRepository("/repo/drop-avatars.json", "/repo/drop"),
     ).not.toThrow();
+    expect(() =>
+      assertOutsideRepository("/repo/drop/..exports/x.json", "/repo/drop"),
+    ).toThrow(/outside the repository/);
+    expect(() =>
+      assertOutsideRepository("/repo/x.json", "/repo/drop"),
+    ).not.toThrow();
+  });
+
+  it("follows directory links before deciding a path is outside", async () => {
+    const base = await mkdtemp(join(tmpdir(), "drop-avatar-export-"));
+    try {
+      const repository = join(base, "repo");
+      const outside = join(base, "outside");
+      await mkdir(join(repository, "exports"), { recursive: true });
+      await mkdir(outside);
+      await symlink(join(repository, "exports"), join(outside, "into-repo"));
+
+      await expect(
+        canonicalOutputCheck(join(outside, "into-repo", "a.json"), repository),
+      ).rejects.toThrow(/outside the repository/);
+      await expect(
+        canonicalOutputCheck(join(outside, "a.json"), repository),
+      ).resolves.toMatch(/a\.json$/);
+      await expect(
+        canonicalOutputCheck(join(outside, "missing", "a.json"), repository),
+      ).rejects.toThrow(/must already exist/);
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });
