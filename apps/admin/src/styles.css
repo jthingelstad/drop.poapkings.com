@@ -120,7 +120,11 @@ h3 {
 .cr-sidebar nav button:hover,
 .cr-sidebar nav button.active {
   border-color: rgb(255 200 61 / 28%);
-  background: linear-gradient(135deg, rgb(107 45 195 / 46%), rgb(73 28 128 / 24%));
+  background: linear-gradient(
+    135deg,
+    rgb(107 45 195 / 46%),
+    rgb(73 28 128 / 24%)
+  );
   color: white;
 }
 
@@ -360,7 +364,11 @@ h3 {
 
 .cr-player-list > button:hover,
 .cr-player-list > button.selected {
-  background: linear-gradient(90deg, rgb(104 45 192 / 34%), rgb(104 45 192 / 5%));
+  background: linear-gradient(
+    90deg,
+    rgb(104 45 192 / 34%),
+    rgb(104 45 192 / 5%)
+  );
 }
 
 .cr-player-list > button.selected::before {
@@ -430,7 +438,11 @@ h3 {
 .cr-player-list code,
 .cr-run-table code {
   color: #b89ada;
-  font: 650 0.58rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    650 0.58rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 .cr-player-list__meta {
@@ -511,7 +523,11 @@ h3 {
   border: 0;
   background: none;
   color: #b89ada;
-  font: 700 0.65rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    700 0.65rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   letter-spacing: 0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -843,7 +859,11 @@ h3 {
 
 .cr-run-table__row:hover,
 .cr-run-table__row.selected {
-  background: linear-gradient(90deg, rgb(104 45 192 / 28%), rgb(104 45 192 / 5%));
+  background: linear-gradient(
+    90deg,
+    rgb(104 45 192 / 28%),
+    rgb(104 45 192 / 5%)
+  );
 }
 
 .cr-run-table__select {
@@ -1296,7 +1316,11 @@ h3 {
   padding: 12px;
   border-top: 1px solid var(--line);
   color: #c7b8d8;
-  font: 0.62rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    0.62rem/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

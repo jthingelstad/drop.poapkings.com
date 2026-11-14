@@ -1,17 +1,7 @@
 import { signal } from '@preact/signals'
 import type { Player } from '@elixir-drop/contracts'
 import type { BadgeState } from './badges'
-import {
-  ApiError,
-  deleteMe,
-  getMe,
-  patchMe,
-  redeemLogin,
-  refreshLogin,
-  selectElixirPlayer,
-  startElixirLogin,
-  type RecentRun
-} from './api'
+import { ApiError, deleteMe, getMe, patchMe, redeemLogin, refreshLogin, startElixirLogin, type RecentRun } from './api'
 import { clearRecruiter, recruiterAttribution } from './referral'
 
 interface StoredSession {
@@ -136,13 +126,9 @@ export async function applyPolledSession(newSession: StoredSession): Promise<Pla
   return hydrateSession(newSession)
 }
 
-export async function updateAccount(updates: {
-  publicName?: string
-  favoriteCardId?: number
-  nameToken?: string
-  playerTag?: string | null
-  lastOpenedUpdates?: string
-}): Promise<void> {
+// The name and picture are not updatable here: they come from Elixir at
+// sign-in (2026-11-14), and PATCH /me refuses them.
+export async function updateAccount(updates: { playerTag?: string | null; lastOpenedUpdates?: string }): Promise<void> {
   if (!session) throw new Error('Sign in to update your player profile.')
   const response = await patchMe(session.token, updates)
   player.value = response.player
@@ -195,13 +181,6 @@ export function clearPendingElixirLogin(): void {
   } catch {
     // nothing to clear
   }
-}
-
-export async function chooseElixirPlayer(playerTag: string): Promise<void> {
-  if (!session) throw new Error('Sign in to choose a player.')
-  const response = await selectElixirPlayer(session.token, playerTag)
-  player.value = response.player
-  if (response.badges) applyBadgeSummary(response.badges)
 }
 
 export async function markUpdatesOpened(): Promise<void> {

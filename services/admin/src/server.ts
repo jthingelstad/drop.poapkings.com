@@ -443,12 +443,6 @@ export function createAdminServer(options: AdminServerOptions): Server {
         const playerId = identifier(decodeURIComponent(profileMatch[1]));
         const input = await body(request);
         const patch = {
-          ...(Object.hasOwn(input, "publicName")
-            ? { publicName: input.publicName }
-            : {}),
-          ...(Object.hasOwn(input, "favoriteCardId")
-            ? { favoriteCardId: input.favoriteCardId }
-            : {}),
           ...(Object.hasOwn(input, "playerTag")
             ? { playerTag: input.playerTag }
             : {}),

@@ -8,7 +8,6 @@ import { Repository } from "./repository.js";
 import { pollSession, redeemMagicLink, refreshSession } from "./routes/auth.js";
 import type { RouteContext } from "./routes/context.js";
 import {
-  createNameOptions,
   deleteMe,
   getMe,
   getMySeasons,
@@ -53,7 +52,6 @@ import { getRecruiterInvitePage } from "./routes/recruiter-invites.js";
 import {
   disconnectElixir,
   elixirCallback,
-  selectElixirPlayer,
   startElixirLogin,
 } from "./routes/elixir-auth.js";
 import {
@@ -86,13 +84,11 @@ const ROUTE_PATHS = [
   "/auth/refresh",
   "/auth/elixir/start",
   "/auth/elixir/callback",
-  "/me/elixir/select",
   "/me/elixir",
   "/me",
   "/me/seasons",
   "/me/xp",
   "/me/share",
-  "/me/name-options",
   "/runs/start",
   "/runs/complete",
   "/practice/resume",
@@ -157,8 +153,6 @@ async function route(request: HttpRequest) {
     return startElixirLogin(context);
   if (method === "GET" && path === "/auth/elixir/callback")
     return elixirCallback(context);
-  if (method === "POST" && path === "/me/elixir/select")
-    return selectElixirPlayer(context);
   if (method === "DELETE" && path === "/me/elixir")
     return disconnectElixir(context);
   if (method === "GET" && path === "/me") return getMe(context);
@@ -172,8 +166,6 @@ async function route(request: HttpRequest) {
     method === "GET" ? PUBLIC_PLAYER_PATH.exec(path) : null;
   if (publicPlayerMatch)
     return getPublicPlayer(context, publicPlayerMatch[1] ?? "");
-  if (method === "POST" && path === "/me/name-options")
-    return createNameOptions(context);
   if (method === "DELETE" && path === "/me") return deleteMe(context);
   if (method === "PATCH" && path === "/me") return patchMe(context);
   if (method === "POST" && path === "/runs/start") return startRun(context);

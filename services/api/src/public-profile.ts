@@ -69,12 +69,20 @@ export type PublicProfileSource = Pick<
   | "elixirVerified"
 >;
 
+// The name a signed-in player shows when their Elixir account has no
+// verified primary player (2026-11-14): the stand-in Drop already used.
+export const PUBLIC_NAME_FALLBACK = "Elixir Player";
+
+export function displayName(profile: { publicName?: string }): string {
+  return profile.publicName || PUBLIC_NAME_FALLBACK;
+}
+
 export function publicProfile(profile: PublicProfileSource): PublicProfile {
   const progress = levelForGames(profile.totalGames);
   const accountTags = accountTagsFor(profile);
   return {
     id: profile.playerId,
-    publicName: profile.publicName || "Elixir Player",
+    publicName: displayName(profile),
     favoriteCardId: profile.favoriteCardId,
     playerTag: profile.playerTag,
     ...(accountTags.length ? { accountTags } : {}),
@@ -89,7 +97,7 @@ export function publicProfile(profile: PublicProfileSource): PublicProfile {
 export function placeholderPublicProfile(index: number): PublicProfile {
   return {
     id: `player-${index + 1}`,
-    publicName: "Elixir Player",
+    publicName: PUBLIC_NAME_FALLBACK,
     totalGames: 0,
     xp: 0,
     ...levelForGames(0),

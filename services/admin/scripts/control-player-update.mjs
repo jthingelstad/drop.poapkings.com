@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import {
   accountDetail,
@@ -16,14 +13,6 @@ import {
 } from "./_control-lib.mjs";
 
 const CLASH_ROYALE_TAG_PATTERN = /^#[0289PYLQGRJCUV]{3,15}$/;
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const cards = JSON.parse(
-  readFileSync(
-    resolve(scriptDir, "../../../packages/game-data/cards.json"),
-    "utf8",
-  ),
-).cards;
-const cardIds = new Set(cards.map((card) => card.id));
 
 function normalizedTag(value) {
   if (value === "") return undefined;
@@ -32,22 +21,6 @@ function normalizedTag(value) {
   if (!CLASH_ROYALE_TAG_PATTERN.test(tag))
     throw new Error("Enter a valid Clash Royale player tag");
   return tag;
-}
-
-function safeName(value) {
-  if (typeof value !== "string")
-    throw new Error("Public name must be a string");
-  const name = value.trim().replace(/\s+/g, " ");
-  if (
-    name.length < 2 ||
-    name.length > 64 ||
-    Array.from(name).some((character) => {
-      const code = character.charCodeAt(0);
-      return code < 32 || code === 127;
-    })
-  )
-    throw new Error("Public name must contain 2..64 safe characters");
-  return name;
 }
 
 const { flags, positional } = parseFlags(process.argv.slice(2));
@@ -82,21 +55,18 @@ try {
   const profile = await findProfile(doc, playerId);
   if (!profile) throw new Error(`No profile maps to playerId ${playerId}`);
 
-  const hasName = Object.hasOwn(input, "publicName");
-  const hasCard = Object.hasOwn(input, "favoriteCardId");
-  if (hasName !== hasCard)
-    throw new Error("Public name and favorite card must be changed together");
+  // The name and picture come from the player's Elixir account at each
+  // sign-in (2026-11-14): a correction here would be overwritten by the next
+  // one, so the Control Room no longer makes it.
+  if (
+    Object.hasOwn(input, "publicName") ||
+    Object.hasOwn(input, "favoriteCardId")
+  )
+    throw new Error(
+      "The name and picture come from the player's Elixir account; correct them there",
+    );
 
   const next = {};
-  if (hasName) {
-    next.publicName = safeName(input.publicName);
-    if (
-      !Number.isSafeInteger(input.favoriteCardId) ||
-      !cardIds.has(input.favoriteCardId)
-    )
-      throw new Error("Favorite card is not in the current catalog");
-    next.favoriteCardId = input.favoriteCardId;
-  }
   if (Object.hasOwn(input, "playerTag"))
     next.playerTag = normalizedTag(input.playerTag);
 

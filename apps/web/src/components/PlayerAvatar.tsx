@@ -3,7 +3,13 @@ import { useState } from 'preact/hooks'
 import { avatarCrop } from '../data/avatar-crops'
 import { challengeCard } from '../lib/challenge-cards'
 
-// The app's own drop mark, shown when a player's favorite card art is missing.
+// A player's profile picture: the circular crop of the Clash Royale card they
+// set as their picture in Elixir (2026-11-14; before, Drop's own Player Card).
+// The prop keeps the stored field's name, favoriteCardId. The art is Drop's
+// committed copy, drawn whole and cropped by CSS, never altered.
+//
+// The app's own drop mark, shown when a player has no picture or its art is
+// missing.
 const DROP_ICON = '/assets/icon/drop-icon-192.png'
 
 interface PlayerAvatarProps {
@@ -32,7 +38,7 @@ export default function PlayerAvatar({ favoriteCardId, size = 'medium', class: c
     >
       <img
         src={useFallback ? DROP_ICON : card.icon}
-        alt={card ? `${card.name} favorite card` : 'Elixir Drop player'}
+        alt={card ? `${card.name} profile picture` : 'Elixir Drop player'}
         loading="lazy"
         onError={card && !imageFailed ? () => setFailedCardId(card.id) : undefined}
       />

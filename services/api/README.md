@@ -12,9 +12,9 @@ Responsibilities in this release:
   Elixir account; guests play without one), resolved through the
   `ELIXIR#{accountId}` identity pointer;
 - renewable 28-day sliding HMAC bearer sessions;
-- player profiles with favorite-card avatars, safe compiler-generated and
-  Claude Haiku-ranked public names, unverified CR player tags, and cached CR
-  name/clan/account-age/card snapshots;
+- player profiles whose name and picture come from Elixir at sign-in (the
+  primary player's game name, the profile image set there), CR player tags,
+  and cached CR name/clan snapshots;
 - short-lived, single-use signed runs for all six game modes;
 - server-issued challenges, transcript validation, and server-recomputed scores;
 - identity-free, run-bound reports for terminal and retryable completion
@@ -53,8 +53,7 @@ MCP requests have a three-second deadline, including response-body consumption.
 The refresh queue replaces the retired Supercell bridge path.
 
 `api.timings` structured logs record the route template, first-request flag,
-request elapsed time, and fixed operation labels for DynamoDB, MCP, queue work and
-the name-selection model call (`bedrock.converse`).
+request elapsed time, and fixed operation labels for DynamoDB, MCP and queue work.
 The worker also times metadata writes and season finalization. Operation times
 may overlap and must not be summed as request latency. No request arguments,
 identities, tokens or payloads are included. Web Function `platform.initReport` events provide initialization timing;
@@ -63,8 +62,8 @@ CPU and active environment time are environment-level measurements.
 ## Routes
 
 - `POST /auth/elixir/start`, `GET /auth/elixir/callback`, `POST /auth/redeem`, `POST /auth/refresh`, `POST /auth/poll`
-- `POST /me/elixir/select`, `DELETE /me/elixir`
-- `GET /me`, `PATCH /me`, `DELETE /me`, `POST /me/name-options`
+- `DELETE /me/elixir`
+- `GET /me`, `PATCH /me`, `DELETE /me`
 - `POST /runs/start`, `POST /runs/complete`, `POST /run-reports`, `POST /runs/{runId}/share`, `PUT /runs/{runId}/share`
 - `GET /practice/resume`, `POST /practice/checkpoint`
 - `POST /badges/{badgeSlug}/share`, `PUT /badges/{badgeSlug}/share`
@@ -98,7 +97,8 @@ such a link and refuses anything else. The email-code route `POST
 
 Starting and completing a run make the player session **optional**, so anyone
 can play as a guest. With a valid session, `/runs/start` runs the ranked flow
-(profile favorite card + public name required) and `/runs/complete` records the
+(a profile is all it needs; no name or picture is required since 2026-11-14)
+and `/runs/complete` records the
 run. With **no** session, `/runs/start` deals the same server-signed challenge
 under the reserved `guest` owner sentinel (it can never collide with a real
 base64url-SHA-256 sub), marks the run `guest: true`, always unranked, and signs
@@ -271,22 +271,46 @@ counter.
 
 ## Player identity
 
-The canonical card snapshot is the allowlist for profile identity. A player
-posts `{ "favoriteCardId": 26000000 }` to `/me/name-options`; the API returns
-five names from a fresh server-composed slate of reviewed card flavor and safe
-humor patterns, plus a signed, 15-minute choice token. Claude Haiku selects only
-opaque candidate IDs; model-authored text can never become a public name.
-Unknown IDs are ignored, one choice per humor lane is preferred, and a failed
-or incomplete model response is filled from the same safe slate. The exact card
-title is not required in the name. A completeness test requires reviewed flavor
-for every canonical card. The player then patches `/me` with `favoriteCardId`,
-one returned `publicName`, and `nameToken`. The signed token binds the exact
-choices to both the player and the card, and DynamoDB stores the card and name
-in one update. The favorite card's canonical artwork is the profile image in
-the web app.
+Since 2026-11-14 the name and picture come from the person's Elixir account,
+read from `GET /api/v1/me` at each Sign in with Elixir by
+`src/elixir-identity.ts`, the one adapter that knows that shape:
 
-Changing a favorite card uses the same complete flow and replaces both card and
-name. `playerTag` remains an independent, unverified profile field.
+- `publicName` is the game name of the account's primary player, only when
+  Elixir has verified it, tidied (NFC, whitespace collapsed, control and
+  format characters removed, 32 characters). No verified primary: removed,
+  and every output shows "Elixir Player".
+- `favoriteCardId` is the profile image's card id (`avatar.card_id`, or a flat
+  `avatar_card_id`). `null`, or a card the catalog does not hold, removes it;
+  a `/me` without either field leaves it as it is. `art_url` and `crop` are
+  ignored: the web app draws its own committed art with its own crop table.
+- `Repository.applyElixirIdentity` writes both with `identityFromElixirAt`,
+  and the first time keeps the made-up name and card in `legacyIdentity`.
+  The callback applies it to a bindable account; a first sign-in carries it
+  in the pending link to the redemption.
+- `PATCH /me` refuses `publicName`, `favoriteCardId` and `nameToken` (400
+  `identity_from_elixir`). The name generator, its model call, the name
+  token and the player picker (`POST /me/elixir/select`) are removed.
+
+Names are escaped at every output: share pages, Open Graph tags, season
+posts, and the Control Room. A published share keeps the name it was frozen
+with.
+
+## Elixir name migration
+
+`src/maintenance/migrate-elixir-names.ts` clears the made-up names that are
+left until each person's next sign-in. Each profile's stored Elixir
+candidates (from its last sign-in) give the verified primary player's name;
+the profile gets that name, or no name, and its made-up name and card are kept
+in `legacyIdentity`. It never touches the picture (Elixir imports Drop's
+cards; the next sign-in brings Elixir's), skips a profile already written from
+Elixir, and writes conditionally, so a sign-in in between wins. Output is
+counts only; it is a dry run by default, requires `ProjectsCloudEngineer`,
+and an apply runs under the production lock:
+
+```sh
+AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run migrate:elixir-names --workspace=@elixir-drop/api
+node scripts/production-lock.mjs run --purpose "Elixir name migration" -- env AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run migrate:elixir-names --workspace=@elixir-drop/api -- --apply
+```
 
 ## No mailing list
 

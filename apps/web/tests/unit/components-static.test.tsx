@@ -529,7 +529,7 @@ describe('MultipleChoice', () => {
 })
 
 describe('PlayerAvatar', () => {
-  it('renders the default fallback avatar with no favorite card', async () => {
+  it('renders the default fallback avatar with no profile picture', async () => {
     const html = await render(<PlayerAvatar />)
     expect(html).toContain('player-avatar--fallback')
     expect(html).toContain('player-avatar--medium')
@@ -543,7 +543,7 @@ describe('PlayerAvatar', () => {
     expect(html).toContain('nav-av')
     expect(html).not.toContain('player-avatar--fallback')
     expect(html).toContain('src="/cards/26000000.png"')
-    expect(html).toContain('Knight favorite card')
+    expect(html).toContain('Knight profile picture')
     expect(html).toContain('--avatar-x')
   })
 

@@ -59,16 +59,7 @@ export interface RunClaims {
   exp: number;
 }
 
-export interface NameClaims {
-  type: "names";
-  sub: string;
-  favoriteCardId: number;
-  names: string[];
-  iat: number;
-  exp: number;
-}
-
-export type SignedClaims = SessionClaims | RunClaims | NameClaims;
+export type SignedClaims = SessionClaims | RunClaims;
 
 export interface SurgeAnswer {
   cardId: number;
@@ -111,8 +102,20 @@ export interface PlayerProfile {
   sub: string;
   playerId: string;
   email: string;
+  // What Drop shows, from the person's Elixir account at sign-in since
+  // 2026-11-14 (elixir-identity.ts): the verified primary player's game name
+  // and the card of the profile image Elixir holds. The attribute names are
+  // the old Player Card's, kept because the boards' GSI3 projection and the
+  // Control Room's IAM grant name them.
   publicName?: string;
   favoriteCardId?: number;
+  // When the name and image last came from Elixir. Absent on a profile that
+  // still shows the made-up name and Player Card it chose before 2026-11-14.
+  identityFromElixirAt?: string;
+  // The made-up name and Player Card a profile had before Elixir's identity
+  // replaced them, kept once so the change can be undone. Internal only;
+  // never returned by an API or projected to an index.
+  legacyIdentity?: { publicName?: string; favoriteCardId?: number };
   playerTag?: string;
   elixir?: ElixirLink;
   // Denormalized from `elixir` for the board's sparse projection: true only

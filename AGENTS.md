@@ -55,7 +55,8 @@ Every other doc points back here instead of keeping its own copy of this list.
    down). Sign in with Elixir (`services/api/src/elixir-oauth.ts`) is
    authorize, token, `GET /oauth/userinfo` and `GET /api/v1/me`, and that is
    every Elixir URL Drop reaches. The `/me` answer that proves which players
-   are the person's also gives the chosen player's name and clan, stored then
+   are the person's also gives the primary player's name and clan, and the
+   profile picture set in Elixir, stored then
    (`cr-profile.ts`); Drop never reads a profile at any other time. The season
    clock is Drop's own (`season-clock.ts`): first Monday to first Monday,
    10:00 UTC boundaries, the same calendar Elixir's policy clock computed,
@@ -117,8 +118,8 @@ Every other doc points back here instead of keeping its own copy of this list.
    Drop Control's account-support data is a separate capability again: the
    tailnet-only `services/admin/scripts/control-*.mjs` run as
    `elixir-drop-control`, may project email/profile/CR snapshot fields, and may
-   atomically correct only public profile identity fields with a `CONTROL#`
-   audit event. They are never an input to the referee scripts, cannot edit
+   atomically correct only the unverified player tag with a `CONTROL#` audit
+   event (the name and picture are Elixir's since 2026-11-14). They are never an input to the referee scripts, cannot edit
    email, runs, scores, evidence, XP, sessions, sign-in links, or Elixir
    identity pointers, and do not weaken
    the pseudonymous referee role.
@@ -270,22 +271,25 @@ production run. A successful exact-head validation triggers
   without its date, and `npm run sitemap:dates` (in `apps/web`) re-dates exactly
   the changed pages, and `/updates/` from the live feed. `refresh-cards.mjs`
   re-dates the card reference itself. Never stamp the build time.
-- **Authenticated identity is card-bound.** `favoriteCardId` must resolve in the
-  canonical card snapshot. The API composes a fresh candidate slate from
-  reviewed card-specific flavor tiles and safe humor patterns; Claude Haiku
-  selects opaque candidate IDs and never authors displayable name text. Every
-  catalog card must have a flavor profile before verification passes. The
-  public name may use community nicknames and playful card associations instead
-  of the exact card title.
-  Name-option tokens bind the player, card ID, and exact safe choices; the API
-  saves favorite card and public name together. Keep player tags separate and
-  explicitly unverified — except the one Elixir has proven: **Sign in with
-  Elixir** (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with
-  Elixir") lets a player pick one of their Elixir "you"/"alt" players as the
-  Drop tag and inherit Elixir's verification as the `verified` account tag.
+- **Authenticated identity comes from Elixir** (Jamie, 2026-11-14). The name
+  a signed-in player shows is the Clash Royale game name of their Elixir
+  account's primary player (verified, never an alt's), and the picture is the
+  profile image they set in Elixir: a card id that must resolve in the
+  canonical snapshot, drawn from Drop's committed art with Drop's CSS crop.
+  Both are read from `GET /api/v1/me` at each Sign in with Elixir;
+  `services/api/src/elixir-identity.ts` is the one adapter that knows that
+  shape. Drop has no Player Card picker, no generated names and no model call;
+  `PATCH /me` refuses the name and picture. No name means "Elixir Player", no
+  picture the Drop icon; neither blocks play. Names are display text from a
+  game that allows almost anything: tidy on the way in, escape at every
+  output (pages, canvas, Control Room). Published shares keep the name they
+  were frozen with. **Sign in with Elixir**
+  (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with Elixir")
+  makes the primary player the Drop tag and carries Elixir's verification as
+  the `verified` account tag.
   A tag is never typed in any more (2026-11-12): `PATCH /me` refuses a new
-  tag (`player_from_elixir`), a tag typed in before stays as it is,
-  unverified, and a signed-in player with no player on their Elixir account
+  tag (`player_from_elixir`), a tag typed in before stays, unverified, until
+  a sign-in finds a primary player, and a signed-in player with no player on their Elixir account
   is sent to elixir.poapkings.com to add one. Sign-in asks only for
   `cr:read account:email`.
   It is the only sign-in. An `ELIXIR#<accountId>` pointer names the Drop
@@ -786,9 +790,10 @@ is `../elixir-mcp/packages/contracts/integration-api.openapi.json` and
 
 `ELIXIR_MCP_BASE_URL` stays the issuer. The runtime secret's only Elixir name
 is `ELIXIR_OAUTH_CLIENT_SECRET`; names it still holds that no function lists
-are ignored. The chosen player's name and clan are written at the sign-in
-callback and at `POST /me/elixir/select`, from the candidates that sign-in
-listed; a later sign-in brings them up to date. A `player-profile` job left on
+are ignored. The primary player's name and clan, and the picture, are written
+at the sign-in callback from that sign-in's `/me` read; a later sign-in brings
+them up to date. There is no player picker (`POST /me/elixir/select` was
+removed 2026-11-14). A `player-profile` job left on
 the refresh queue from before the change is acknowledged and dropped.
 
 Saved CR tags remain optional, and unverified unless Elixir verified them. No Drop identities, scores, XP or

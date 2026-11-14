@@ -144,8 +144,7 @@ published stays off until its image can ship with it.
   equal to `cards.json`, so update `SPEC.md` in the same pull request.
 
 **Freshness.** Treat a snapshot older than a known balance or card release as
-drift. Every catalog card also needs a flavor profile (`AGENTS.md`, card-bound
-identity), or verification fails.
+drift.
 
 ## Seasons
 

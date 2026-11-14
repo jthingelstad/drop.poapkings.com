@@ -8,7 +8,6 @@ import {
   leaderboardResponseSchema,
   loginPollResponseSchema,
   meResponseSchema,
-  nameOptionsResponseSchema,
   playerResponseSchema,
   publicPlayerResponseSchema,
   publishedBadgeShareSchema,
@@ -284,14 +283,6 @@ export function getMe(sessionToken: string, signal?: AbortSignal) {
   return apiRequest('/me', meResponseSchema, { sessionToken, signal })
 }
 
-export function getNameOptions(sessionToken: string, favoriteCardId: number) {
-  return apiRequest('/me/name-options', nameOptionsResponseSchema, {
-    method: 'POST',
-    sessionToken,
-    body: JSON.stringify({ favoriteCardId })
-  })
-}
-
 // Season history, one season at a time. The response always carries a
 // lightweight `index` of every season the player has runs in, so the You page
 // can offer a season picker and page older seasons in without ever pulling a
@@ -324,9 +315,6 @@ export function getXpTimeline(sessionToken: string, signal?: AbortSignal) {
 export function patchMe(
   sessionToken: string,
   updates: {
-    publicName?: string
-    favoriteCardId?: number
-    nameToken?: string
     playerTag?: string | null
     // The server stamps the read time; any value here is just the trigger.
     lastOpenedUpdates?: string
@@ -363,14 +351,6 @@ export function startElixirLogin(
       returnTo,
       ...(!recruiter ? {} : 'token' in recruiter ? { recruiterToken: recruiter.token } : { recruiterShare: recruiter })
     })
-  })
-}
-
-export function selectElixirPlayer(sessionToken: string, playerTag: string) {
-  return apiRequest('/me/elixir/select', playerResponseSchema, {
-    method: 'POST',
-    sessionToken,
-    body: JSON.stringify({ playerTag })
   })
 }
 

@@ -339,10 +339,8 @@ describe('Profile interactive flows', () => {
           this.name = 'ApiError'
         }
       },
-      getNameOptions: vi.fn(),
       getSeasonHistory: vi.fn(),
       patchMe: vi.fn(),
-      selectElixirPlayer: vi.fn(),
       deleteMe: vi.fn(),
       getMe: vi.fn(),
       redeemLogin: vi.fn(),
@@ -403,184 +401,19 @@ describe('Profile interactive flows', () => {
     expect(router.route.value).toBe('/login')
   })
 
-  it('preserves the exact player-tag editor when a guest signs in', async () => {
+  it('sends a guest following the old player link to sign in for Account', async () => {
     router.route.value = '/profile?edit=player-tag'
     account.accountStatus.value = 'anonymous'
     account.player.value = null
     await mount()
 
     await fire(byText(container, 'Sign In') as Element)
-    expect(router.route.value).toBe('/login?returnTo=%2Fprofile%3Fedit%3Dplayer-tag')
+    expect(router.route.value).toBe('/login?returnTo=%2Fprofile%3Fscope%3Daccount')
   })
 
-  // Identity setup is three steps (card → name → tag). These helpers reach into
-  // the step chrome.
-  const primary = () => container.querySelector('.ed-idsetup__actions .ed-btn--gold') as HTMLButtonElement
-  const backBtn = () => container.querySelector('.ed-idsetup__top .ed-iconbtn') as HTMLButtonElement
-
-  // --- Identity setup: name step (Edit opens step 2) -----------------------
-
-  it('generates name ideas and saves the chosen name', async () => {
-    vi.mocked(api.getNameOptions).mockResolvedValue({
-      favoriteCardId: 26000000,
-      names: ['Knight Prime', 'Sir Tap'],
-      nameToken: 'tok-1'
-    })
-    vi.mocked(api.patchMe).mockResolvedValue({
-      player: { ...basePlayer, favoriteCardId: 26000000, publicName: 'Knight Prime' }
-    })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
-    await mount()
-
-    // Edit opens step 2 with names generated from the current card.
-    await fire(byText(container, 'Edit') as Element)
-    const options = [...container.querySelectorAll('.name-option')]
-    expect(options.map((o) => o.textContent?.trim())).toEqual(['Knight Prime', 'Sir Tap'])
-
-    // Select a name → highlighted; CONTINUE saves the card + name + token.
-    await fire(options[0])
-    await fire(primary())
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', {
-      favoriteCardId: 26000000,
-      publicName: 'Knight Prime',
-      nameToken: 'tok-1'
-    })
-    expect(account.player.value?.publicName).toBe('Knight Prime')
-    // An edit (card already existed) closes back to the You view.
-    expect(container.querySelector('.ed-idsetup')).toBeNull()
-  })
-
-  it('surfaces a name-generation failure message', async () => {
-    vi.mocked(api.getNameOptions).mockRejectedValue(new Error('rate limited'))
-    await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
-    await mount()
-    await fire(byText(container, 'Edit') as Element)
-
-    expect(container.textContent).toContain('rate limited')
-    expect(container.querySelectorAll('.name-option')).toHaveLength(0)
-  })
-
-  it('surfaces a save failure when choosing a name', async () => {
-    vi.mocked(api.getNameOptions).mockResolvedValue({
-      favoriteCardId: 26000000,
-      names: ['Knight Prime'],
-      nameToken: 'tok-1'
-    })
-    vi.mocked(api.patchMe).mockRejectedValue(new Error('identity save failed'))
-    await signIn({ favoriteCardId: 26000000, publicName: 'Old Name' })
-    await mount()
-    await fire(byText(container, 'Edit') as Element)
-    await fire(container.querySelector('.name-option') as Element)
-    await fire(primary())
-
-    expect(container.textContent).toContain('identity save failed')
-    // Still in the setup flow (the step chrome is present).
-    expect(container.querySelector('.ed-idsetup')).not.toBeNull()
-  })
-
-  // --- First-time setup: the whole flow (card → name → tag) ----------------
-
-  it('runs setup card → name → tag and returns to the pending game', async () => {
-    router.route.value = '/profile?returnTo=/surge'
-    vi.mocked(api.getNameOptions).mockResolvedValue({
-      favoriteCardId: 26000000,
-      names: ['Knight Prime'],
-      nameToken: 'tok-1'
-    })
-    vi.mocked(api.patchMe).mockResolvedValue({
-      player: { ...basePlayer, favoriteCardId: 26000000, publicName: 'Knight Prime' }
-    })
-    // No favorite card yet → setup opens at step 1 (card), with the step counter.
-    await signIn({})
-    await mount()
-    expect(container.textContent).toContain('Step 1 of 3')
-    // CONTINUE is disabled until a card is chosen.
-    expect(primary().disabled).toBe(true)
-
-    // Step 1: choose a card, then CONTINUE to the name step.
-    await fire(container.querySelector('.favorite-card') as Element)
-    expect(primary().disabled).toBe(false)
-    await fire(primary())
-
-    // Step 2: choose a name, then CONTINUE saves and advances to the tag step.
-    await fire(container.querySelector('.name-option') as Element)
-    await fire(primary())
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith(
-      'live',
-      expect.objectContaining({ favoriteCardId: expect.any(Number), publicName: 'Knight Prime', nameToken: 'tok-1' })
-    )
-    expect(container.textContent).toContain('Step 3 of 3')
-
-    // Step 3: Skip → returns to the pending game.
-    await fire(byText(container, 'Skip') as Element)
-    expect(router.route.value).toBe('/surge')
-  })
-
-  it('finishes first-time setup on Home when no game is pending', async () => {
-    window.location.hash = '/profile'
-    await flush()
-    router.route.value = '/profile'
-    vi.mocked(api.getNameOptions).mockResolvedValue({
-      favoriteCardId: 26000000,
-      names: ['Knight Prime'],
-      nameToken: 'tok-1'
-    })
-    vi.mocked(api.patchMe).mockResolvedValue({
-      player: { ...basePlayer, favoriteCardId: 26000000, publicName: 'Knight Prime' }
-    })
-    await signIn({})
-    await mount()
-
-    await fire(container.querySelector('.favorite-card') as Element)
-    await fire(primary()) // card → name
-    await fire(container.querySelector('.name-option') as Element)
-    await fire(primary()) // name saved → tag step
-    await fire(byText(container, 'Skip') as Element)
-
-    expect(router.parseHash()).toBe('/')
-  })
-
-  // --- Identity setup: card step (reached by stepping back) ----------------
-
-  it('filters the card grid and reports an empty search', async () => {
-    vi.mocked(api.getNameOptions).mockResolvedValue({ favoriteCardId: 26000000, names: [], nameToken: 't' })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    await mount()
-    await fire(byText(container, 'Edit') as Element) // step 2 (name)
-    await fire(backBtn()) // back → step 1 (card grid)
-
-    const searchInput = container.querySelector('input[placeholder="Search cards"]') as HTMLInputElement
-    await typeInto(searchInput, 'zzzzzzz')
-    expect(container.querySelector('.favorite-card-empty')).not.toBeNull()
-    expect(container.querySelectorAll('.favorite-card')).toHaveLength(0)
-
-    await typeInto(searchInput, 'knight')
-    const names = [...container.querySelectorAll('.favorite-card')].map((c) => c.getAttribute('aria-label'))
-    expect(names).toContain('Knight')
-    expect(container.querySelector('.favorite-card-empty')).toBeNull()
-  })
-
-  it('selects a different favorite card and reflects it as pressed', async () => {
-    vi.mocked(api.getNameOptions).mockResolvedValue({ favoriteCardId: 26000000, names: [], nameToken: 't' })
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main' })
-    await mount()
-    await fire(byText(container, 'Edit') as Element)
-    await fire(backBtn()) // back → card grid
-
-    const searchInput = container.querySelector('input[placeholder="Search cards"]') as HTMLInputElement
-    await typeInto(searchInput, 'archer')
-    const archers = container.querySelector('.favorite-card') as HTMLButtonElement
-    const label = archers.getAttribute('aria-label')
-    await fire(archers)
-
-    const selected = container.querySelector('.favorite-card--selected')
-    expect(selected?.getAttribute('aria-label')).toBe(label)
-    expect(selected?.getAttribute('aria-pressed')).toBe('true')
-  })
-
-  // --- Player step (reached from Account via ?edit=player-tag) -------------
-  // A player is picked from the Elixir account; a tag is never typed in
-  // (Jamie, 2026-11-12).
+  // --- Identity from Elixir (2026-11-14) ------------------------------------
+  // The name is the primary player's game name and the picture the one set in
+  // Elixir; Drop has no setup steps, name ideas or player picker.
 
   const elixirLink = (candidates: unknown[]) => ({
     linkedAt: '2026-09-12T18:00:00.000Z',
@@ -590,25 +423,54 @@ describe('Profile interactive flows', () => {
   })
   const KING = { playerTag: '#20JJJ2CCRU', name: 'King Thing', relationship: 'primary', verified: true }
 
-  it('picks a player from the Elixir account and closes back to You', async () => {
-    router.route.value = '/profile?edit=player-tag'
-    vi.mocked(api.selectElixirPlayer).mockResolvedValue({
-      player: { ...basePlayer, favoriteCardId: 26000000, playerTag: KING.playerTag }
-    } as never)
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', elixir: elixirLink([KING]) })
+  it('shows the Elixir name and picture with no setup and an Edit on Elixir link', async () => {
+    await signIn({ favoriteCardId: 26000000, publicName: 'King Thing' })
     await mount()
 
-    expect(container.querySelector('input[aria-label="Clash Royale player tag"]')).toBeNull()
-    await fire(container.querySelector('.ed-elixir__candidate') as Element)
+    expect(container.querySelector('.ed-you__name')?.textContent).toContain('King Thing')
+    expect(container.querySelector('.player-avatar img')?.getAttribute('alt')).toBe('Knight profile picture')
+    expect(container.textContent).not.toContain('Player Card')
+    expect(container.querySelector('.ed-idsetup')).toBeNull()
+    const edit = byText(container, 'Edit on Elixir')?.closest('a')
+    expect(edit?.getAttribute('href')).toBe('https://elixir.poapkings.com/')
+  })
 
-    expect(vi.mocked(api.selectElixirPlayer)).toHaveBeenCalledWith('live', KING.playerTag)
-    expect(vi.mocked(api.patchMe)).not.toHaveBeenCalled()
+  it('shows the stand-in name and the Drop mark for an account Elixir names no one on', async () => {
+    await signIn({})
+    await mount()
+
+    expect(container.querySelector('.ed-you__name')?.textContent).toContain('Elixir Player')
+    expect(container.querySelector('.player-avatar--fallback')).not.toBeNull()
     expect(container.querySelector('.ed-idsetup')).toBeNull()
   })
 
-  it('points a signed-in player with no Elixir player to Elixir, and keeps a typed tag as not verified', async () => {
+  it('renders a hostile game name as text', async () => {
+    const hostile = '<img src=x onerror=alert(1)>"&'
+    await signIn({ favoriteCardId: 26000000, publicName: hostile })
+    await mount()
+
+    expect(container.querySelector('.ed-you__name span')?.textContent).toBe(hostile)
+    expect(container.querySelector('.ed-you__name img')).toBeNull()
+  })
+
+  it('sends the old choose-a-player link to Account, with no picker', async () => {
     router.route.value = '/profile?edit=player-tag'
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', playerTag: '#OLD', elixir: elixirLink([]) })
+    await signIn({
+      favoriteCardId: 26000000,
+      publicName: 'King Thing',
+      playerTag: KING.playerTag,
+      elixir: elixirLink([KING])
+    })
+    await mount()
+
+    expect(router.route.value).toBe('/profile?scope=account')
+    expect(container.querySelector('.ed-elixir__candidate')).toBeNull()
+    expect(vi.mocked(api.patchMe)).not.toHaveBeenCalled()
+  })
+
+  it('points a signed-in player with no Elixir player to Elixir, and keeps a typed tag as not verified', async () => {
+    router.route.value = '/profile?scope=account'
+    await signIn({ playerTag: '#OLD', elixir: elixirLink([]) })
     await mount()
 
     expect(container.textContent).toContain('Your Elixir account has no Clash Royale player yet.')
@@ -616,18 +478,6 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).toContain('#OLD')
     expect(container.textContent).toContain('as not verified')
     expect(container.querySelector('.ed-elixir__candidate')).toBeNull()
-  })
-
-  it('surfaces a choice failure and stays on the player step', async () => {
-    router.route.value = '/profile?edit=player-tag'
-    vi.mocked(api.selectElixirPlayer).mockRejectedValue(new Error('choice rejected'))
-    await signIn({ favoriteCardId: 26000000, publicName: 'Knight Main', elixir: elixirLink([KING]) })
-    await mount()
-
-    await fire(container.querySelector('.ed-elixir__candidate') as Element)
-
-    expect(container.textContent).toContain('choice rejected')
-    expect(container.querySelector('.ed-elixir__candidate')).not.toBeNull()
   })
 
   // --- Delete-account flow -------------------------------------------------

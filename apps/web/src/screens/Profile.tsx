@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import {
+  ELIXIR_RETURN_PATH,
   normalizeAuthReturnPath,
   PLAYER_TAG_RETURN_PATH,
   playerReference,
@@ -11,34 +12,21 @@ import {
 import type { GameMode } from '@elixir-drop/contracts'
 import { useEffect, useRef } from 'preact/hooks'
 import PlayerAvatar from '../components/PlayerAvatar'
+import { PUBLIC_NAME_FALLBACK } from '../lib/display-name'
 import Icon from '../components/Icon'
 import ScopeRow from '../components/ScopeRow'
 import CauseChip from '../components/CauseChip'
 import AccountTags from '../components/AccountTags'
 import BadgeMedallion from '../components/BadgeMedallion'
-import {
-  accountStatus,
-  badges,
-  beginElixirLogin,
-  chooseElixirPlayer,
-  deleteAccount,
-  markUpdatesOpened,
-  player,
-  sessionToken,
-  signOut,
-  updateAccount
-} from '../lib/account'
-import { getNameOptions } from '../lib/api'
+import { accountStatus, badges, deleteAccount, markUpdatesOpened, player, sessionToken, signOut } from '../lib/account'
 import { getSeasonHistory, type RecentRun, type SeasonIndexEntry } from '../lib/api'
-import { allCards } from '../lib/card-catalog'
-import { challengeCard } from '../lib/challenge-cards'
 import { badgeViews, type BadgeView } from '../lib/badges'
 import { BadgeSheet } from '../components/BadgeGrid'
 import EmptyState from '../components/EmptyState'
 import ModeIcon from '../components/ModeIcon'
 import SkeletonRows from '../components/Skeleton'
 import { gameDisplay, LOWER_IS_BETTER, scoreLabel } from '../lib/game-metadata'
-import { canonicalProfileRoute, gameReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
+import { canonicalProfileRoute, loginRouteForReturnPath } from '../lib/game-routes'
 import { contactEmailHref } from '../lib/links'
 import { navigate, replace, route, routePathname } from '../lib/router'
 import { buildMeta } from '../lib/build'
@@ -46,7 +34,7 @@ import { standaloneApp } from '../lib/pwa-install'
 import { getSettings, saveSettings } from '../lib/storage'
 import type { InputStyle } from '../types'
 import PlayerPreferences from '../components/PlayerPreferences'
-import ElixirConnection, { NoElixirPlayer } from '../components/ElixirConnection'
+import ElixirConnection, { ELIXIR_URL } from '../components/ElixirConnection'
 import DetailModal from '../components/DetailModal'
 import UpdateMarkdown from '../components/UpdateMarkdown'
 import ShareLine from '../components/ShareLine'
@@ -62,63 +50,27 @@ import {
 import { prepareProfileShare } from '../lib/share-profile'
 import { track } from '../lib/analytics'
 
-const favoriteCards = [...allCards].sort((left, right) => left.name.localeCompare(right.name))
-
 function joinedText(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }
 
 export default function Profile() {
   const profileRoute = route.value
-  const returnTo = gameReturnPathFromRoute(profileRoute)
   const scope = youScopeFromRoute(profileRoute)
   const unreadUpdates = hasUnreadUpdates.value
-  const search = useSignal('')
-  const selectedCardId = useSignal<number | null>(player.value?.favoriteCardId ?? null)
-  const editingIdentity = useSignal(!player.value?.favoriteCardId)
-  // Identity setup is three steps: card → name → Clash Royale player. A fresh player runs
-  // the whole flow ('setup'); Edit from You opens step 2 and Account opens step 3
-  // ('edit'), reusing the same screens.
-  const step = useSignal<'card' | 'name' | 'tag'>('card')
-  const flow = useSignal<'setup' | 'edit'>(player.value?.favoriteCardId ? 'edit' : 'setup')
-  const chosenName = useSignal('')
-  const names = useSignal<string[]>([])
-  const nameToken = useSignal('')
-  const busy = useSignal(false)
   const message = useSignal('')
-  const syncedPlayerId = useRef<string | undefined>(undefined)
-  const tagStepRef = useRef<HTMLHeadingElement | null>(null)
-  const handledTagEditRequest = useRef(false)
-
   useEffect(() => {
     if (routePathname(profileRoute) !== '/profile' || route.peek() !== profileRoute) return
     const canonical = canonicalProfileRoute(profileRoute)
     if (profileRoute !== canonical) replace(canonical)
   }, [profileRoute])
 
+  // The old "choose your Clash Royale player" link (Account → step 3) has
+  // nothing to choose any more: Drop shows the primary player on the Elixir
+  // account (2026-11-14), so it opens Account's Elixir section.
   useEffect(() => {
-    const authenticatedPlayer = player.value
-    if (!authenticatedPlayer || syncedPlayerId.current === authenticatedPlayer.id) return
-    syncedPlayerId.current = authenticatedPlayer.id
-    selectedCardId.value = authenticatedPlayer.favoriteCardId ?? null
-    // A player arriving after mount opens setup only when they have no card. Do
-    // not clobber a tag-edit the route requested (Account → step 3).
-    if (!handledTagEditRequest.current) editingIdentity.value = authenticatedPlayer.favoriteCardId === undefined
-  })
-
-  useEffect(() => {
-    if (handledTagEditRequest.current || canonicalProfileRoute(profileRoute) !== PLAYER_TAG_RETURN_PATH) return
-    handledTagEditRequest.current = true
-    // Account's player edit opens step 3 directly (reusing the setup screen).
-    flow.value = 'edit'
-    step.value = 'tag'
-    editingIdentity.value = true
-    const frame = window.requestAnimationFrame(() => {
-      tagStepRef.current?.scrollIntoView({ block: 'center' })
-      tagStepRef.current?.focus()
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [profileRoute, editingIdentity, flow, step])
+    if (canonicalProfileRoute(profileRoute) === PLAYER_TAG_RETURN_PATH) replace(ELIXIR_RETURN_PATH)
+  }, [profileRoute])
 
   // Opening Updates stamps the read time server-side, clearing the unread dot.
   useEffect(() => {
@@ -157,295 +109,10 @@ export default function Profile() {
   }
 
   const current = player.value
-  const currentCard = current.favoriteCardId === undefined ? undefined : challengeCard(current.favoriteCardId)
-  const selectedCard = selectedCardId.value === null ? undefined : challengeCard(selectedCardId.value)
-  const query = search.value.trim().toLocaleLowerCase()
-  const visibleCards = query
-    ? favoriteCards.filter((card) => card.name.toLocaleLowerCase().includes(query))
-    : favoriteCards
 
-  function beginIdentityEdit() {
-    // Edit from You opens step 2 (name) with the card already chosen.
-    selectedCardId.value = current.favoriteCardId ?? null
-    chosenName.value = current.publicName ?? ''
-    names.value = []
-    nameToken.value = ''
-    search.value = ''
-    message.value = ''
-    flow.value = 'edit'
-    step.value = current.favoriteCardId === undefined ? 'card' : 'name'
-    editingIdentity.value = true
-    if (current.favoriteCardId !== undefined) void loadNames()
-  }
-
-  function selectCard(cardId: number) {
-    selectedCardId.value = cardId
-    chosenName.value = ''
-    names.value = []
-    nameToken.value = ''
-    message.value = ''
-  }
-
-  // Card before name: CONTINUE advances to the name step and asks the server for
-  // names generated from the chosen card.
-  function continueToName() {
-    if (selectedCardId.value === null) return
-    step.value = 'name'
-    void loadNames()
-  }
-
-  function finishEdit() {
-    editingIdentity.value = false
-    message.value = ''
-    if (returnTo) navigate(returnTo)
-    else if (flow.value === 'setup') navigate('/')
-  }
-
-  async function loadNames() {
-    const token = sessionToken()
-    if (!token || !selectedCard) return
-    busy.value = true
-    message.value = ''
-    try {
-      const response = await getNameOptions(token, selectedCard.id)
-      names.value = response.names
-      nameToken.value = response.nameToken
-    } catch (error) {
-      message.value = error instanceof Error ? error.message : 'Name choices could not be generated.'
-    } finally {
-      busy.value = false
-    }
-  }
-
-  // Step 2 saves the card and name together, then continues to the tag step for a
-  // fresh player, or finishes for an edit.
-  async function saveIdentityAndContinue() {
-    if (!selectedCard || !chosenName.value) return
-    busy.value = true
-    message.value = ''
-    try {
-      await updateAccount({ favoriteCardId: selectedCard.id, publicName: chosenName.value, nameToken: nameToken.value })
-      names.value = []
-      if (flow.value === 'setup') step.value = 'tag'
-      else finishEdit()
-    } catch (error) {
-      message.value = error instanceof Error ? error.message : 'Your player identity could not be saved.'
-    } finally {
-      busy.value = false
-    }
-  }
-
-  // Step 3: a signed-in player picks one of the players on their Elixir
-  // account; a tag is never typed in (Jamie, 2026-11-12). The clan lookup
-  // runs after the choice, so the player can start straight away.
-  async function choosePlayerAndFinish(playerTag: string) {
-    busy.value = true
-    message.value = ''
-    try {
-      await chooseElixirPlayer(playerTag)
-      busy.value = false
-      finishEdit()
-    } catch (error) {
-      busy.value = false
-      message.value = error instanceof Error ? error.message : 'That player could not be chosen.'
-    }
-  }
-
-  // ── Identity setup: three steps (card → name → tag) ──────────────────────
-  // A fresh player runs the whole flow on first sign-in; Edit opens step 2 and
-  // Account opens step 3, reusing the same screens. Nothing here ever blocks a
-  // run — setup fires on arrival, not when a game starts.
-  if (editingIdentity.value) {
-    const stepNum = step.value === 'card' ? 1 : step.value === 'name' ? 2 : 3
-    const showBack = !(flow.value === 'setup' && step.value === 'card')
-    const nameForCta = (chosenName.value || current.publicName || '').toLocaleUpperCase()
-    const goBack = () => {
-      message.value = ''
-      if (step.value === 'tag') {
-        if (flow.value === 'setup') step.value = 'name'
-        else editingIdentity.value = false
-      } else if (step.value === 'name') {
-        // Both flows can step back to the card grid to change the card.
-        step.value = 'card'
-      } else {
-        editingIdentity.value = false
-      }
-    }
-    return (
-      <div class="ed-idsetup">
-        <header class="ed-idsetup__top">
-          {showBack && (
-            <button class="ed-iconbtn" aria-label="Back" onClick={goBack} disabled={busy.value}>
-              <Icon name="chevron-left" />
-            </button>
-          )}
-          {flow.value === 'setup' && (
-            <div class="ed-idsetup__steps">
-              <span class="ed-idsetup__stepnum">Step {stepNum} of 3</span>
-              <div class="ed-idsetup__bars" aria-hidden="true">
-                {[1, 2, 3].map((i) => (
-                  <span key={i} class={`ed-idsetup__bar${i <= stepNum ? ' is-done' : ''}`} />
-                ))}
-              </div>
-            </div>
-          )}
-        </header>
-
-        {step.value === 'card' && (
-          <section class="ed-idsetup__step">
-            <h2 class="ed-idsetup__h">Choose your Player Card</h2>
-            <p class="ed-idsetup__sub">This card becomes your avatar and inspires your player name.</p>
-            <input
-              type="search"
-              class="ed-edit__search"
-              placeholder="Search cards"
-              value={search.value}
-              onInput={(event) => (search.value = event.currentTarget.value)}
-            />
-            <div class="ed-idsetup__cards favorite-card-grid" aria-label="Choose your favorite card">
-              {visibleCards.slice(0, 60).map((card) => (
-                <button
-                  key={card.id}
-                  class={`ed-cardopt favorite-card${selectedCardId.value === card.id ? ' ed-cardopt--sel favorite-card--selected' : ''}`}
-                  aria-label={card.name}
-                  aria-pressed={selectedCardId.value === card.id}
-                  onClick={() => selectCard(card.id)}
-                  disabled={busy.value}
-                >
-                  <PlayerAvatar favoriteCardId={card.id} size="medium" class="ed-cardopt__avatar" />
-                  <span>{card.name}</span>
-                </button>
-              ))}
-              {!visibleCards.length && (
-                <p class="favorite-card-empty ed-idsetup__noresult">No cards match that search.</p>
-              )}
-            </div>
-            <div class="ed-idsetup__actions">
-              <button
-                class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-                disabled={selectedCardId.value === null}
-                onClick={continueToName}
-              >
-                <span class="tap-face">
-                  {selectedCard ? `${selectedCard.name.toLocaleUpperCase()} · CONTINUE` : 'CONTINUE'}
-                </span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {step.value === 'name' && (
-          <section class="ed-idsetup__step">
-            <div class="ed-idsetup__chosen">
-              <PlayerAvatar favoriteCardId={selectedCard?.id ?? current.favoriteCardId} size="large" />
-              <div>
-                <h2 class="ed-idsetup__h">Pick your name</h2>
-                <p class="ed-idsetup__sub">{selectedCard ? `Inspired by ${selectedCard.name}.` : ''}</p>
-              </div>
-            </div>
-            <div class="ed-idsetup__names name-options" aria-label="Choose your public player name">
-              {names.value.map((name) => (
-                <button
-                  key={name}
-                  class={`ed-nameopt name-option${chosenName.value === name ? ' ed-nameopt--sel name-option--selected' : ''}`}
-                  aria-pressed={chosenName.value === name}
-                  onClick={() => (chosenName.value = name)}
-                  disabled={busy.value}
-                >
-                  {chosenName.value === name && <Icon name="check" />}
-                  {name}
-                </button>
-              ))}
-            </div>
-            <button class="ed-textlink ed-idsetup__more" onClick={() => void loadNames()} disabled={busy.value}>
-              <Icon name="sparkles" /> More ideas
-            </button>
-            <div class="ed-idsetup__actions">
-              <button
-                class="ed-btn ed-btn--gold ed-btn--lg tap-fx"
-                disabled={busy.value || !chosenName.value}
-                onClick={() => void saveIdentityAndContinue()}
-              >
-                <span class="tap-face">{chosenName.value ? `${nameForCta} · CONTINUE` : 'CONTINUE'}</span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {step.value === 'tag' && (
-          <section class="ed-idsetup__step">
-            <h2 class="ed-idsetup__h" ref={tagStepRef} tabIndex={-1}>
-              Choose your Clash Royale player
-            </h2>
-            <p class="ed-idsetup__sub">
-              Drop shows a player from your Elixir account and uses it to find your clan. You can start playing straight
-              away.
-            </p>
-            {current.playerTag && !current.elixir?.candidates.some((c) => c.playerTag === current.playerTag) && (
-              <p class="ed-idsetup__fine">
-                Drop keeps the tag you typed in before, <span class="ed-profile__reference">{current.playerTag}</span>,
-                as not verified.
-              </p>
-            )}
-            {current.elixir && current.elixir.candidates.length > 0 ? (
-              <div class="ed-elixir__picker" role="group" aria-label="Your Elixir players">
-                {current.elixir.candidates.map((candidate) => {
-                  const chosen = candidate.playerTag === current.playerTag
-                  return (
-                    <button
-                      key={candidate.playerTag}
-                      type="button"
-                      class={`ed-elixir__candidate${chosen ? ' ed-elixir__candidate--current' : ''}`}
-                      aria-pressed={chosen}
-                      disabled={busy.value || chosen}
-                      onClick={() => void choosePlayerAndFinish(candidate.playerTag)}
-                    >
-                      <span class="ed-elixir__candidate-name">{candidate.name ?? candidate.playerTag}</span>
-                      <span class="ed-profile__reference">{candidate.playerTag}</span>
-                      <span class="ed-elixir__candidate-meta">
-                        {candidate.relationship === 'primary' ? 'you' : 'alt'}
-                        {candidate.verified ? (
-                          <>
-                            {' '}
-                            · <Icon name="circle-check" /> verified
-                          </>
-                        ) : (
-                          ' · not verified'
-                        )}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            ) : current.elixir ? (
-              <NoElixirPlayer />
-            ) : (
-              <button
-                type="button"
-                class="ed-btn ed-btn--ghost ed-btn--sm"
-                disabled={busy.value}
-                onClick={() => void beginElixirLogin(PLAYER_TAG_RETURN_PATH)}
-              >
-                Check with Elixir
-              </button>
-            )}
-            <div class="ed-idsetup__actions">
-              <button type="button" class="ed-btn ed-btn--ghost ed-btn--lg" onClick={finishEdit} disabled={busy.value}>
-                {flow.value === 'setup' ? 'Skip — choose it later in You' : 'Done'}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {message.value && (
-          <div class="ed-idsetup__msg" role="alert">
-            {message.value}
-          </div>
-        )}
-      </div>
-    )
-  }
-
+  // The name and picture come from the person's Elixir account at each sign-in
+  // (2026-11-14): the Clash Royale name of its primary player and the profile
+  // picture set there. There is nothing to choose in Drop.
   // ── You view: identity header + scope row ────────────────────────────────
   return (
     <div class="ed-you">
@@ -454,14 +121,10 @@ export default function Profile() {
         <PlayerAvatar favoriteCardId={current.favoriteCardId} size="large" />
         <div class="ed-you__ident-text">
           <div class="ed-you__name">
-            <span>{current.publicName || 'Choose a favorite card'}</span>
+            <span>{current.publicName || PUBLIC_NAME_FALLBACK}</span>
             <AccountTags tags={current.accountTags} />
           </div>
-          <div class="ed-you__ident-line">
-            {[currentCard ? `${currentCard.name} · Player Card` : 'Pick a Player Card', playerReference(current.id)]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
+          <div class="ed-you__ident-line">{playerReference(current.id)}</div>
         </div>
         <div class="ed-you__identity-actions">
           <ShareAction
@@ -470,11 +133,16 @@ export default function Profile() {
             buttonClassName="ed-profile__edit"
             onComplete={() => track('profile.shared')}
           />
-          <button class="ed-profile__edit tap-fx" onClick={beginIdentityEdit}>
+          <a
+            class="ed-profile__edit tap-fx"
+            href={ELIXIR_URL}
+            rel="noreferrer"
+            title="Your name and picture come from Elixir"
+          >
             <span class="tap-face">
-              <Icon name="pencil" /> Edit
+              <Icon name="pencil" /> Edit on Elixir
             </span>
-          </button>
+          </a>
         </div>
       </header>
 
@@ -761,13 +429,14 @@ function UpdatesScope() {
             <Icon name="user" />
           </span>
           <div class="ed-updates__tagcard-text">
-            <strong>Choose your player</strong>
+            <strong>No Clash Royale player yet</strong>
             <small>
-              Pick a Clash Royale player from your Elixir account so Drop can show your clan and clan rankings.
+              Drop shows the primary player on your Elixir account, with its clan and clan rankings. Add one on Elixir,
+              then sign in again.
             </small>
           </div>
           <button class="ed-btn ed-btn--gold ed-btn--sm" onClick={() => navigate('/profile?edit=player-tag')}>
-            Choose player
+            Open Account
           </button>
         </div>
       )}
@@ -1140,7 +809,7 @@ function RunDetail({
         <BadgeSheet
           badge={openBadge.value}
           playerId={player.value?.id}
-          playerName={player.value?.publicName}
+          playerName={player.value ? player.value.publicName || PUBLIC_NAME_FALLBACK : undefined}
           onClose={() => (openBadge.value = null)}
           returnFocus={rungTriggerRef.current}
         />

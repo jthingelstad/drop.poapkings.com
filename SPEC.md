@@ -32,7 +32,7 @@ same way, but nothing is recorded (no leaderboard, no all-time, no XP, no
 history, no Discord) — the summary nudges the visitor to sign in before the next
 game so future scores can be recorded. A player session, opened only by Sign
 in with Elixir, unlocks recording and ranking. Drop talks to Elixir only to
-sign people in (2026-11-13): the chosen player's name and clan come from the
+sign people in (2026-11-13): the primary player's name and clan come from the
 same sign-in read that lists the person's players, and the season clock is
 Drop's own calendar (`season-clock.ts`).
 
@@ -923,34 +923,36 @@ at 300/hour; the shared
 `reads` scope over `/leaderboards`, `/stats`, and `/seasons` at 1200/hour;
 `share-mint` at 60/hour and `share-open` at 600/hour).
 
-Authenticated public identity is centered on one favorite card:
+Authenticated public identity comes from the person's Elixir account
+(2026-11-14). Drop's own Player Card, its generated names (`POST
+/me/name-options`, the name token, the model call) and the player picker are
+gone:
 
-- The player chooses a card from the canonical committed snapshot; its ID is
-  stored as `favoriteCardId` and its artwork becomes the profile image.
-- `POST /me/name-options` accepts that card ID and builds a fresh candidate
-  slate from reviewed card-specific nicknames/motifs plus five safe composition
-  lanes (nickname, battle, character, arena, and wildcard). Claude Haiku acts
-  only as the comedy editor: it returns opaque candidate IDs, never displayable
-  text. The API rejects unknown IDs, enforces lane diversity, and fills an
-  incomplete or failed model response from the same safe slate. A catalog
-  completeness test blocks a new card until its flavor profile is reviewed.
-  Names do not need to contain the exact card title.
-- The token binds the player, favorite card, and exact name choices. `PATCH /me`
-  accepts the card and selected name together and persists them atomically.
-- Changing a favorite card requires choosing a new card-derived name in the
-  same flow. Existing profiles without a favorite card remain readable and use
-  the Drop app icon until the player chooses one.
-- First-time setup leads with the required Player Card, then the generated
-  player name. The optional Clash Royale tag stays out of setup; finishing
-  returns to the requested game (or Home) and defers the tag reminder for seven
-  days on that device.
-- A signed-in player's Clash Royale player comes from their Elixir account
-  (any primary or alt); a tag is never typed in (2026-11-12). A tag typed in
-  before stays as it was, unverified; only a tag Elixir verified carries the
-  mark. A signed-in player with no player on their Elixir account is pointed to
-  elixir.poapkings.com to add one. The chosen player's CR name and clan come
-  from the same sign-in read (`GET /api/v1/me`) and are stored by tag when the
-  person signs in or chooses a player; the next Sign in with Elixir brings them
+- The name is the Clash Royale game name of the account's **primary** player,
+  never an alt's, and only once Elixir has verified that player. The picture
+  is the profile image the person set in Elixir: a card id, drawn from Drop's
+  own committed art with Drop's CSS crop, never altered. Both are read from
+  `GET /api/v1/me` at each Sign in with Elixir and stored on the profile
+  (`publicName`, `favoriteCardId`, `identityFromElixirAt`); the first such
+  sign-in keeps the made-up name and card once in `legacyIdentity`.
+  `services/api/src/elixir-identity.ts` is the one place that knows `/me`'s
+  shape.
+- An account with no verified primary player shows "Elixir Player"; one
+  with no picture shows the Drop app icon. Neither blocks play: `/runs/start`
+  needs only a profile.
+- `PATCH /me` refuses `publicName`, `favoriteCardId` and `nameToken` (400
+  `identity_from_elixir`); the You header's Edit opens Elixir. Names are
+  tidied when stored (control and direction characters out, whitespace
+  collapsed, 32 characters) and escaped at every output.
+- A published share keeps the name and picture it was frozen with; a profile
+  share refreshed later takes the current ones.
+- A signed-in player's Clash Royale player is the primary player on their
+  Elixir account; a tag is never typed in (2026-11-12). A tag typed in
+  before stays, unverified, only until a sign-in finds a primary player; only
+  a tag Elixir verified carries the mark. A signed-in player with no player on
+  their Elixir account is pointed to elixir.poapkings.com to add one. The
+  primary player's CR name and clan come from the same sign-in read (`GET
+/api/v1/me`) and are stored by tag when the person signs in; the next Sign in with Elixir brings them
   up to date, and Drop reads them at no other time (2026-11-13). A tag with no
   stored name says "sign in with Elixir again to show its name and clan"; the
   clan board asks the same, and nothing polls. Years Played, experience,
@@ -959,7 +961,7 @@ Authenticated public identity is centered on one favorite card:
   unrelated to CR arenas.
 - A signed-in player without a player tag is prompted at most once every seven
   days on that device. The reminder never appears during active play, does not
-  stack over a release notice, and opens Profile directly at the player step.
+  stack over a release notice, and opens the Account scope's Elixir block.
 - Every game uses the complete canonical card catalog; ranked runs place on the
   seasonal leaderboard while Practice is unranked. The attached collection
   remains loaded and stored, but is not used for challenge generation and is not
@@ -1256,8 +1258,9 @@ Referee reads and decisions remain adapters over the sanctioned
 `scripts/referee-*.mjs` and the pseudonymous `RefereeReadRole`. Account support is
 a distinct child-process path in `services/admin/scripts/control-*.mjs`, run
 under `DropControlRole`: it can project only account/profile and CR snapshot
-fields, and can atomically correct `publicName` + `favoriteCardId` and/or the
-unverified `playerTag` while writing an immutable
+fields, and can atomically correct the unverified `playerTag` (the name and
+picture come from Elixir since 2026-11-14 and are not editable here) while
+writing an immutable
 `CONTROL#PLAYER#{playerId}/CHANGE#...` audit item. Email is visible but is the
 authentication key and therefore read-only; the role cannot read sign-in links, Elixir identity
 pointers, poll sessions, run/evidence bodies, or secrets, and cannot edit email, runs,
@@ -1383,11 +1386,11 @@ is dropped when the callback ends.
 Profile: `elixir: { accountId, linkedAt, checkedAt, playerTag?, playerName?,
 verified, verifiedAt?, candidates[] }` plus a denormalized
 `elixirVerified` for the boards' sparse projection. Candidates are the
-account's primary and alts only (never friends or watched players). One
-candidate is chosen silently; more land the person on the Account scope's
-picker (`POST /me/elixir/select`, candidates only, becomes `playerTag`). A
-lone candidate never replaces a tag typed in before; that player picks it on
-the Account picker. `PATCH /me` takes no new tag: anything but the stored tag
+account's primary and alts only (never friends or watched players). The
+primary player becomes `playerTag` at each sign-in, over a tag typed in
+before; with no primary, the stored tag stays if it is one of the account's
+players or was typed in. There is no picker (2026-11-14; `POST
+/me/elixir/select` answers 404). `PATCH /me` takes no new tag: anything but the stored tag
 or an empty value is refused (403 `player_from_elixir`). The app has no disconnect since 2026-10-12; the
 `DELETE /me/elixir` route remains and clears only the displayed connection
 (the tag stays, the mark and the link go), never the pointer or

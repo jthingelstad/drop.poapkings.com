@@ -854,6 +854,52 @@ describe("repository conditional writes", () => {
     );
   });
 
+  it("writes Elixir's name and picture, keeping the made-up identity once and never over a kept one", async () => {
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+    await new Repository("test-table").applyElixirIdentity(
+      "player-sub",
+      { primaryName: "Sample Primary", avatarCardId: 28000000 },
+      { publicName: "Pancake Patrol", favoriteCardId: 26000018 },
+    );
+    const first = send.mock.calls[0]?.[0].input;
+    expect(first.UpdateExpression).toContain(
+      "#legacy = if_not_exists(#legacy, :legacy)",
+    );
+    expect(first.ExpressionAttributeValues[":legacy"]).toEqual({
+      publicName: "Pancake Patrol",
+      favoriteCardId: 26000018,
+    });
+    expect(first.ExpressionAttributeValues[":publicName"]).toBe(
+      "Sample Primary",
+    );
+    expect(first.ExpressionAttributeValues[":card"]).toBe(28000000);
+    expect(first.ConditionExpression).toBe("attribute_exists(pk)");
+
+    // Already from Elixir: nothing is kept again. No verified primary removes
+    // the name; a picture Elixir does not mention is left as it is.
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+    await new Repository("test-table").applyElixirIdentity(
+      "player-sub",
+      {},
+      {
+        publicName: "Sample Primary",
+        identityFromElixirAt: "2026-11-14T00:00:00.000Z",
+      },
+    );
+    const second = send.mock.calls[1]?.[0].input;
+    expect(second.UpdateExpression).not.toContain("#legacy");
+    expect(second.UpdateExpression).toContain("REMOVE #publicName");
+    expect(second.ExpressionAttributeNames["#card"]).toBeUndefined();
+
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+    await new Repository("test-table").applyElixirIdentity("player-sub", {
+      primaryName: "Sample Primary",
+      avatarCardId: null,
+    });
+    const third = send.mock.calls[2]?.[0].input;
+    expect(third.UpdateExpression).toContain("REMOVE #card");
+  });
+
   it("skips the cluster keys when the profile has no playerId yet", async () => {
     send
       .mockResolvedValueOnce({ Item: {} })

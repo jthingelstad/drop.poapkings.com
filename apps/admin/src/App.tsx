@@ -1,5 +1,4 @@
 import { BADGE_LIST } from "@elixir-drop/contracts";
-import cardCatalog from "@elixir-drop/game-data/cards.json";
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
@@ -46,9 +45,6 @@ const MODE_NAMES: Record<string, string> = {
   practice: "Practice",
 };
 const BULK_SELECTION_LIMIT = 200;
-const CARDS = [...cardCatalog.cards].sort((left, right) =>
-  left.name.localeCompare(right.name),
-);
 
 function modeName(mode?: string): string {
   return mode ? (MODE_NAMES[mode] ?? mode) : "Unknown mode";
@@ -715,12 +711,7 @@ function PlayerWorkspace({
     status: "allowed" | "restricted";
     reason: string;
   }) => Promise<void>;
-  onProfile: (body: {
-    publicName?: string;
-    favoriteCardId?: number;
-    playerTag?: string;
-    reason: string;
-  }) => Promise<void>;
+  onProfile: (body: { playerTag?: string; reason: string }) => Promise<void>;
 }) {
   const [tab, setTab] = useState<WorkspaceTab>("runs");
   const name = scalar(
@@ -1350,12 +1341,7 @@ function ProfilePanel({
     status: "allowed" | "restricted";
     reason: string;
   }) => Promise<void>;
-  onProfile: (body: {
-    publicName?: string;
-    favoriteCardId?: number;
-    playerTag?: string;
-    reason: string;
-  }) => Promise<void>;
+  onProfile: (body: { playerTag?: string; reason: string }) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const account = detail.account;
@@ -1502,18 +1488,9 @@ function EditProfileForm({
   onDone,
 }: {
   detail: PlayerDetail;
-  onSave: (body: {
-    publicName?: string;
-    favoriteCardId?: number;
-    playerTag?: string;
-    reason: string;
-  }) => Promise<void>;
+  onSave: (body: { playerTag?: string; reason: string }) => Promise<void>;
   onDone: () => void;
 }) {
-  const [name, setName] = useState(detail.account.publicName ?? "");
-  const [cardId, setCardId] = useState(
-    String(detail.account.favoriteCardId ?? ""),
-  );
   const [playerTag, setPlayerTag] = useState(detail.account.playerTag ?? "");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1525,13 +1502,7 @@ function EditProfileForm({
         event.preventDefault();
         setBusy(true);
         setMessage("");
-        const body = {
-          ...(name && cardId
-            ? { publicName: name, favoriteCardId: Number(cardId) }
-            : {}),
-          playerTag,
-          reason,
-        };
+        const body = { playerTag, reason };
         void onSave(body)
           .then(() => {
             setMessage("Profile correction saved and audited.");
@@ -1547,29 +1518,6 @@ function EditProfileForm({
     >
       <div class="cr-edit-form__row">
         <label>
-          Public name
-          <input
-            value={name}
-            minLength={2}
-            maxLength={64}
-            onInput={(event) => setName(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          Favorite card
-          <select
-            value={cardId}
-            onChange={(event) => setCardId(event.currentTarget.value)}
-          >
-            <option value="">No card selected</option>
-            {CARDS.map((card) => (
-              <option key={card.id} value={card.id}>
-                {card.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
           Clash player tag
           <input
             value={playerTag}
@@ -1579,6 +1527,10 @@ function EditProfileForm({
           />
         </label>
       </div>
+      <p class="cr-form-message">
+        The name and picture come from the player's Elixir account at each
+        sign-in, so they are corrected there, not here.
+      </p>
       <label>
         Audit reason
         <textarea

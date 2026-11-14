@@ -22,6 +22,11 @@
 // (client_secret_post). The form is never logged.
 
 import { createHash, randomBytes } from "node:crypto";
+import {
+  parseElixirMe,
+  type ElixirIdentity,
+  type ElixirSelfPlayer,
+} from "./elixir-identity.js";
 
 export const ELIXIR_SIGN_IN_SCOPE = "cr:read account:email";
 const TIMEOUT_MS = 20_000;
@@ -38,16 +43,7 @@ export interface ElixirUserinfo {
   emailVerified: boolean;
 }
 
-export interface ElixirSelfPlayer {
-  playerTag: string;
-  name?: string;
-  relationship: "primary" | "alt";
-  isPrimary: boolean;
-  verified: boolean;
-  clanTag?: string;
-  clanName?: string;
-  clanRole?: string;
-}
+export type { ElixirIdentity, ElixirSelfPlayer };
 
 export type ElixirFailure = {
   ok: false;
@@ -261,38 +257,22 @@ export class ElixirOAuthClient {
     return { ok: true, data: data as Record<string, unknown> };
   }
 
-  // The gate's first fact and the players in one read: this is a PERSON's
-  // grant, and the players that are the person, primary and alts, with
-  // whether Elixir has proven each. Friends and watched players are not
-  // "you" and are never offered.
+  // The gate's first fact, the players and what Drop shows, in one read:
+  // this is a PERSON's grant; the players that are the person, primary and
+  // alts, with whether Elixir has proven each; and the primary player's name
+  // and the account's profile image (elixir-identity.ts holds the shape).
   async selfPlayers(
     accessToken: string,
-  ): Promise<{ ok: true; players: ElixirSelfPlayer[] } | ElixirFailure> {
+  ): Promise<
+    | { ok: true; players: ElixirSelfPlayer[]; identity: ElixirIdentity }
+    | ElixirFailure
+  > {
     const answer = await this.get(accessToken, "/me");
     if (!answer.ok) return answer;
     const principal = answer.data.principal as { kind?: string } | undefined;
     if (principal?.kind !== "person")
       return { ok: false, code: "not_a_person" };
-    const rows = Array.isArray(answer.data.players)
-      ? (answer.data.players as Record<string, unknown>[])
-      : [];
-    const players: ElixirSelfPlayer[] = [];
-    for (const row of rows) {
-      const relationship = row.relationship;
-      if (relationship !== "primary" && relationship !== "alt") continue;
-      if (typeof row.player_tag !== "string") continue;
-      players.push({
-        playerTag: row.player_tag,
-        name: typeof row.name === "string" ? row.name : undefined,
-        relationship,
-        isPrimary: row.is_primary === true,
-        verified: row.claim_status === "verified",
-        clanTag: typeof row.clan_tag === "string" ? row.clan_tag : undefined,
-        clanName: typeof row.clan_name === "string" ? row.clan_name : undefined,
-        clanRole: typeof row.clan_role === "string" ? row.clan_role : undefined,
-      });
-    }
-    return { ok: true, players };
+    return { ok: true, ...parseElixirMe(answer.data) };
   }
 }
 

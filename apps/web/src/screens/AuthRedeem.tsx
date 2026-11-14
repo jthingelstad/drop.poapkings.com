@@ -1,12 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
 import { clearPendingElixirLogin, redeemAccount } from '../lib/account'
-import {
-  authReturnPathFromRoute,
-  gamePathForRoute,
-  loginRouteForReturnPath,
-  profileRouteForGame
-} from '../lib/game-routes'
+import { authReturnPathFromRoute, loginRouteForReturnPath } from '../lib/game-routes'
 import { navigate, route, routeQuery } from '../lib/router'
 import Icon from '../components/Icon'
 
@@ -20,7 +15,6 @@ export default function AuthRedeem() {
   // have followed it: it redeems on arrival instead of waiting for a tap.
   const viaElixir = query.get('via') === 'elixir'
   const returnTo = authReturnPathFromRoute(route.value)
-  const returnToGame = returnTo ? gamePathForRoute(returnTo) : undefined
 
   // Redemption waits for a real click: mail-security scanners follow and
   // execute login links, and an auto-redeeming page let them burn the
@@ -30,12 +24,10 @@ export default function AuthRedeem() {
     redeeming.value = true
     error.value = ''
     try {
-      const authenticatedPlayer = await redeemAccount(token)
+      await redeemAccount(token)
       if (viaElixir) clearPendingElixirLogin()
-      if (!authenticatedPlayer.favoriteCardId || !authenticatedPlayer.publicName) {
-        navigate(returnToGame ? profileRouteForGame(returnToGame) : '/profile')
-        return
-      }
+      // Nothing to set up after sign-in (2026-11-14): the name and picture
+      // came from Elixir with it, so the player goes straight back.
       navigate(returnTo || '/profile')
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : 'This login link could not be used.'

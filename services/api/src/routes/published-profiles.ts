@@ -23,6 +23,7 @@ import {
   type RouteContext,
 } from "./context.js";
 import { badgeSummary } from "./me.js";
+import { displayName } from "../public-profile.js";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PLAYER_TAG_PATTERN = /^P[0-9A-HJKMNP-TV-Z]{10}$/;
@@ -154,7 +155,7 @@ export async function createPublishedProfileShare(context: RouteContext) {
     60 * 60,
   );
   const profile = await repository.getProfile(session.sub);
-  if (!profile || !profile.publicName || !config.shareAssetBucket)
+  if (!profile || !config.shareAssetBucket)
     throw new HttpError(
       503,
       "Profile sharing is unavailable right now.",
@@ -178,7 +179,7 @@ export async function createPublishedProfileShare(context: RouteContext) {
     publishedAt: new Date().toISOString(),
     player: {
       id: current.playerId,
-      publicName: current.publicName ?? profile.publicName,
+      publicName: displayName(current),
       ...(current.favoriteCardId
         ? { favoriteCardId: current.favoriteCardId }
         : {}),

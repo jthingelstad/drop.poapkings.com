@@ -24,6 +24,7 @@ import {
   sessionFor,
   type RouteContext,
 } from "./context.js";
+import { displayName } from "../public-profile.js";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPEN_CREDIT_CAP = 25;
@@ -311,7 +312,7 @@ export async function createPublishedRunShare(
       }
     }
   }
-  if (!profile.publicName || !config.shareAssetBucket)
+  if (!config.shareAssetBucket)
     throw new HttpError(
       503,
       "Run sharing is unavailable right now.",
@@ -333,7 +334,7 @@ export async function createPublishedRunShare(
     publishedAt: new Date().toISOString(),
     player: {
       id: profile.playerId,
-      publicName: profile.publicName,
+      publicName: displayName(profile),
       ...(profile.favoriteCardId
         ? { favoriteCardId: profile.favoriteCardId }
         : {}),

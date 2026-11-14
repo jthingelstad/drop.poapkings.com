@@ -65,21 +65,23 @@ Use a normal browser session and an email address that is not already signed in:
    sending mail.
 2. Request a link for the real address, open it once, and confirm replaying the
    same link fails safely.
-3. Choose a favorite card and generated name, then play one Surge run.
+3. Confirm the You header shows the Elixir account's primary player name and
+   the profile picture set in Elixir, with no setup step, then play one Surge run.
 4. Confirm the result leaves the reconnecting state, increments the player's
    games exactly once, and appears on the current seasonal leaderboard.
 5. Confirm the summary's Player XP breakdown matches the increase on the
    player's inline arena, and that refreshing does not award it again. Confirm
    Home's **games played across Drop** counter advances exactly once.
-6. Choose a Clash Royale player from the Elixir account. Confirm its name and
-   clan appear without trophies, arena, experience level, or card levels.
+6. Confirm the primary Clash Royale player on the Elixir account is the
+   player shown, with no picker. Confirm its name and clan appear without
+   trophies, arena, experience level, or card levels.
 7. Sign out and back in. Confirm that the sign-in makes no Elixir call beyond
    the OAuth flow and `GET /api/v1/me`, and that page loads read nothing.
 8. Share that Surge run. Confirm the sheet carries a rendered card **and** a
    `#/r/<token>` link, that the link opens the run itself with the score as the
    button, and that sharing the same run again produces a different token.
 9. Open your own link and confirm it credits nothing, then open it from a second
-    device or network and confirm it counts once and only once on a refresh.
+   device or network and confirm it counts once and only once on a refresh.
 10. Play one offline or guest run and confirm the summary offers **no** share
     control at all — absent, not disabled.
 

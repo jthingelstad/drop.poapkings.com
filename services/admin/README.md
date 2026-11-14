@@ -24,9 +24,10 @@ Three deliberately separate capabilities feed it:
   overlays.
 - Account details and audited public-profile corrections invoke only
   `services/admin/scripts/control-*.mjs` under `drop-control`. That role may read
-  email/profile/CR snapshot fields and atomically update `publicName` plus
-  `favoriteCardId` and/or the unverified Clash tag with an immutable `CONTROL#`
-  audit event. Email is visible but cannot be edited.
+  email/profile/CR snapshot fields and atomically update the unverified Clash
+  tag with an immutable `CONTROL#` audit event. The name and picture come from
+  Elixir (2026-11-14) and cannot be edited here. Email is visible but cannot be
+  edited.
 - Player Updates invoke `scripts/player-updates.mjs`. The CLI reads a
   dedicated bearer token from the repository's mode-0600 `.env` and calls the
   API directly, so the Control Room needs no AWS session for this action. It

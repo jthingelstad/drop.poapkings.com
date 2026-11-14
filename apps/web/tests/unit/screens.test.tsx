@@ -372,7 +372,7 @@ describe('Leaderboards', () => {
     expect(strip.textContent).toContain('POAP KINGS')
     expect(strip.textContent).toContain('#J2RGCRVG')
     expect(strip.textContent).toContain('2 clanmates on Drop')
-    expect(buttonWithText(host, '.ed-board__clan button', 'Change')).toBeTruthy()
+    expect(buttonWithText(host, '.ed-board__clan button', 'Account')).toBeTruthy()
   })
 
   it('moves lifetime progression into a fourth XP scope with daily source totals', async () => {
@@ -575,7 +575,7 @@ describe('AuthRedeem', () => {
     expect(navigate).toHaveBeenCalledWith('/profile')
   })
 
-  it('routes an incomplete profile into game-scoped setup', async () => {
+  it('returns a player with no Elixir name or picture straight to the game: there is no setup', async () => {
     route.value = '/auth?token=tok9&returnTo=%2Fsurge'
     vi.mocked(redeemAccount).mockResolvedValue({ id: 'p1' } as never) // no favoriteCardId/publicName
 
@@ -583,7 +583,7 @@ describe('AuthRedeem', () => {
     await click(buttonWithText(host, 'button', 'Continue to Drop'))
     await flush()
 
-    expect(navigate).toHaveBeenCalledWith('/profile?returnTo=%2Fsurge')
+    expect(navigate).toHaveBeenCalledWith('/surge')
   })
 
   it('returns a complete profile directly to the player-tag editor', async () => {

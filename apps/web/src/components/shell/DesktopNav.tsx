@@ -17,6 +17,7 @@ import Icon from '../Icon'
 import PlayerAvatar from '../PlayerAvatar'
 import Wordmark from '../brand/Wordmark'
 import { NAV_ITEMS, activeNavIndex } from './nav'
+import { PUBLIC_NAME_FALLBACK } from '../../lib/display-name'
 
 const META_LINKS = [
   { label: 'About', href: '/about/' },
@@ -39,7 +40,7 @@ export default function DesktopNav() {
         <button
           type="button"
           class="ed-desktop__me"
-          aria-label={`${me.publicName} — ${me.xp.toLocaleString()} XP — open You`}
+          aria-label={`${me.publicName || PUBLIC_NAME_FALLBACK} — ${me.xp.toLocaleString()} XP — open You`}
           onClick={() => navigate('/profile')}
         >
           <span class="ed-desktop__xp" aria-hidden="true">

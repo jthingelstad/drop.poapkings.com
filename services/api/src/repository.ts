@@ -20,6 +20,7 @@ import {
 } from "@elixir-drop/contracts";
 import { createHash, randomUUID } from "node:crypto";
 import type { BadgeCounters } from "./badges.js";
+import type { ElixirIdentity } from "./elixir-identity.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
@@ -947,6 +948,7 @@ export class Repository {
     sub: string,
     link: ElixirLink,
     expiresAt: number,
+    identity?: ElixirIdentity,
   ): Promise<void> {
     await client.send(
       new PutCommand({
@@ -955,6 +957,7 @@ export class Repository {
           pk: `ELIXIR_PENDING#${sub}`,
           sk: "ELIXIR_PENDING",
           link,
+          ...(identity ? { identity } : {}),
           expiresAt,
           // Names this write, so a redemption removes only the item it read.
           pendingId: randomUUID(),
@@ -968,7 +971,10 @@ export class Repository {
   async peekPendingElixirLink(
     sub: string,
     nowSeconds: number,
-  ): Promise<{ link: ElixirLink; pendingId?: string } | undefined> {
+  ): Promise<
+    | { link: ElixirLink; identity?: ElixirIdentity; pendingId?: string }
+    | undefined
+  > {
     const result = await client.send(
       new GetCommand({
         TableName: this.tableName,
@@ -977,10 +983,17 @@ export class Repository {
       }),
     );
     const item = result.Item as
-      { link?: ElixirLink; expiresAt?: number; pendingId?: string } | undefined;
+      | {
+          link?: ElixirLink;
+          identity?: ElixirIdentity;
+          expiresAt?: number;
+          pendingId?: string;
+        }
+      | undefined;
     if (!item?.link || (item.expiresAt ?? 0) < nowSeconds) return undefined;
     return {
       link: item.link,
+      ...(item.identity ? { identity: item.identity } : {}),
       ...(item.pendingId ? { pendingId: item.pendingId } : {}),
     };
   }
@@ -1008,6 +1021,73 @@ export class Repository {
       )
         throw error;
     }
+  }
+
+  // What Drop shows for a signed-in person, from their Elixir account
+  // (elixir-identity.ts): the verified primary player's name, or none, and
+  // the profile image's card when Elixir says. The first time, the made-up
+  // name and Player Card the profile had are kept in `legacyIdentity`, never
+  // overwritten, so the change can be undone.
+  async applyElixirIdentity(
+    sub: string,
+    identity: ElixirIdentity,
+    before?: Pick<
+      PlayerProfile,
+      "publicName" | "favoriteCardId" | "identityFromElixirAt"
+    >,
+    // The one-time migration writes only a profile no sign-in has reached
+    // since its scan: a newer sign-in's identity is never overwritten.
+    options: { firstTimeOnly?: boolean } = {},
+  ): Promise<PlayerProfile> {
+    const now = new Date().toISOString();
+    const names: Record<string, string> = {
+      "#updatedAt": "updatedAt",
+      "#from": "identityFromElixirAt",
+      "#publicName": "publicName",
+    };
+    const values: Record<string, unknown> = { ":now": now };
+    const sets = ["#updatedAt = :now", "#from = :now"];
+    const removes: string[] = [];
+    const legacy =
+      before && !before.identityFromElixirAt
+        ? {
+            ...(before.publicName ? { publicName: before.publicName } : {}),
+            ...(before.favoriteCardId !== undefined
+              ? { favoriteCardId: before.favoriteCardId }
+              : {}),
+          }
+        : undefined;
+    if (legacy && Object.keys(legacy).length) {
+      names["#legacy"] = "legacyIdentity";
+      values[":legacy"] = legacy;
+      sets.push("#legacy = if_not_exists(#legacy, :legacy)");
+    }
+    if (identity.primaryName) {
+      values[":publicName"] = identity.primaryName;
+      sets.push("#publicName = :publicName");
+    } else removes.push("#publicName");
+    if (identity.avatarCardId !== undefined) {
+      names["#card"] = "favoriteCardId";
+      if (identity.avatarCardId === null) removes.push("#card");
+      else {
+        values[":card"] = identity.avatarCardId;
+        sets.push("#card = :card");
+      }
+    }
+    const result = await client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: profileKey(sub),
+        UpdateExpression: `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`,
+        ConditionExpression: options.firstTimeOnly
+          ? "attribute_exists(pk) AND attribute_not_exists(#from)"
+          : "attribute_exists(pk)",
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes as ProfileItem;
   }
 
   // The Elixir connection on a profile. `elixirVerified` is denormalized so
@@ -1528,8 +1608,6 @@ export class Repository {
   async updateProfile(
     sub: string,
     updates: {
-      publicName?: string;
-      favoriteCardId?: number;
       playerTag?: string;
       clearPlayerTag?: boolean;
       lastOpenedUpdates?: string;
@@ -1542,16 +1620,6 @@ export class Repository {
     const sets = ["#updatedAt = :updatedAt"];
     const removes: string[] = [];
 
-    if (updates.publicName !== undefined) {
-      names["#publicName"] = "publicName";
-      values[":publicName"] = updates.publicName;
-      sets.push("#publicName = :publicName");
-    }
-    if (updates.favoriteCardId !== undefined) {
-      names["#favoriteCardId"] = "favoriteCardId";
-      values[":favoriteCardId"] = updates.favoriteCardId;
-      sets.push("#favoriteCardId = :favoriteCardId");
-    }
     if (updates.lastOpenedUpdates !== undefined) {
       names["#lastOpenedUpdates"] = "lastOpenedUpdates";
       values[":lastOpenedUpdates"] = updates.lastOpenedUpdates;

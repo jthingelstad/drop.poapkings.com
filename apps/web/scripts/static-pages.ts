@@ -277,12 +277,12 @@ ${pageSections([
   section(
     'What other players can see',
     paragraph(
-      'Leaderboards can show your generated Drop name, favorite card, scores, total games, and chosen player tag. When you choose a player, Drop also shows that player&rsquo;s Clash Royale name and clan. Card levels, trophies, arenas, and experience level are not shown.'
+      'Leaderboards can show your name, profile picture, scores, total games, and player tag. Your name is the Clash Royale name of the primary player on your Elixir account, and your picture is the one you set in Elixir; Drop also shows that player&rsquo;s clan. Card levels, trophies, arenas, and experience level are not shown.'
     )
   ),
   section(
     'Services Drop uses',
-    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>When you sign in, Elixir also tells Drop the name and clan of each Clash Royale player on your Elixir account; Drop keeps them for the player you choose. Drop asks Elixir for nothing else, and never adds a player to your Elixir account or asks Elixir to record anything.</li></ul>'
+    '<ul><li>AWS runs the API and stores profiles and scores.</li><li>Elixir (elixir.poapkings.com), run by the POAP KINGS, signs you in and shares your email address and Clash Royale players with Drop. Elixir&rsquo;s mailing list, not Drop, sends news about Drop.</li><li>Tinylytics receives cookie-free aggregate site visits and named product events with broad game-mode or platform labels, sent from your browser. Tinylytics says it discards raw IPs after country lookup, may use IPinfo when its local lookup cannot resolve a country, and removes user-agent strings after seven days. Drop never sends Tinylytics your email, public player name, player tag, score, run ID, or session token.</li><li>When you sign in, Elixir also tells Drop the name and clan of each Clash Royale player on your Elixir account, and the profile picture you set there; Drop keeps them for your primary player. Drop asks Elixir for nothing else, and never adds a player to your Elixir account or asks Elixir to record anything.</li></ul>'
   ),
   section(
     'Fair Play',
@@ -299,7 +299,7 @@ ${pageSections([
     `${paragraph(
       'Each recorded run can publish one permanent link with a server-rendered score image and a small public result snapshot. The same link is returned every time and can be created from the finish screen or later from your run Log. The snapshot and image remain until you delete your account; a Fair Play exclusion makes them unavailable.'
     )}${paragraph(
-      'A shared run shows your public Drop name, favorite card, arena, mode, score, completion date, and a bounded chart derived from the validated game record. Drop counts only the landing page&rsquo;s browser callback toward Herald—not link-preview HTML or image requests. The callback is deduplicated through a one-way, salted request fingerprint; Drop does not store the raw IP address or full browser user-agent, your own device is not counted, and credit per run stops at a fixed cap. Home and badge invitations do not count toward Herald.'
+      'A shared run shows your name and profile picture as they were when you shared it, your arena, mode, score, completion date, and a bounded chart derived from the validated game record. Drop counts only the landing page&rsquo;s browser callback toward Herald—not link-preview HTML or image requests. The callback is deduplicated through a one-way, salted request fingerprint; Drop does not store the raw IP address or full browser user-agent, your own device is not counted, and credit per run stops at a fixed cap. Home and badge invitations do not count toward Herald.'
     )}${paragraph(
       'Opening a valid shared run or invitation stores either its public player-and-run IDs or its six-character invitation token in that browser for up to 30 days. If that attribution leads to a genuinely new account, Drop credits one Recruiter milestone to the sharer when the new player completes sign-in and creates the account. The relationship is private, and the attribution is consumed when you start signing in with Elixir.'
     )}`
@@ -672,7 +672,7 @@ function xpBody(): string {
     ),
     section(
       'What does not earn XP',
-      '<p>Starting without completing, replaying, sharing, installing, signing in, choosing a Drop name or favorite card, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Choosing a Clash Royale player is the one profile action that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
+      '<p>Starting without completing, replaying, sharing, installing, signing in, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Having a Clash Royale player on your Drop profile is the one profile fact that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
     ),
     section(
       'Opening balance and retroactive awards',

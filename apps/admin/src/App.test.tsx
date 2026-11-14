@@ -242,6 +242,35 @@ it("shows private account context and drills through to retained submission JSON
   void act(() => render(null, host));
 });
 
+it("shows a hostile game name as text in the player directory", async () => {
+  // Since 2026-11-14 a name is the player's Clash Royale game name (this one
+  // is invented): the Control Room must never let it become markup.
+  const hostile = '<img src=x onerror="alert(1)">';
+  const base = fixtureFetch();
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const answer = await base(input, init);
+      if (input !== "/api/overview") return answer;
+      const overview = (await answer.json()) as {
+        players: Record<string, unknown>[];
+      };
+      overview.players[0]!.publicName = hostile;
+      return response(overview);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const host = document.createElement("div");
+  document.body.append(host);
+  await act(async () => {
+    render(<App />, host);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+  await vi.waitFor(() => expect(host.textContent).toContain(hostile));
+  expect(host.querySelector('img[src="x"]')).toBeNull();
+  expect(host.querySelector("img[onerror]")).toBeNull();
+  void act(() => render(null, host));
+});
+
 it("selects runs and requires confirmation before a bulk status change", async () => {
   const { host, fetchMock } = await renderApp();
   await vi.waitFor(() => expect(host.textContent).toContain("#D1234567890"));
