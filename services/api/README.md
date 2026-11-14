@@ -11,7 +11,9 @@ Responsibilities in this release:
 - Sign in with Elixir, the only sign-in since 2026-10-12 (a Drop account is an
   Elixir account; guests play without one), resolved through the
   `ELIXIR#{accountId}` identity pointer;
-- renewable 28-day sliding HMAC bearer sessions;
+- renewable 28-day sliding HMAC bearer sessions, slid only for a profile
+  whose identity has been read from Elixir (`identityFromElixirAt`); any
+  other gets the same session back and it ends at its expiry;
 - player profiles whose name and picture come from Elixir at sign-in (the
   primary player's game name, the profile image set there), CR player tags,
   and cached CR name/clan snapshots;
@@ -280,8 +282,9 @@ read from `GET /api/v1/me` at each Sign in with Elixir by
   characters). No primary, or a name that tidies to nothing: removed, and
   every output shows "Elixir Player".
 - `playerTag` is the primary player's tag, never an alt's. A sign-in with no
-  primary removes it, with its GSI2 keys and `elixirVerified`, and keeps the
-  old value in `legacyIdentity`.
+  primary removes it, with its GSI2 keys and `elixirVerified`, in the same
+  `applyElixirIdentity` write (`clearPlayerTag`), so the first such write
+  keeps the old value in `legacyIdentity`.
 - `favoriteCardId` is the profile image's card id (`avatar.card_id`, or a flat
   `avatar_card_id`). `null`, or a card the catalog does not hold, removes it;
   a `/me` without either field leaves it as it is. `art_url` and `crop` are
@@ -321,6 +324,14 @@ and an apply runs under the production lock:
 AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run migrate:elixir-names --workspace=@elixir-drop/api
 node scripts/production-lock.mjs run --purpose "Elixir name migration" -- env AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run migrate:elixir-names --workspace=@elixir-drop/api -- --apply
 ```
+
+Each script in `src/maintenance/` is an entry point, bundled to one file and
+run. Bundled, every module's "am I the main module" check is true, so a
+script that imports another script runs that one too (the dry run above once
+also ran the avatar export, which printed "--out is required" and exited 1).
+Shared helpers live in a module with no entry point, such as
+`cloud-engineer.ts`; `tests/maintenance-entry-points.test.ts` bundles each
+script and fails if it holds more than its own.
 
 ## No mailing list
 
