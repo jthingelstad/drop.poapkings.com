@@ -66,6 +66,23 @@ describe("season post templates", () => {
     expect(entry.body).not.toMatch(/free pass|prize|winner/i);
   });
 
+  it("shortens long game names in the post so it stays within the word cap", () => {
+    // A Clash Royale name can be 16 one-letter words in 32 characters; five
+    // of them would put the post over the cap and block both season posts.
+    const long = "a b c d e f g h i j k l m n o p";
+    const entry = renderFinalResults(
+      record({
+        leaders: fullBoards.map((leader) => ({ ...leader, publicName: long })),
+      }),
+      AT,
+    );
+    expectWithinLimits(entry);
+    expect(entry.body).toMatch(/Surge: a( [b-p])+… at \*\*11\.720s\*\*\./);
+    expect(entry.body).not.toContain(long);
+    // A name that fits is never shortened.
+    expect(renderFinalResults(record(), AT).body).not.toContain("…");
+  });
+
   it("formats every ranked game the way the boards do", () => {
     expect(seasonPostScore("surge", 9_005)).toBe("9.005s");
     expect(seasonPostScore("trade", 40_000)).toBe("40.000s");
