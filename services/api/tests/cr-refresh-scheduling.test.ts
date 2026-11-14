@@ -153,10 +153,49 @@ describe("Clash Royale refresh scheduling", () => {
     expect(enqueueRefresh).not.toHaveBeenCalled();
   });
   it("queues nothing when a session slides forward", async () => {
-    repository.getProfile.mockResolvedValue(profile);
+    repository.getProfile.mockResolvedValue({
+      ...profile,
+      identityFromElixirAt: "2026-11-14T00:00:00.000Z",
+    });
     const response = await invoke("POST", "/auth/refresh", undefined, true);
     expect(response.statusCode).toBe(200);
     expect(enqueueRefresh).not.toHaveBeenCalled();
+  });
+  it("slides a session forward once the profile's identity has been read from Elixir", async () => {
+    repository.getProfile.mockResolvedValue({
+      ...profile,
+      identityFromElixirAt: "2026-11-14T00:00:00.000Z",
+    });
+    const request = event("POST", "/auth/refresh", undefined, true);
+    const response = (await dispatch(request)) as HttpResponse;
+    expect(response.statusCode).toBe(200);
+    const { session } = JSON.parse(String(response.body)) as {
+      session: { token: string; expiresAt: string };
+    };
+    expect(session.token).not.toBe(
+      request.headers.authorization?.replace("Bearer ", ""),
+    );
+    // A fresh 28-day session.
+    expect(Date.parse(session.expiresAt)).toBeGreaterThan(
+      Date.now() + 27 * 24 * 60 * 60 * 1000,
+    );
+  });
+  it("hands back the same session, unrenewed, for a profile Elixir has not named yet", async () => {
+    // Signed in before identity came from Elixir: its made-up name, picture
+    // and tag last only as long as the session it already holds.
+    repository.getProfile.mockResolvedValue(profile);
+    const request = event("POST", "/auth/refresh", undefined, true);
+    const response = (await dispatch(request)) as HttpResponse;
+    expect(response.statusCode).toBe(200);
+    const { session } = JSON.parse(String(response.body)) as {
+      session: { token: string; expiresAt: string };
+    };
+    expect(session.token).toBe(
+      request.headers.authorization?.replace("Bearer ", ""),
+    );
+    expect(session.expiresAt).toBe(
+      new Date((nowSeconds + 3600) * 1000).toISOString(),
+    );
   });
   it("the retired email sign-in route answers 404 and mails nothing", async () => {
     const response = await invoke("POST", "/auth/request", {

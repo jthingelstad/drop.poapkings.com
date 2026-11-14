@@ -10,6 +10,9 @@ interface StoredSession {
 }
 
 const SESSION_KEY = 'elixirdrop:session:v1'
+// The longest a recorded game lives (Practice, 24 hours): a session that
+// cannot outlast one is ended at load rather than in the middle of a game.
+const SESSION_END_MARGIN_MS = 24 * 60 * 60 * 1000
 
 export const player = signal<Player | null>(null)
 export const recentRuns = signal<RecentRun[]>([])
@@ -80,6 +83,15 @@ async function initializeAccountOnce(): Promise<void> {
   }
   try {
     const refreshed = await refreshLogin(session.token)
+    // The server slides a session only once the profile's identity has been
+    // read from Elixir; otherwise it hands the same session back. One that
+    // could end inside a game started now (Practice lives a day) ends here
+    // instead, at load, as an ordinary sign-out: no game breaks mid-run, and
+    // the next Sign in with Elixir brings the real name and picture.
+    if (new Date(refreshed.session.expiresAt).getTime() - Date.now() <= SESSION_END_MARGIN_MS) {
+      signOut()
+      return
+    }
     saveSession(refreshed.session)
     const response = await getMe(refreshed.session.token)
     player.value = response.player
