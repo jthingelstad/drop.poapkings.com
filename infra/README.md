@@ -31,8 +31,10 @@ as one CloudFormation stack:
   table, projected to an attribute allowlist, and write the
   `/elixir-drop/run-analysis` log group (`docs/FAIR-PLAY.md`, "Run analysis");
   and
-- a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and Bedrock name
-  generation.
+- a least-purpose Lambda runtime role for DynamoDB, SQS, logs, and the share
+  preview bucket. It has no Bedrock grant: Drop makes no model call since the
+  name, picture and tag come from Elixir (2026-11-14), and the `NameModelId`
+  parameter and `NAME_MODEL_ID` variable went with the name generator.
 
 The stack also exports a narrowly scoped leaderboard-maintenance role. The
 `elixir-drop` deploy user may assume it for explicit data repairs; it can scan
@@ -57,10 +59,11 @@ session, or interactive login.
 The private fixed-host Control Room assumes two other roles. The referee role
 remains pseudonymous and writes only `REFEREE#` overlays. The separate
 `elixir-drop-control` account-support role can project an explicit allowlist of
-profile and Clash snapshot fields (including email). Its grant still allows
-an audited public-profile correction with a `CONTROL#PLAYER#` event, but
-since 2026-11-14 nothing uses it: the name, picture and tag come from Elixir,
-and removing the grant is a follow-up. Email is not in its write allowlist, and sign-in links, Elixir identity pointers, sessions,
+profile and Clash snapshot fields (including email) and query the
+`CONTROL#PLAYER#` audit events of corrections made before 2026-11-14. It writes
+nothing: the name, picture and tag come from Elixir, and the public-profile
+correction grant (`TransactWriteItems` on `PLAYER#` and `CONTROL#PLAYER#`) went
+with the profile editor. Sign-in links, Elixir identity pointers, sessions,
 run/evidence bodies, scores, XP, deletes, and secrets are outside the role. (The
 grants Drop's retired Buttondown backfill used went with it on 2026-10-12.)
 
@@ -266,7 +269,7 @@ not yet admit Web Function ARNs; it has no application secrets or data access. T
 queue, DLQ, worker role and Lambda. API requests may send work; only the worker
 consumes it. The worker has table access only: it advances Drop's own season
 clock and season posts, and holds no secret, Elixir URL, sign-in, mail,
-Bedrock, S3 publication or referee-correlation credential.
+S3 publication or referee-correlation credential.
 
 The worker processes one message per invocation with concurrency capped at two.
 FIFO groups serialize the clock and each player; duplicate jobs within five

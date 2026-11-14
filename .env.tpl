@@ -18,6 +18,5 @@ ELIXIR_EMAIL_ADDRESS="op://Otto/Config - drop.poapkings.com/ELIXIR_EMAIL_ADDRESS
 ELIXIR_OAUTH_CLIENT_ID="op://Otto/Config - drop.poapkings.com/ELIXIR_OAUTH_CLIENT_ID"
 FASTMAIL_JMAP_TOKEN="op://Otto/Fastmail JMAP - shared/credential"
 MIRROR_IMAGES="true"
-NAME_MODEL_ID="us.anthropic.claude-haiku-4-5-20251001-v1:0"
 SESSION_SECRET="op://Otto/Session - drop.poapkings.com/credential"
 ELIXIR_OAUTH_CLIENT_SECRET=op://Otto/Elixir OAuth - drop.poapkings.com/credential

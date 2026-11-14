@@ -86,30 +86,21 @@ void describe("deployment parameters", () => {
     }
   });
 
-  void it("uses Claude Haiku to edit player-name candidates by default", () => {
+  void it("never sends the retired name-model parameter", () => {
+    // The name generator went with Elixir identity (2026-11-14). The deployed
+    // stack still stores NameModelId until the next deploy drops it, and an
+    // operator .env may still hold NAME_MODEL_ID; neither may put it back on
+    // the request, or CloudFormation rejects the unknown parameter.
+    assert.doesNotMatch(template, /NameModelId|NAME_MODEL_ID|bedrock/i);
+    const parameters = deploymentParameters({
+      ...base,
+      environment: { NAME_MODEL_ID: "retired-model" },
+      stackExists: true,
+      existingParameterKeys: ["AppUrl", "NameModelId"],
+    });
     assert.equal(
-      parameterDefault("NameModelId"),
-      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    );
-    // Creating a stack without an override falls through to that Default.
-    assert.equal(
-      deploymentParameters({
-        ...base,
-        environment: requiredCreateEnvironment,
-        stackExists: false,
-      }).some((parameter) => parameter.ParameterKey === "NameModelId"),
+      parameters.some((parameter) => parameter.ParameterKey === "NameModelId"),
       false,
-    );
-    assert.deepEqual(
-      deploymentParameters({
-        ...base,
-        environment: { NAME_MODEL_ID: "us.anthropic.claude-other-v1:0" },
-        stackExists: true,
-      }).find((parameter) => parameter.ParameterKey === "NameModelId"),
-      {
-        ParameterKey: "NameModelId",
-        ParameterValue: "us.anthropic.claude-other-v1:0",
-      },
     );
   });
 
@@ -119,12 +110,7 @@ void describe("deployment parameters", () => {
     // origin) on every push to main — the same wipe as omitting the parameter.
     const parameters = deploymentParameters({ ...base, stackExists: true });
 
-    for (const parameterKey of [
-      "AppUrl",
-      "AlarmEmail",
-      "NameModelId",
-      "AllowedOrigins",
-    ]) {
+    for (const parameterKey of ["AppUrl", "AlarmEmail", "AllowedOrigins"]) {
       assert.deepEqual(
         parameters.find((parameter) => parameter.ParameterKey === parameterKey),
         { ParameterKey: parameterKey, UsePreviousValue: true },
@@ -677,21 +663,19 @@ void describe("deployment parameters", () => {
       /Action: dynamodb:Scan[\s\S]*dynamodb:Select: SPECIFIC_ATTRIBUTES/,
     );
     assert.match(controlRole, /- email/);
-    assert.match(controlRole, /Action: dynamodb:TransactWriteItems/);
+    // Earlier corrections stay readable as CONTROL# audit events.
+    assert.match(controlRole, /Action: dynamodb:Query/);
     assert.match(controlRole, /- CONTROL#PLAYER#\*/);
-    // The newsletter backfill's grants retired with it (2026-10-12): the
-    // only write left is the audited public-profile correction.
+    // The newsletter backfill's grants retired with it (2026-10-12), and the
+    // public-profile correction with the profile editor (2026-11-14): the
+    // role writes nothing.
     assert.doesNotMatch(
       controlRole,
-      /dynamodb:(?:DeleteItem|BatchWriteItem|UpdateItem|PutItem)\b/,
+      /dynamodb:(?:DeleteItem|BatchWriteItem|UpdateItem|PutItem|TransactWriteItems)\b/,
     );
     assert.doesNotMatch(
       controlRole,
       /lastSeasonPlayed|CR_WAR_CLOCK|RECRUITER#|- seasonId/,
-    );
-    assert.doesNotMatch(
-      controlRole.match(/dynamodb:TransactWriteItems[\s\S]*$/)?.[0] ?? "",
-      /- email/,
     );
     assert.match(bootstrap, /role\/elixir-drop-control/);
   });
@@ -746,7 +730,7 @@ void describe("parameters added since the last deploy", () => {
       codeKey: "code/api.zip",
       environment: {},
       stackExists: true,
-      existingParameterKeys: ["AppUrl", "NameModelId"],
+      existingParameterKeys: ["AppUrl"],
     });
     const byKey = Object.fromEntries(
       parameters.map((parameter) => [parameter.ParameterKey, parameter]),
