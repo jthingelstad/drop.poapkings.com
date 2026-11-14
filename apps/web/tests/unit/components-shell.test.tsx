@@ -849,4 +849,36 @@ describe('DesktopAside data states', () => {
     host.querySelector<HTMLButtonElement>('.ed-rail-live__row')!.click()
     expect(window.location.hash).toBe('#/players/rival')
   })
+
+  it("puts Elixir's verified mark beside a verified player in the feed, and only there", async () => {
+    apiMock.getActivity.mockReset()
+    const at = new Date().toISOString()
+    apiMock.getActivity.mockResolvedValue({
+      entries: [
+        {
+          mode: 'surge',
+          score: 17_260,
+          achievedAt: at,
+          runCount: 1,
+          player: { id: 'proven', publicName: 'Proven', favoriteCardId: 26000000, accountTags: ['verified'] }
+        },
+        {
+          mode: 'surge',
+          score: 18_000,
+          achievedAt: at,
+          runCount: 1,
+          player: { id: 'unproven', publicName: 'Unproven', favoriteCardId: 26000000 }
+        }
+      ]
+    })
+    player.value = { ...samplePlayer }
+
+    await drawAsync(<DesktopAside />)
+
+    const names = [...host.querySelectorAll('.ed-rail-live__name')]
+    expect(names[0]!.textContent).toContain('Proven')
+    expect(names[0]!.querySelector('.ed-account-tag--verified')).not.toBeNull()
+    expect(names[1]!.textContent).toContain('Unproven')
+    expect(names[1]!.querySelector('.ed-account-tag--verified')).toBeNull()
+  })
 })

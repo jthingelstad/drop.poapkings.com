@@ -126,9 +126,9 @@ export async function applyPolledSession(newSession: StoredSession): Promise<Pla
   return hydrateSession(newSession)
 }
 
-// The name and picture are not updatable here: they come from Elixir at
-// sign-in (2026-11-14), and PATCH /me refuses them.
-export async function updateAccount(updates: { playerTag?: string | null; lastOpenedUpdates?: string }): Promise<void> {
+// The name, picture and player tag are not updatable here: they come from
+// Elixir at sign-in (2026-11-14), and PATCH /me refuses them.
+export async function updateAccount(updates: { lastOpenedUpdates?: string }): Promise<void> {
   if (!session) throw new Error('Sign in to update your player profile.')
   const response = await patchMe(session.token, updates)
   player.value = response.player

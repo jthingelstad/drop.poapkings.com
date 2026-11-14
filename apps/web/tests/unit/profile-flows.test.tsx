@@ -432,7 +432,7 @@ describe('Profile interactive flows', () => {
     expect(container.textContent).not.toContain('Player Card')
     expect(container.querySelector('.ed-idsetup')).toBeNull()
     const edit = byText(container, 'Edit on Elixir')?.closest('a')
-    expect(edit?.getAttribute('href')).toBe('https://elixir.poapkings.com/')
+    expect(edit?.getAttribute('href')).toBe('https://elixir.poapkings.com/settings/profile')
   })
 
   it('shows the stand-in name and the Drop mark for an account Elixir names no one on', async () => {
@@ -468,15 +468,15 @@ describe('Profile interactive flows', () => {
     expect(vi.mocked(api.patchMe)).not.toHaveBeenCalled()
   })
 
-  it('points a signed-in player with no Elixir player to Elixir, and keeps a typed tag as not verified', async () => {
+  it('points a signed-in player with no Elixir player to Elixir to add one, with nothing to type', async () => {
     router.route.value = '/profile?scope=account'
-    await signIn({ playerTag: '#OLD', elixir: elixirLink([]) })
+    await signIn({ elixir: elixirLink([]) })
     await mount()
 
     expect(container.textContent).toContain('Your Elixir account has no Clash Royale player yet.')
-    expect(container.querySelector('a[href="https://elixir.poapkings.com"]')).not.toBeNull()
-    expect(container.textContent).toContain('#OLD')
-    expect(container.textContent).toContain('as not verified')
+    expect(container.querySelector('a[href="https://elixir.poapkings.com/settings/players"]')).not.toBeNull()
+    expect(container.querySelector('input')).toBeNull()
+    expect(byText(container, 'Refresh from Elixir')).toBeTruthy()
     expect(container.querySelector('.ed-elixir__candidate')).toBeNull()
   })
 

@@ -710,15 +710,16 @@ describe('account.ts state machine', () => {
 
   it('updateAccount rejects without a session and patches the player with one', async () => {
     const { account, api } = await load()
-    await expect(account.updateAccount({ playerTag: null })).rejects.toThrow('Sign in')
+    const stamp = '2026-11-14T12:00:00.000Z'
+    await expect(account.updateAccount({ lastOpenedUpdates: stamp })).rejects.toThrow('Sign in')
 
     vi.mocked(api.getMe).mockResolvedValue(meResponse)
     await account.applyPolledSession({ token: 'live', expiresAt: FUTURE() })
-    vi.mocked(api.patchMe).mockResolvedValue({ player: { ...playerFixture, playerTag: undefined } })
+    vi.mocked(api.patchMe).mockResolvedValue({ player: { ...playerFixture, lastOpenedUpdates: stamp } })
 
-    await account.updateAccount({ playerTag: null })
-    expect(account.player.value?.playerTag).toBeUndefined()
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: null })
+    await account.updateAccount({ lastOpenedUpdates: stamp })
+    expect(account.player.value?.lastOpenedUpdates).toBe(stamp)
+    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { lastOpenedUpdates: stamp })
   })
 
   it('refreshAccount signs out and rethrows on a 401', async () => {

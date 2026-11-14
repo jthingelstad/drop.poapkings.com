@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
 import {
+  ELIXIR_RETURN_PATH,
   STANDARD_BADGE_LIST,
   ladderRoutePath,
   ladderRouteState,
@@ -307,15 +308,15 @@ export default function Leaderboards() {
       },
       'tag-required': {
         state: 'Player needed',
-        line: 'Drop shows the primary Clash Royale player on your Elixir account. Add one on Elixir, then sign in again.',
+        line: 'Drop shows the primary Clash Royale player on your Elixir account. Add one on Elixir, then refresh from Elixir on Account.',
         label: 'Open Account',
-        href: '/profile?edit=player-tag'
+        href: ELIXIR_RETURN_PATH
       },
       'profile-missing': {
         state: 'Clan not known yet',
-        line: 'Drop learns your clan when you sign in with Elixir. Sign in with Elixir again, then open Clan.',
+        line: 'Drop learns your clan when it reads your Elixir account. Refresh from Elixir on Account, then open Clan.',
         label: 'Open Account',
-        href: '/profile?edit=player-tag'
+        href: ELIXIR_RETURN_PATH
       },
       'no-clan': {
         state: 'No clan connected',
@@ -368,7 +369,7 @@ export default function Leaderboards() {
               {entries.value.length} {entries.value.length === 1 ? 'clanmate' : 'clanmates'} on Drop
             </small>
           </span>
-          <button class="ed-textlink" onClick={() => navigate('/profile?edit=player-tag')}>
+          <button class="ed-textlink" onClick={() => navigate(ELIXIR_RETURN_PATH)}>
             Account <Icon name="chevron-right" />
           </button>
         </div>
