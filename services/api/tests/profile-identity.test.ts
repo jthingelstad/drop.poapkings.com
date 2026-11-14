@@ -8,7 +8,6 @@ const repository = vi.hoisted(() => ({
   useRateLimit: vi.fn(),
   rankedAccess: vi.fn(async () => "allowed" as const),
 }));
-const generateNameOptions = vi.hoisted(() => vi.fn());
 vi.mock("../src/repository.js", () => ({
   Repository: class {
     getCrProfile = repository.getCrProfile;
@@ -18,10 +17,6 @@ vi.mock("../src/repository.js", () => ({
     rankedAccess = repository.rankedAccess;
   },
 }));
-vi.mock("../src/names.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/names.js")>();
-  return { ...actual, generateNameOptions };
-});
 import { dispatch } from "../src/app.js";
 const secret = "test-session-secret";
 const nowSeconds = Math.floor(Date.now() / 1000);
@@ -39,20 +34,6 @@ const profile = {
 function session(sub = profile.sub) {
   return signToken(
     { type: "session", sub, iat: nowSeconds - 60, exp: nowSeconds + 3600 },
-    secret,
-  );
-}
-function nameToken(overrides: Record<string, unknown> = {}) {
-  return signToken(
-    {
-      type: "names",
-      sub: profile.sub,
-      favoriteCardId: FAVORITE_CARD_ID,
-      names: ["Pancake Patrol", "Mini P Griddle"],
-      iat: nowSeconds - 60,
-      exp: nowSeconds + 900,
-      ...overrides,
-    } as never,
     secret,
   );
 }
@@ -80,14 +61,13 @@ async function invoke(
         code?: string;
         message?: string;
       };
-      names?: string[];
     },
   };
 }
-// A public name is not free text: it is bound by a signed token to one player
-// and one card, and the API is the only thing enforcing that. Each of these is
-// a way a caller could try to slip a name past the binding.
-describe("player identity binding", () => {
+// The name and picture are not Drop's to set (2026-11-14): they come from the
+// person's Elixir account at sign-in. PATCH /me refuses every way a client
+// could still try to set them, and the name generator's route is gone.
+describe("player identity comes from Elixir", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TABLE_NAME = "test-table";
@@ -100,61 +80,20 @@ describe("player identity binding", () => {
     repository.updateProfile.mockResolvedValue(profile);
     repository.getCrProfile.mockResolvedValue(undefined);
   });
-  it("refuses a name token minted for another player", async () => {
-    const result = await invoke("PATCH", "/me", {
+  it.each([
+    { publicName: "Pancake Patrol" },
+    { favoriteCardId: FAVORITE_CARD_ID },
+    { nameToken: "anything" },
+    {
       favoriteCardId: FAVORITE_CARD_ID,
       publicName: "Pancake Patrol",
-      nameToken: nameToken({ sub: "someone-else" }),
-    });
+      nameToken: "anything",
+    },
+  ])("refuses a client setting its own name or picture: %o", async (body) => {
+    const result = await invoke("PATCH", "/me", body);
     expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_player_identity");
+    expect(result.body.error?.code).toBe("identity_from_elixir");
     expect(repository.updateProfile).not.toHaveBeenCalled();
-  });
-  it("refuses a name token issued against a different card", async () => {
-    const result = await invoke("PATCH", "/me", {
-      favoriteCardId: FAVORITE_CARD_ID,
-      publicName: "Pancake Patrol",
-      nameToken: nameToken({ favoriteCardId: 26000000 }),
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_player_identity");
-    expect(repository.updateProfile).not.toHaveBeenCalled();
-  });
-  it("refuses a name that was never one of the offered options", async () => {
-    const result = await invoke("PATCH", "/me", {
-      favoriteCardId: FAVORITE_CARD_ID,
-      publicName: "Definitely Not Offered",
-      nameToken: nameToken(),
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_player_identity");
-    expect(repository.updateProfile).not.toHaveBeenCalled();
-  });
-  it("asks the player to choose again when the options token is unreadable", async () => {
-    const result = await invoke("PATCH", "/me", {
-      favoriteCardId: FAVORITE_CARD_ID,
-      publicName: "Pancake Patrol",
-      nameToken: "not-a-real-token",
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("expired_name_options");
-  });
-  it("refuses an identity change with no signed token at all", async () => {
-    const result = await invoke("PATCH", "/me", {
-      favoriteCardId: FAVORITE_CARD_ID,
-      publicName: "Pancake Patrol",
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_player_identity");
-  });
-  it("refuses a favorite card that is not in the canonical catalog", async () => {
-    const result = await invoke("PATCH", "/me", {
-      favoriteCardId: 1,
-      publicName: "Pancake Patrol",
-      nameToken: nameToken(),
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_player_identity");
   });
   it("answers a mistyped player tag with the validation message", async () => {
     const result = await invoke("PATCH", "/me", { playerTag: "not a tag!" });
@@ -176,31 +115,12 @@ describe("player identity binding", () => {
     expect(result.statusCode).toBe(400);
     expect(repository.updateProfile).not.toHaveBeenCalled();
   });
-  it("will not mint name options for a card that does not exist", async () => {
-    const result = await invoke("POST", "/me/name-options", {
-      favoriteCardId: 999,
-    });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.code).toBe("invalid_favorite_card");
-    expect(generateNameOptions).not.toHaveBeenCalled();
-  });
-  it("mints card-bound options behind the per-player rate limit", async () => {
-    generateNameOptions.mockResolvedValue(["Pancake Patrol", "Mini P Griddle"]);
+  it("the name generator's route is gone", async () => {
     const result = await invoke("POST", "/me/name-options", {
       favoriteCardId: FAVORITE_CARD_ID,
     });
-    expect(result.statusCode).toBe(200);
-    expect(result.body.names).toEqual(["Pancake Patrol", "Mini P Griddle"]);
-    expect(generateNameOptions).toHaveBeenCalledWith(expect.any(String), {
-      id: FAVORITE_CARD_ID,
-      name: "Mini P.E.K.K.A",
-    });
-    expect(repository.useRateLimit).toHaveBeenCalledWith(
-      "names",
-      profile.sub,
-      10,
-      60 * 60,
-    );
+    expect(result.statusCode).toBe(404);
+    expect(repository.useRateLimit).not.toHaveBeenCalled();
   });
   it("rejects a malformed request body before any work happens", async () => {
     const event = {

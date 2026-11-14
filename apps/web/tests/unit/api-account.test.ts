@@ -256,27 +256,17 @@ describe('api.ts request helpers', () => {
     expect(headers.get('authorization')).toBe('Bearer tok')
   })
 
-  it('getNameOptions POSTs the favorite card to /me/name-options', async () => {
-    const fetchMock = stubFetch(json({ favoriteCardId: 26000000, names: ['Ace'], nameToken: 'nt' }))
-    const { getNameOptions } = await import('../../src/lib/api')
-
-    const result = await getNameOptions('tok', 26000000)
-    expect(result.nameToken).toBe('nt')
-    const { url, init } = endpointCall(fetchMock)
-    expect(url).toBe(`${API_BASE}/me/name-options`)
-    expect(JSON.parse(init.body as string)).toEqual({ favoriteCardId: 26000000 })
-  })
-
   it('patchMe PATCHes /me and returns the updated player', async () => {
-    const fetchMock = stubFetch(json({ player: { ...playerFixture, publicName: 'NewName' } }))
+    const stamped = '2026-11-14T12:00:00.000Z'
+    const fetchMock = stubFetch(json({ player: { ...playerFixture, lastOpenedUpdates: stamped } }))
     const { patchMe } = await import('../../src/lib/api')
 
-    const result = await patchMe('tok', { publicName: 'NewName' })
-    expect(result.player.publicName).toBe('NewName')
+    const result = await patchMe('tok', { lastOpenedUpdates: stamped })
+    expect(result.player.lastOpenedUpdates).toBe(stamped)
     const { url, init } = endpointCall(fetchMock)
     expect(url).toBe(`${API_BASE}/me`)
     expect(init.method).toBe('PATCH')
-    expect(JSON.parse(init.body as string)).toEqual({ publicName: 'NewName' })
+    expect(JSON.parse(init.body as string)).toEqual({ lastOpenedUpdates: stamped })
   })
 
   it('deleteMe DELETEs /me with the confirmation', async () => {
@@ -720,15 +710,15 @@ describe('account.ts state machine', () => {
 
   it('updateAccount rejects without a session and patches the player with one', async () => {
     const { account, api } = await load()
-    await expect(account.updateAccount({ publicName: 'X' })).rejects.toThrow('Sign in')
+    await expect(account.updateAccount({ playerTag: null })).rejects.toThrow('Sign in')
 
     vi.mocked(api.getMe).mockResolvedValue(meResponse)
     await account.applyPolledSession({ token: 'live', expiresAt: FUTURE() })
-    vi.mocked(api.patchMe).mockResolvedValue({ player: { ...playerFixture, publicName: 'Renamed' } })
+    vi.mocked(api.patchMe).mockResolvedValue({ player: { ...playerFixture, playerTag: undefined } })
 
-    await account.updateAccount({ publicName: 'Renamed' })
-    expect(account.player.value?.publicName).toBe('Renamed')
-    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { publicName: 'Renamed' })
+    await account.updateAccount({ playerTag: null })
+    expect(account.player.value?.playerTag).toBeUndefined()
+    expect(vi.mocked(api.patchMe)).toHaveBeenCalledWith('live', { playerTag: null })
   })
 
   it('refreshAccount signs out and rethrows on a 401', async () => {
@@ -879,23 +869,5 @@ describe('sign in with Elixir helpers', () => {
       JSON.stringify({ pollId: 'p', returnTo: '', mode: 'sign-in', startedAt: Date.now() - 20 * 60_000 })
     )
     expect(account.pendingElixirLogin()).toBeUndefined()
-  })
-
-  it('selectElixirPlayer calls its route with the session', async () => {
-    const calls: { url: string; init?: RequestInit }[] = []
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-        const url = requestUrl(input)
-        calls.push({ url, init })
-        if (url.endsWith('/api-config.json')) return json({ apiBaseUrl: API_BASE })
-        return json({ player: playerFixture })
-      })
-    )
-    const api = await import('../../src/lib/api')
-    await api.selectElixirPlayer('tok', '#20JJJ2CCRU')
-    const select = calls.find((c) => c.url.endsWith('/me/elixir/select'))!
-    expect(select.init?.method).toBe('POST')
-    expect(JSON.parse(select.init?.body as string)).toEqual({ playerTag: '#20JJJ2CCRU' })
   })
 })

@@ -295,12 +295,6 @@ export const seasonHistoryResponseSchema = z.object({
   seasons: z.array(seasonHistorySchema)
 })
 
-export const nameOptionsResponseSchema = z.object({
-  favoriteCardId: cardId,
-  names: z.array(nonEmptyString).min(1),
-  nameToken: nonEmptyString
-})
-
 export const playerResponseSchema = z.object({
   player: playerSchema,
   badges: z.optional(badgeSummarySchema)

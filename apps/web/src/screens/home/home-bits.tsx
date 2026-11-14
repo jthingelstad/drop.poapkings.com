@@ -18,6 +18,7 @@ import { prepareProfileShare } from '../../lib/share-profile'
 import { track } from '../../lib/analytics'
 import type { HomeGame } from './home-games'
 import { seasonPillLabel, type HomeData } from './home-data'
+import { PUBLIC_NAME_FALLBACK } from '../../lib/display-name'
 
 const HERO_SLIDES = ['Featured game', 'Share Elixir Drop'] as const
 const HERO_SLIDE_COUNT = HERO_SLIDES.length
@@ -167,7 +168,7 @@ export function HomeHeroCarousel({ data, game }: { data: HomeData; game: HomeGam
           <button
             type="button"
             class="ed-hero-carousel__me"
-            aria-label={`${me.publicName} — ${me.xp.toLocaleString()} XP — open You`}
+            aria-label={`${me.publicName || PUBLIC_NAME_FALLBACK} — ${me.xp.toLocaleString()} XP — open You`}
             onClick={() => navigate('/profile')}
           >
             <span class="ed-hero-carousel__xp" aria-hidden="true">

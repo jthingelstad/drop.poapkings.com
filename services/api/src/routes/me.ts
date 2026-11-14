@@ -8,7 +8,6 @@ import {
   badgeStates,
   reconcileBadgeCounters,
 } from "../badges.js";
-import { favoriteCard } from "../cards.js";
 import { publicCrProfile } from "../cr-profile.js";
 import { badRequest, HttpError } from "../errors.js";
 import { hasFirstDropBadge } from "../first-drop.js";
@@ -19,14 +18,8 @@ import {
   costAccuracy,
   weakCardIds,
 } from "../learning.js";
-import { generateNameOptions, isSafeGeneratedName } from "../names.js";
-import { signToken, verifyToken } from "../signing.js";
 import { deletePlayerShareImages } from "../share-assets.js";
-import type {
-  CrProfileSnapshot,
-  NameClaims,
-  RefereeDecision,
-} from "../types.js";
+import type { CrProfileSnapshot, RefereeDecision } from "../types.js";
 import type { Repository } from "../repository.js";
 import { normalizePlayerTag } from "../validation.js";
 import { settleBadgeXp } from "../xp-awards.js";
@@ -41,8 +34,6 @@ import {
   runRecordResponse,
   sessionFor,
 } from "./context.js";
-
-const NAME_OPTIONS_SECONDS = 15 * 60;
 
 // GET /me — the signed-in player's profile, learning summary, and history.
 export async function getMe({ request, config, repository }: RouteContext) {
@@ -561,39 +552,6 @@ export async function getPublicPlayer(
   });
 }
 
-// POST /me/name-options — signed, card-bound player-name choices.
-export async function createNameOptions({
-  request,
-  config,
-  repository,
-}: RouteContext) {
-  const session = sessionFor(request, config.sessionSecret, true);
-  const body = bodyOf(request);
-  const card = favoriteCard(body.favoriteCardId);
-  if (!card)
-    throw new HttpError(
-      400,
-      "Choose a valid favorite card.",
-      "invalid_favorite_card",
-    );
-  await repository.useRateLimit("names", session.sub, 10, 60 * 60);
-  const names = await generateNameOptions(config.nameModelId, card);
-  const nowSeconds = Math.floor(Date.now() / 1_000);
-  const claims: NameClaims = {
-    type: "names",
-    sub: session.sub,
-    favoriteCardId: card.id,
-    names,
-    iat: nowSeconds,
-    exp: nowSeconds + NAME_OPTIONS_SECONDS,
-  };
-  return json(200, {
-    favoriteCardId: card.id,
-    names,
-    nameToken: signToken(claims, config.sessionSecret),
-  });
-}
-
 // DELETE /me — erase the account and everything derived from it.
 export async function deleteMe({ request, config, repository }: RouteContext) {
   const session = sessionFor(request, config.sessionSecret, true);
@@ -617,16 +575,16 @@ export async function deleteMe({ request, config, repository }: RouteContext) {
   return json(200, { ok: true });
 }
 
-// PATCH /me — save the card-bound identity, or clear the player tag. A
-// player tag is never typed in any more (Jamie, 2026-11-12): a signed-in
-// player picks one of their Elixir players (`POST /me/elixir/select`). A tag
-// typed in before stays as it is, and any other tag sent here is refused.
+// PATCH /me — stamp the Updates read time, or clear the player tag. The
+// name and the picture are not Drop's to set any more: they come from the
+// person's Elixir account at sign-in (Jamie, 2026-11-14), so a client that
+// still sends them is told so. The tag is the Elixir account's primary
+// player, written at sign-in; a tag typed in before 2026-11-12 stays until
+// then, and any other tag sent here is refused.
 export async function patchMe({ request, config, repository }: RouteContext) {
   const session = sessionFor(request, config.sessionSecret, true);
   const body = bodyOf(request);
   const updates: {
-    publicName?: string;
-    favoriteCardId?: number;
     clearPlayerTag?: boolean;
     lastOpenedUpdates?: string;
   } = {};
@@ -651,50 +609,21 @@ export async function patchMe({ request, config, repository }: RouteContext) {
       if (tag !== stored?.playerTag)
         throw new HttpError(
           403,
-          "Choose one of the players on your Elixir account.",
+          "Drop shows the primary player on your Elixir account.",
           "player_from_elixir",
         );
     } else updates.clearPlayerTag = true;
   }
-  const changesIdentity =
-    Object.hasOwn(body, "publicName") || Object.hasOwn(body, "favoriteCardId");
-  if (changesIdentity) {
-    const card = favoriteCard(body.favoriteCardId);
-    if (
-      !card ||
-      !isSafeGeneratedName(body.publicName) ||
-      typeof body.nameToken !== "string"
-    ) {
-      throw new HttpError(
-        400,
-        "Choose a favorite card and one of its generated player names.",
-        "invalid_player_identity",
-      );
-    }
-    let nameClaims: NameClaims;
-    try {
-      nameClaims = verifyToken(body.nameToken, "names", config.sessionSecret);
-    } catch {
-      throw new HttpError(
-        400,
-        "Those name choices have expired. Choose your card again.",
-        "expired_name_options",
-      );
-    }
-    if (
-      nameClaims.sub !== session.sub ||
-      nameClaims.favoriteCardId !== card.id ||
-      !nameClaims.names.includes(body.publicName)
-    ) {
-      throw new HttpError(
-        400,
-        "Choose a favorite card and one of its generated player names.",
-        "invalid_player_identity",
-      );
-    }
-    updates.publicName = body.publicName;
-    updates.favoriteCardId = card.id;
-  }
+  if (
+    Object.hasOwn(body, "publicName") ||
+    Object.hasOwn(body, "favoriteCardId") ||
+    Object.hasOwn(body, "nameToken")
+  )
+    throw new HttpError(
+      400,
+      "Your name and picture come from your Elixir account. Change them on Elixir, then sign in again.",
+      "identity_from_elixir",
+    );
   if (!Object.keys(updates).length)
     throw new HttpError(400, "No profile changes were provided.");
   const profile = await repository.updateProfile(session.sub, updates);

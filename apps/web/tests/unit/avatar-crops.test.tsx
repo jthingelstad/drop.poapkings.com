@@ -33,7 +33,7 @@ describe('player avatar crops', () => {
     expect(html).toContain('--avatar-x:33%')
     expect(html).toContain('--avatar-y:43%')
     expect(html).toContain('--avatar-scale:1.28')
-    expect(html).toContain('Inferno Dragon favorite card')
+    expect(html).toContain('Inferno Dragon profile picture')
   })
 
   it('renders the complete canonical catalog in the development audit', async () => {

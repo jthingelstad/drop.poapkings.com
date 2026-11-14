@@ -10,7 +10,6 @@ export interface Config {
   // Shared only by the fixed host and this Lambda. It authorizes the one
   // immediate player-Updates publication route without an AWS login.
   updatesPublishToken?: string;
-  nameModelId: string;
   // Elixir, the issuer of Sign in with Elixir: the only thing Drop asks of
   // it (no-elixir-writes.test.ts pins the URLs).
   elixirMcpBaseUrl: string;
@@ -42,9 +41,6 @@ export function getConfig(): Config {
     appUrl: required("APP_URL").replace(/\/$/, ""),
     updatesPublishToken:
       process.env.ELIXIR_DROP_UPDATES_PUBLISH_TOKEN?.trim() || undefined,
-    nameModelId:
-      process.env.NAME_MODEL_ID?.trim() ||
-      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     elixirMcpBaseUrl: (
       process.env.ELIXIR_MCP_BASE_URL?.trim() || "https://elixir.poapkings.com"
     ).replace(/\/$/, ""),

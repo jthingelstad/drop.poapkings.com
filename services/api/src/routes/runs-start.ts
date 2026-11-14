@@ -49,12 +49,11 @@ export async function startRun({ request, config, repository }: RouteContext) {
   const isGuest = !session;
   if (session) {
     const profile = await repository.getProfile(session.sub);
-    if (!profile?.favoriteCardId || !profile.publicName)
-      throw new HttpError(
-        409,
-        "Choose a favorite card and player name before starting a game.",
-        "profile_setup_required",
-      );
+    // No setup step any more (2026-11-14): the name and picture come from
+    // Elixir, and a signed-in player with neither still plays. Only an
+    // account that is gone (deleted under a live session) is refused.
+    if (!profile)
+      throw new HttpError(401, "Sign in again to play.", "profile_missing");
     if (
       body.mode !== "practice" &&
       (await repository.rankedAccess(profile.playerId)) === "restricted"

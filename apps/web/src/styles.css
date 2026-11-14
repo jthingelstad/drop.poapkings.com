@@ -629,65 +629,6 @@ a {
   padding: 13px 14px;
   font: inherit;
 }
-.favorite-card-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 9px;
-  max-height: 430px;
-  padding: 4px 8px 4px 4px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.favorite-card {
-  display: grid;
-  grid-template-rows: 88px auto;
-  justify-items: center;
-  gap: 7px;
-  min-width: 0;
-  padding: 10px 6px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  background: rgba(7, 6, 16, 0.55);
-  color: var(--ink);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
-}
-.favorite-card:hover {
-  border-color: rgba(245, 200, 76, 0.6);
-  background: rgba(109, 40, 217, 0.18);
-}
-.favorite-card:focus-visible {
-  outline: 3px solid var(--gold);
-  outline-offset: 2px;
-}
-.favorite-card--selected {
-  border-color: var(--gold);
-  background: rgba(245, 200, 76, 0.13);
-  box-shadow: inset 0 0 0 1px var(--gold);
-}
-.favorite-card-empty {
-  grid-column: 1 / -1;
-  padding: 30px;
-  text-align: center;
-}
-.name-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-}
-.name-option {
-  border: 1px solid var(--gold2);
-  border-radius: 999px;
-  background: rgba(245, 200, 76, 0.1);
-  color: var(--gold);
-  padding: 10px 14px;
-  cursor: pointer;
-}
 
 .cr-card-grid {
   display: grid;
@@ -789,9 +730,6 @@ a {
 }
 
 @media (width <= 600px) {
-  .favorite-card-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .cr-card-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -807,9 +745,6 @@ a {
 }
 
 @media (width <= 430px) {
-  .favorite-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .cr-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5725,11 +5660,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
   padding: 2px 6px 1px;
   font-size: 0.62rem;
 }
-.ed-profile__card {
-  color: var(--lavender-2);
-  font-size: 0.78rem;
-  margin-top: 2px;
-}
 .ed-profile__reference {
   margin-top: 4px;
   color: var(--gold);
@@ -9138,140 +9068,6 @@ html.reduce-motion .ed-skeleton__row {
   line-height: 1.4;
 }
 
-/* ── Identity setup (three steps) ─────────────────────────────
-   Card → name → tag, one thing per screen. A fresh player runs the whole flow on
-   first sign-in; Edit and Account reuse the individual steps. */
-.ed-idsetup {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 8px 2px 24px;
-  min-height: 100%;
-}
-.ed-idsetup__top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 40px;
-}
-.ed-idsetup__steps {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.ed-idsetup__stepnum {
-  font-family: var(--font-display);
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.ed-idsetup__bars {
-  display: flex;
-  gap: 6px;
-}
-.ed-idsetup__bar {
-  flex: 1 1 0;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-.ed-idsetup__bar.is-done {
-  background: linear-gradient(90deg, #8b5cf6, #f5c84c);
-}
-.ed-idsetup__step {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.ed-idsetup__h {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 800;
-}
-.ed-idsetup__sub {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.ed-idsetup__fine {
-  margin: 0;
-  color: #7d739f;
-  font-size: 12px;
-}
-.ed-idsetup__noresult {
-  color: var(--muted);
-}
-.ed-idsetup__cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.ed-idsetup__chosen {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.ed-idsetup__names {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.ed-idsetup__names .name-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 13px;
-  border-radius: 12px;
-  border: 1px solid rgba(180, 160, 240, 0.34);
-  background: transparent;
-  color: #e7e0ff;
-  font-weight: 700;
-  cursor: pointer;
-}
-.ed-idsetup__names .name-option--selected {
-  background: linear-gradient(160deg, #8b5cf6, #6d28d9);
-  border-color: transparent;
-  color: #fff;
-}
-.ed-idsetup__more {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.ed-idsetup__tagform {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.ed-idsetup__tagform input {
-  padding: 13px;
-  border-radius: 12px;
-  border: 1px solid rgba(180, 160, 240, 0.34);
-  background: rgba(255, 255, 255, 0.03);
-  color: #fff;
-  font-size: 16px;
-}
-.ed-idsetup__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 6px;
-}
-.ed-idsetup__actions .ed-btn {
-  width: 100%;
-}
-.ed-idsetup__msg {
-  color: #fca5a5;
-  font-size: 13px;
-}
-
 /* ---- Sign in with Elixir --------------------------------------------- */
 .account-elixir {
   margin-top: 18px;
@@ -9298,47 +9094,4 @@ html.reduce-motion .ed-skeleton__row {
   margin-left: 8px;
   color: var(--ink-dim, #bdb4e2);
   font-size: 0.85em;
-}
-.ed-elixir__picker {
-  display: grid;
-  gap: 8px;
-  margin: 10px 0 4px;
-}
-.ed-elixir__candidate {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 12px;
-  background: rgba(139, 92, 246, 0.08);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.ed-elixir__candidate:disabled {
-  cursor: default;
-}
-.ed-elixir__candidate--current {
-  border-color: #f5c84c;
-  box-shadow: inset 2px 0 0 #f5c84c;
-}
-.ed-elixir__candidate-name {
-  font-weight: 700;
-}
-.ed-elixir__candidate-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  color: var(--ink-dim, #bdb4e2);
-  font-size: 0.85em;
-}
-.ed-elixir__candidate-meta .icon {
-  width: 1em;
-  height: 1em;
-  color: #4ade80;
 }

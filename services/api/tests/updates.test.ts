@@ -47,7 +47,6 @@ function context(
       telemetryPepper: "pepper",
       updatesPublishToken: "test-publish-token",
       appUrl: "https://drop.example",
-      nameModelId: "model",
       elixirMcpBaseUrl: "https://elixir.example",
       elixirOAuthClientId: "",
       elixirOAuthClientSecret: "",

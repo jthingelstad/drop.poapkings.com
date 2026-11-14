@@ -124,7 +124,7 @@ test('signing in with Elixir from the login screen returns the player to the req
   await waitForKeypad(page)
 })
 
-test('the player deep link survives sign-in and focuses the player step', { tag: '@deploy' }, async ({ page }) => {
+test('the old player deep link survives sign-in and lands on Account', { tag: '@deploy' }, async ({ page }) => {
   const noTagPlayer = { ...testPlayer, playerTag: undefined, clashRoyale: undefined }
   let startBody: Record<string, unknown> | undefined
   await page.unroute(testApiRoute)
@@ -165,25 +165,28 @@ test('the player deep link survives sign-in and focuses the player step', { tag:
 
   await useSignedOutState(page, '/profile?edit=player-tag')
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()
-  await expect(page).toHaveURL(/#\/login\?returnTo=%2Fprofile%3Fedit%3Dplayer-tag$/)
+  await expect(page).toHaveURL(/#\/login\?returnTo=%2Fprofile%3Fscope%3Daccount$/)
 
   await page.getByRole('button', { name: 'Sign in with Elixir', exact: true }).click()
   // Under the full mobile matrix the tap can settle before the routed request
   // handler records its body. Assert the request outcome, not that scheduling
   // happens synchronously with Playwright's click promise.
-  await expect.poll(() => startBody).toEqual({ returnTo: '/profile?edit=player-tag' })
+  await expect.poll(() => startBody).toEqual({ returnTo: '/profile?scope=account' })
 
-  await expect(page).toHaveURL(/#\/profile\?edit=player-tag$/)
-  const step = page.getByRole('heading', { level: 2, name: 'Choose your Clash Royale player' })
-  await expect(step).toBeVisible()
-  await expect(step).toBeFocused()
+  // There is no player to choose any more (2026-11-14): the old link opens
+  // Account, where the Elixir block says where the name and picture come from.
+  await expect(page).toHaveURL(/#\/profile\?scope=account$/)
+  await expect(page.getByRole('tab', { name: 'Account' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('.ed-elixir')).toBeVisible()
+  await expect(page.locator('.ed-elixir__candidate')).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
 })
 
-test('new players choose a favorite card and generated name before returning to a game', async ({ page }) => {
-  const newPlayer = { ...testPlayer, publicName: undefined, favoriteCardId: undefined, totalGames: 0 }
-  const configuredPlayer = { ...newPlayer, publicName: 'Knight Main', favoriteCardId: 26000000 }
-  let savedIdentity: Record<string, unknown> | undefined
+test('a new player goes straight back to the game with the name and picture Elixir gave', async ({ page }) => {
+  // The name and picture arrive with the sign-in (2026-11-14): no card step,
+  // no name ideas, no player picker, and nothing for Drop to save.
+  const newPlayer = { ...testPlayer, publicName: 'Sample Primary', favoriteCardId: 26000000, totalGames: 0 }
+  let patched = false
 
   await page.unroute(testApiRoute)
   await page.route(testApiRoute, async (route) => {
@@ -201,27 +204,11 @@ test('new players choose a favorite card and generated name before returning to 
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ player: savedIdentity ? configuredPlayer : newPlayer, recentRuns: [] })
+        body: JSON.stringify({ player: newPlayer, recentRuns: [] })
       })
       return
     }
-    if (path === '/me/name-options') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ favoriteCardId: 26000000, names: ['Knight Main'], nameToken: 'name-token' })
-      })
-      return
-    }
-    if (path === '/me' && request.method() === 'PATCH') {
-      savedIdentity = request.postDataJSON() as Record<string, unknown>
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ player: configuredPlayer })
-      })
-      return
-    }
+    if (path === '/me' && request.method() === 'PATCH') patched = true
     if (await fulfillTestRun(route)) return
     if (await fulfillSupportData(route)) return
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
@@ -229,35 +216,9 @@ test('new players choose a favorite card and generated name before returning to 
 
   await page.goto('/?signedOut=1#/auth?token=abcdefghijklmnopqrstuvwxyz123456&returnTo=%2Fsurge')
   await page.getByRole('button', { name: 'Continue to Drop' }).click()
-  await expect(page).toHaveURL(/#\/profile\?returnTo=%2Fsurge$/)
-  // Identity setup (redesign) is three steps; it opens at step 1 (the card).
-  await expect(page.getByText('Step 1 of 3')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 1, name: 'You' })).toHaveCount(1)
-  await expect(page.getByRole('heading', { level: 2, name: 'Choose your Player Card' })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'Clash Royale player tag' })).toHaveCount(0)
-  const primary = page.locator('.ed-idsetup__actions .ed-btn--gold')
-  // CONTINUE is disabled until a card is chosen.
-  await expect(primary).toBeDisabled()
-
-  // Step 1: narrow to the Knight (the grid caps at 60), choose it, then CONTINUE.
-  await page.getByPlaceholder('Search cards').fill('Knight')
-  await page.locator('.favorite-card-grid').getByRole('button', { name: 'Knight', exact: true }).click()
-  await primary.click()
-
-  // Step 2: pick the generated name, then CONTINUE saves the card + name.
-  await page.locator('.name-option', { hasText: 'Knight Main' }).click()
-  await primary.click()
-
-  // Step 3: skip the tag → return to the pending game.
-  await expect(page.getByText('Step 3 of 3')).toBeVisible()
-  await page.getByRole('button', { name: /Skip/ }).click()
-
   await expect(page).toHaveURL(/#\/surge$/)
-  await expect
-    .poll(() => savedIdentity)
-    .toEqual({ favoriteCardId: 26000000, publicName: 'Knight Main', nameToken: 'name-token' })
-  // With the identity saved, the requested game opens and auto-starts.
   await waitForKeypad(page)
+  expect(patched).toBe(false)
 })
 
 test('a temporary authentication outage keeps the saved login', async ({ page }) => {

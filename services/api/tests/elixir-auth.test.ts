@@ -8,10 +8,10 @@ import {
   buildLink,
   elixirCallback,
   elixirClientFor,
-  selectElixirPlayer,
   startElixirLogin,
 } from "../src/routes/elixir-auth.js";
 import type { ElixirBindOutcome } from "../src/repository.js";
+import type { ElixirIdentity } from "../src/elixir-identity.js";
 import type { ElixirLink, PlayerProfile } from "../src/types.js";
 import type { RouteContext } from "../src/routes/context.js";
 import { issueSession } from "../src/routes/context.js";
@@ -23,7 +23,6 @@ const config = {
   sessionSecret: "secret",
   telemetryPepper: "pepper",
   appUrl: "https://drop.test",
-  nameModelId: "m",
   elixirMcpBaseUrl: "https://elixir.test",
   elixirOAuthClientId: "client123",
 } as RouteContext["config"];
@@ -56,6 +55,8 @@ function fakeElixir(script: {
   kind?: string;
   email?: string;
   players?: Record<string, unknown>[];
+  // Anything else /me carries (the profile image, 2026-11-14).
+  me?: Record<string, unknown>;
   userinfoStatus?: number;
 }) {
   const calls: string[] = [];
@@ -122,6 +123,7 @@ function fakeElixir(script: {
         data: {
           principal: { kind: script.kind ?? "person" },
           players: script.players ?? [],
+          ...script.me,
         },
       });
     }
@@ -148,6 +150,7 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
   const logins = new Map<string, Record<string, unknown>>();
   const magic: Record<string, unknown>[] = [];
   const pending = new Map<string, ElixirLink>();
+  const pendingIdentity = new Map<string, ElixirIdentity | undefined>();
   const pendingExpiry = new Map<string, number>();
   const refreshes: string[] = [];
   // ELIXIR#<accountId> -> Drop sub
@@ -160,6 +163,7 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
     profiles,
     magic,
     pending,
+    pendingIdentity,
     pendingExpiry,
     refreshes,
     pointers,
@@ -208,9 +212,36 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       sub: string,
       link: ElixirLink,
       expiresAt: number,
+      identity?: ElixirIdentity,
     ) {
       pending.set(sub, link);
+      pendingIdentity.set(sub, identity);
       pendingExpiry.set(sub, expiresAt);
+    },
+    // The same writes as the repository's one update.
+    async applyElixirIdentity(
+      sub: string,
+      identity: ElixirIdentity,
+      before?: PlayerProfile,
+    ) {
+      const next: PlayerProfile = {
+        ...must(sub),
+        identityFromElixirAt: "now",
+      };
+      if (before && !before.identityFromElixirAt && !next.legacyIdentity)
+        next.legacyIdentity = {
+          ...(before.publicName ? { publicName: before.publicName } : {}),
+          ...(before.favoriteCardId !== undefined
+            ? { favoriteCardId: before.favoriteCardId }
+            : {}),
+        };
+      if (identity.primaryName) next.publicName = identity.primaryName;
+      else delete next.publicName;
+      if (identity.avatarCardId === null) delete next.favoriteCardId;
+      else if (identity.avatarCardId !== undefined)
+        next.favoriteCardId = identity.avatarCardId;
+      profiles[sub] = next;
+      return next;
     },
     async saveProvenMagicLink(
       tokenHash: string,
@@ -434,11 +465,11 @@ describe("sign in with Elixir", () => {
       updatedAt: repo.must(sub).elixir?.checkedAt,
     });
   });
-  it("callback with more than one self player lands on the picker, and a Drop tag not on Elixir stays as it is, unverified", async () => {
+  it("callback with an alt beside the primary: the primary is Drop's player, over a hand-typed tag, and there is no picker", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
-    const fake = fakeElixir({ players: [KING, ALT] });
-    const { state } = await start(repo, fake);
+    const fake = fakeElixir({ players: [ALT, KING] });
+    const { state } = await start(repo, fake, undefined, "/surge");
     const res = await elixirCallback(
       {
         request: event("GET", "/auth/elixir/callback", {
@@ -453,45 +484,17 @@ describe("sign in with Elixir", () => {
     expect(fake.calls).toEqual(["token", "me", "userinfo"]);
     const link = repo.must(sub).elixir!;
     expect(link.candidates.map((c) => c.playerTag)).toEqual([
-      "#20JJJ2CCRU",
       "#2PYQ0C",
+      "#20JJJ2CCRU",
     ]);
-    // The hand-typed tag is kept; nothing is chosen over it.
-    expect(link.playerTag).toBeUndefined();
-    expect(repo.must(sub).playerTag).toBe("#2PP");
-    expect(link.verified).toBe(false);
-    expect(repo.must(sub).elixirVerified).toBe(false);
-    // More than one candidate: the person is shown the picker.
+    expect(link.playerTag).toBe("#20JJJ2CCRU");
+    expect(repo.must(sub).playerTag).toBe("#20JJJ2CCRU");
+    expect(repo.must(sub).elixirVerified).toBe(true);
+    // The primary player's name, never the alt's.
+    expect(repo.must(sub).publicName).toBe("King Thing");
+    // No choice to make: the person goes where they were going.
     expect(String(res.headers?.location)).toContain(
-      encodeURIComponent("/profile?scope=account"),
-    );
-  });
-  it("callback: a hand-typed tag beside one Elixir player is kept, never replaced by it", async () => {
-    const sub = emailSubject("jamie@example.com");
-    const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
-    const fake = fakeElixir({ players: [KING] });
-    const { state } = await start(repo, fake);
-    const res = await elixirCallback(
-      {
-        request: event("GET", "/auth/elixir/callback", {
-          query: { code: "c", state },
-        }),
-        config,
-        repository: repo as never,
-      },
-      fake.client,
-    );
-    expect(res.statusCode).toBe(303);
-    const link = repo.must(sub).elixir!;
-    expect(link.playerTag).toBeUndefined();
-    expect(link.candidates.map((c) => c.playerTag)).toEqual(["#20JJJ2CCRU"]);
-    expect(repo.must(sub).playerTag).toBe("#2PP");
-    // Drop reads nothing for a typed tag, and stores nothing for a player
-    // the person has not chosen.
-    expect(repo.crProfiles.size).toBe(0);
-    // There is a choice to offer, so the person lands on the picker.
-    expect(String(res.headers?.location)).toContain(
-      encodeURIComponent("/profile?scope=account"),
+      `returnTo=${encodeURIComponent("/surge")}`,
     );
   });
   it("callback: a hand-typed tag and no Elixir players goes where the person was going", async () => {
@@ -812,95 +815,6 @@ describe("sign in with Elixir", () => {
     });
     expect(repo.magic[0]).not.toHaveProperty("recruiterSub");
   });
-  it("select: only a candidate can be chosen; the choice becomes the Drop tag and the mark follows verification", async () => {
-    const sub = emailSubject("jamie@example.com");
-    const link = buildLink({
-      accountId: "elixir-acct-1",
-      players: [
-        {
-          playerTag: "#20JJJ2CCRU",
-          name: "King Thing",
-          relationship: "primary",
-          isPrimary: true,
-          verified: true,
-        },
-        {
-          playerTag: "#2PYQ0C",
-          name: "Sample Alt",
-          relationship: "alt",
-          isPrimary: false,
-          verified: false,
-        },
-      ],
-      now: "2026-09-12T20:00:00.000Z",
-    });
-    expect(link.playerTag).toBeUndefined();
-    const repo = fakeRepository({ [sub]: profile(sub, { elixir: link }) });
-    const bearer = issueSession(
-      sub,
-      config.sessionSecret,
-      Math.floor(Date.now() / 1000),
-    ).token;
-    await expect(
-      selectElixirPlayer({
-        request: event("POST", "/me/elixir/select", {
-          bearer,
-          body: { playerTag: "#9LCQ2" },
-        }),
-        config,
-        repository: repo as never,
-      }),
-    ).rejects.toMatchObject({ statusCode: 403 });
-    const res = await selectElixirPlayer({
-      request: event("POST", "/me/elixir/select", {
-        bearer,
-        body: { playerTag: "20jjj2ccru" },
-      }),
-      config,
-      repository: repo as never,
-    });
-    const body = JSON.parse(String(res.body)) as {
-      player: {
-        playerTag: string;
-        accountTags?: string[];
-        elixir: {
-          verified: boolean;
-        };
-      };
-    };
-    expect(body.player.playerTag).toBe("#20JJJ2CCRU");
-    expect(body.player.elixir.verified).toBe(true);
-    expect(body.player.accountTags).toEqual(["verified"]);
-    // Choosing stores the name as the last sign-in listed it, and the
-    // response shows it without waiting for anything.
-    expect(repo.crProfiles.get("#20JJJ2CCRU")).toMatchObject({
-      status: "ready",
-      name: "King Thing",
-      fetchedAt: "2026-09-12T20:00:00.000Z",
-    });
-    expect(
-      (body.player as unknown as { clashRoyale?: { status: string } })
-        .clashRoyale?.status,
-    ).toBe("ready");
-    const alt = await selectElixirPlayer({
-      request: event("POST", "/me/elixir/select", {
-        bearer,
-        body: { playerTag: "#2PYQ0C" },
-      }),
-      config,
-      repository: repo as never,
-    });
-    const altBody = JSON.parse(String(alt.body)) as {
-      player: {
-        accountTags?: string[];
-        elixir: {
-          verified: boolean;
-        };
-      };
-    };
-    expect(altBody.player.elixir.verified).toBe(false);
-    expect(altBody.player.accountTags).toBeUndefined();
-  });
   it("buildLink keeps a previous choice and its verifiedAt while it is still theirs", () => {
     const previous = buildLink({
       accountId: "e",
@@ -945,6 +859,103 @@ describe("sign in with Elixir", () => {
     });
     expect(gone.playerTag).toBeUndefined();
     expect(gone.verified).toBe(false);
+  });
+});
+// What Drop shows for a signed-in person comes from their Elixir account
+// (2026-11-14): the verified primary player's name and the profile image.
+describe("the name and picture come from Elixir", () => {
+  async function signIn(
+    repo: ReturnType<typeof fakeRepository>,
+    fake: ReturnType<typeof fakeElixir>,
+  ) {
+    const { state } = await start(repo, fake);
+    return elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+  }
+  const AVATAR = {
+    card_id: 28000000,
+    art_url: "https://elixir.test/cards/fireball.png",
+    crop: { x: 0.5, y: 0.4, scale: 1.6 },
+  };
+  it("replaces the made-up name and Player Card, and keeps them once for an undo", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub) });
+    await signIn(repo, fakeElixir({ players: [KING], me: { avatar: AVATAR } }));
+    expect(repo.must(sub).publicName).toBe("King Thing");
+    expect(repo.must(sub).favoriteCardId).toBe(28000000);
+    expect(repo.must(sub).legacyIdentity).toEqual({
+      publicName: "Builder",
+      favoriteCardId: 26000000,
+    });
+    expect(publicProfile(repo.must(sub)).publicName).toBe("King Thing");
+    // A later sign-in never overwrites the kept identity.
+    await signIn(
+      repo,
+      fakeElixir({
+        players: [KING],
+        me: { avatar: { ...AVATAR, card_id: 26000000 } },
+      }),
+    );
+    expect(repo.must(sub).favoriteCardId).toBe(26000000);
+    expect(repo.must(sub).legacyIdentity).toEqual({
+      publicName: "Builder",
+      favoriteCardId: 26000000,
+    });
+  });
+  it("keeps the picture when /me does not carry one yet, and clears it when Elixir says there is none", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub) });
+    await signIn(repo, fakeElixir({ players: [KING] }));
+    expect(repo.must(sub).favoriteCardId).toBe(26000000);
+    await signIn(repo, fakeElixir({ players: [KING], me: { avatar: null } }));
+    expect(repo.must(sub).favoriteCardId).toBeUndefined();
+    // A card Drop's catalog does not hold is no picture, not a broken one.
+    await signIn(
+      repo,
+      fakeElixir({
+        players: [KING],
+        me: { avatar: { ...AVATAR, card_id: 1 } },
+      }),
+    );
+    expect(repo.must(sub).favoriteCardId).toBeUndefined();
+  });
+  it("shows no name for an unverified primary or an alt-only account: the fallback, never the alt's", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub) });
+    await signIn(
+      repo,
+      fakeElixir({ players: [{ ...KING, claim_status: "unverified" }] }),
+    );
+    expect(repo.must(sub).publicName).toBeUndefined();
+    expect(publicProfile(repo.must(sub)).publicName).toBe("Elixir Player");
+    await signIn(repo, fakeElixir({ players: [ALT, FRIEND] }));
+    expect(repo.must(sub).publicName).toBeUndefined();
+  });
+  it("carries the name and picture to the redemption for a new account", async () => {
+    const repo = fakeRepository();
+    await signIn(repo, fakeElixir({ players: [KING], me: { avatar: AVATAR } }));
+    const sub = emailSubject("jamie@example.com");
+    expect(repo.pendingIdentity.get(sub)).toEqual({
+      primaryName: "King Thing",
+      avatarCardId: 28000000,
+    });
+  });
+  it("leaves a profile bound to another Elixir account exactly as it is", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [sub]: profile(sub, { elixirAccountId: "someone-else" }),
+    });
+    await signIn(repo, fakeElixir({ players: [KING], me: { avatar: AVATAR } }));
+    expect(repo.must(sub).publicName).toBe("Builder");
+    expect(repo.must(sub).favoriteCardId).toBe(26000000);
   });
 });
 describe("the token request's client secret", () => {

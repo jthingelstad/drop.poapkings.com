@@ -80,10 +80,18 @@ export async function redeemMagicLink({
         requestId: request.requestId,
         outcome: bound,
       });
-    else if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
-      login.profile = await repository.updateProfile(sub, {
-        playerTag: pending.playerTag,
-      });
+    else {
+      if (pending.playerTag && login.profile.playerTag !== pending.playerTag)
+        login.profile = await repository.updateProfile(sub, {
+          playerTag: pending.playerTag,
+        });
+      // The name and picture Elixir named at the callback (2026-11-14).
+      login.profile = await repository.applyElixirIdentity(
+        sub,
+        pendingItem.identity ?? {},
+        login.profile,
+      );
+    }
     await repository.clearPendingElixirLink(sub, pendingItem.pendingId);
   }
   if (recruiterSub) await repository.attachRecruiter(sub, recruiterSub);

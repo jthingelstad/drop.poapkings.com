@@ -704,7 +704,7 @@ test('public profiles omit the First Drop tile when that player did not earn it'
   await expect(page.getByText('First Drop', { exact: true })).toHaveCount(0)
 })
 
-test('a player chosen from Elixir shows the name and clan from the sign-in read', async ({ page }, testInfo) => {
+test('the primary player from Elixir shows the name and clan from the sign-in read', async ({ page }, testInfo) => {
   await page.unroute(testApiRoute)
   await page.unroute('**/api-config.json')
   await page.route('**/api-config.json', (route) =>
@@ -730,12 +730,25 @@ test('a player chosen from Elixir shows the name and clan from the sign-in read'
       linkedAt: '2026-09-12T18:00:00.000Z',
       checkedAt: '2026-09-12T18:00:00.000Z',
       verified: false,
+      playerTag: '#20JJJ2CCRU',
+      playerName: 'King Thing',
       candidates: [{ playerTag: '#20JJJ2CCRU', name: 'King Thing', relationship: 'primary', verified: true }]
     }
   }
   const session = { token: 'session-token', expiresAt: '2099-01-01T00:00:00.000Z' }
-  let saved = false
   let patched = false
+  const signedIn = {
+    ...basePlayer,
+    playerTag: '#20JJJ2CCRU',
+    // The sign-in read recorded the primary player's snapshot; nothing polls.
+    clashRoyale: {
+      tag: '#20JJJ2CCRU',
+      status: 'ready',
+      name: 'King Thing',
+      clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', role: 'leader' },
+      fetchedAt: '2026-09-12T18:00:00.000Z'
+    }
+  }
   await page.route(testApiRoute, async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname === '/auth/refresh') {
@@ -747,49 +760,11 @@ test('a player chosen from Elixir shows the name and clan from the sign-in read'
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
       return
     }
-    if (url.pathname === '/me/elixir/select' && route.request().method() === 'POST') {
-      saved = true
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          player: {
-            ...basePlayer,
-            playerTag: '#20JJJ2CCRU',
-            // The API records the snapshot from the sign-in read as the
-            // player is chosen, so it answers ready at once; nothing polls.
-            clashRoyale: {
-              tag: '#20JJJ2CCRU',
-              status: 'ready',
-              name: 'King Thing',
-              clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', role: 'leader' },
-              fetchedAt: '2026-09-12T18:00:00.000Z'
-            }
-          }
-        })
-      })
-      return
-    }
     if (url.pathname === '/me') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          player: saved
-            ? {
-                ...basePlayer,
-                playerTag: '#20JJJ2CCRU',
-                clashRoyale: {
-                  tag: '#20JJJ2CCRU',
-                  status: 'ready',
-                  name: 'King Thing',
-                  clan: { tag: '#J2RGCRVG', name: 'POAP KINGS', role: 'leader' },
-                  fetchedAt: '2026-09-12T18:00:00.000Z'
-                }
-              }
-            : basePlayer,
-          recentRuns: []
-        })
+        body: JSON.stringify({ player: signedIn, recentRuns: [] })
       })
       return
     }
@@ -800,15 +775,13 @@ test('a player chosen from Elixir shows the name and clan from the sign-in read'
     localStorage.setItem('elixirdrop:session:v1', JSON.stringify(storedSession))
   }, session)
 
-  // Choosing a player opens step 3 of the identity flow (Account routes here).
+  // The old choose-a-player link opens Account: there is nothing to choose.
   // There is no field to type a tag into: the player comes from Elixir.
   await page.goto('/#/profile?edit=player-tag')
-  await expect(page.getByRole('heading', { name: 'Choose your Clash Royale player' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/profile\?scope=account$/)
   await expect(page.getByRole('textbox')).toHaveCount(0)
-  await page.getByRole('button', { name: /King Thing/ }).click()
+  await expect(page.locator('.ed-elixir__candidate')).toHaveCount(0)
   expect(patched).toBe(false)
-  // Back on the You view, the resolved CR profile renders in Account.
-  await page.getByRole('tab', { name: 'Account' }).click()
 
   // The Clash Royale block is clan name + tag only — no role, no collection.
   const account = page.locator('.ed-account')

@@ -28,7 +28,7 @@ export default function BadgeCelebration() {
   if (!views.length) return null
   const view = views[0]
   const current = player.value
-  const canShare = Boolean(current?.id && current.publicName)
+  const canShare = Boolean(current?.id)
 
   return (
     <div class="badge-celebrate" role="dialog" aria-modal="true" aria-label={`${view.name} earned`}>

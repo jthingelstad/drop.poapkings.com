@@ -36,6 +36,7 @@ import type { HttpResponse } from "../http.js";
 import { ELIXIR_RETURN_PATH } from "@elixir-drop/contracts";
 import { ElixirOAuthClient, pkcePair, randomState } from "../elixir-oauth.js";
 import type { ElixirFailure, ElixirSelfPlayer } from "../elixir-oauth.js";
+import { primaryPlayer } from "../elixir-identity.js";
 import { recordCrProfileFromElixir } from "../cr-profile.js";
 import { HttpError } from "../errors.js";
 import { json } from "../http.js";
@@ -47,7 +48,6 @@ import {
   emailSubject,
   normalizeAuthReturnPath,
   normalizeEmail,
-  normalizePlayerTag,
 } from "../validation.js";
 import {
   bodyOf,
@@ -268,9 +268,17 @@ export async function elixirCallback(
     if (bound !== "bound") return failTo(config.appUrl, bound);
     if (link.playerTag && link.playerTag !== target.playerTag)
       await repository.updateProfile(sub, { playerTag: link.playerTag });
+    // What Drop shows for them, from the same read (2026-11-14): the
+    // verified primary player's name and the profile image set in Elixir.
+    await repository.applyElixirIdentity(sub, players.identity, target);
   } else if (!target) {
     // It lives as long as the credential that will apply it.
-    await repository.savePendingElixirLink(sub, link, credentialExpiresAt);
+    await repository.savePendingElixirLink(
+      sub,
+      link,
+      credentialExpiresAt,
+      players.identity,
+    );
   }
   // The chosen player's name and clan, from the same read that proved the
   // player is theirs. This is the only time Drop learns them (2026-11-13).
@@ -294,15 +302,13 @@ export async function elixirCallback(
     pollId: login.pollId,
     ...(recruiterSub ? { recruiterSub } : {}),
   });
-  // Land on the picker when there is a choice to make or something to say
-  // (no player at all: Account points to Elixir); otherwise where the
-  // person was going. A tag typed into Drop before 2026-11-12 that is not
-  // on the Elixir account is kept, so it needs no attention by itself.
+  // Land on Account's Elixir section only when there is something to say
+  // (no player at all: it points to Elixir); otherwise where the person was
+  // going. There is no choice to make any more: Drop shows the primary
+  // player (2026-11-14). A tag typed into Drop before 2026-11-12 on an
+  // account with no primary player is kept, so it needs no attention.
   const keptTag = !link.playerTag && Boolean(target?.playerTag);
-  const needsAttention =
-    bindable &&
-    (link.candidates.length > 1 ||
-      (!link.playerTag && (link.candidates.length > 0 || !keptTag)));
+  const needsAttention = bindable && !link.playerTag && !keptTag;
   const returnTo = needsAttention ? ELIXIR_RETURN_PATH : login.returnTo;
   return redirect(
     `${config.appUrl}/#/auth?token=${encodeURIComponent(magicToken)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}&via=elixir`,
@@ -325,17 +331,14 @@ export function buildLink(input: {
     ...(p.clanTag && p.clanName ? { clanName: p.clanName } : {}),
     ...(p.clanTag && p.clanRole ? { clanRole: p.clanRole } : {}),
   }));
-  // The Drop tag when it is one of their players. A tag typed into Drop by
-  // hand that is not stays exactly as it is, unverified (Jamie, 2026-11-12),
-  // until the person picks one of theirs: nothing is chosen over it. With
-  // no Drop tag, the previous choice if it is still theirs, else a lone
-  // player chooses itself, else the person chooses.
+  // The account's primary player, never an alt (Jamie, 2026-11-14: Drop
+  // shows the primary player's name, so the tag beside it is the same
+  // player). With no primary player, a tag already on Drop that is one of
+  // theirs stays, and a tag typed by hand before 2026-11-12 that is not stays
+  // exactly as it is, unverified: nothing is chosen over it.
   const still = (tag?: string) =>
     tag ? candidates.find((c) => c.playerTag === tag) : undefined;
-  const chosen = input.currentTag
-    ? still(input.currentTag)
-    : (still(input.previous?.playerTag) ??
-      (candidates.length === 1 ? candidates[0] : undefined));
+  const chosen = primaryPlayer(candidates) ?? still(input.currentTag);
   return {
     accountId: input.accountId,
     linkedAt: input.previous?.linkedAt ?? input.now,
@@ -359,75 +362,6 @@ export function buildLink(input: {
       : {}),
     candidates,
   };
-}
-// POST /me/elixir/select — choose which of your Elixir players Drop shows.
-// Only a candidate from the last Elixir sign-in can be chosen; the choice
-// becomes Drop's playerTag through the ordinary tag-save path.
-export async function selectElixirPlayer({
-  request,
-  config,
-  repository,
-}: RouteContext) {
-  const session = sessionFor(request, config.sessionSecret, true);
-  const body = bodyOf(request);
-  let tag: string | undefined;
-  try {
-    tag = normalizePlayerTag(body.playerTag);
-  } catch {
-    tag = undefined;
-  }
-  if (!tag) throw new HttpError(400, "Choose one of your Elixir players.");
-  const profile = await repository.getProfile(session.sub);
-  if (!profile?.elixir)
-    throw new HttpError(
-      409,
-      "Sign in with Elixir first, then choose a player.",
-      "elixir_not_connected",
-    );
-  const chosen = profile.elixir.candidates.find((c) => c.playerTag === tag);
-  if (!chosen)
-    throw new HttpError(
-      403,
-      "That player is not one of yours on Elixir. Sign in with Elixir again to refresh the list.",
-      "not_your_player",
-    );
-  const now = new Date().toISOString();
-  const link: ElixirLink = {
-    ...profile.elixir,
-    playerTag: chosen.playerTag,
-    ...(chosen.name ? { playerName: chosen.name } : {}),
-    verified: chosen.verified,
-    ...(chosen.verified
-      ? {
-          verifiedAt:
-            profile.elixir.playerTag === chosen.playerTag &&
-            profile.elixir.verifiedAt
-              ? profile.elixir.verifiedAt
-              : now,
-        }
-      : {}),
-  };
-  await repository.setElixirLink(session.sub, link);
-  let updated: PlayerProfile = { ...profile, elixir: link };
-  if (profile.playerTag !== chosen.playerTag) {
-    updated = await repository.updateProfile(session.sub, {
-      playerTag: chosen.playerTag,
-    });
-  }
-  // Name and clan as of the sign-in that listed this player; the next Sign
-  // in with Elixir brings them up to date.
-  await recordCrProfileFromElixir(repository, chosen, profile.elixir.checkedAt);
-  const crProfile = updated.playerTag
-    ? await repository.getCrProfile(updated.playerTag)
-    : undefined;
-  const rankedAccess = await repository.rankedAccess(profile.playerId);
-  return json(200, {
-    player: profileResponse(
-      { ...updated, elixir: link, elixirVerified: link.verified },
-      crProfile,
-      rankedAccess,
-    ),
-  });
 }
 // DELETE /me/elixir — clear the connection's display: the tag stays; the
 // mark and the player list go. The account's Elixir identity (the pointer

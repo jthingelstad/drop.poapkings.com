@@ -6,8 +6,7 @@ import AccountTags from '../../src/components/AccountTags'
 import ElixirConnection from '../../src/components/ElixirConnection'
 
 const accountMock = vi.hoisted(() => ({
-  beginElixirLogin: vi.fn(async () => undefined),
-  chooseElixirPlayer: vi.fn(async () => undefined)
+  beginElixirLogin: vi.fn(async () => undefined)
 }))
 
 vi.mock('../../src/lib/account', () => accountMock)
@@ -48,7 +47,6 @@ beforeEach(() => {
   host = document.createElement('div')
   document.body.append(host)
   accountMock.beginElixirLogin.mockClear()
-  accountMock.chooseElixirPlayer.mockClear()
 })
 
 afterEach(() => {
@@ -59,7 +57,7 @@ afterEach(() => {
 describe('ElixirConnection', () => {
   it('offers a check with Elixir before any player is read, and starts the flow toward Account', async () => {
     draw(<ElixirConnection player={base} />)
-    expect(host.textContent).toContain('No player chosen yet')
+    expect(host.textContent).toContain('Not checked with Elixir yet')
     expect(host.textContent).toContain('Your Drop account is your Elixir account')
     const button = host.querySelector('button')!
     expect(button.textContent).toContain('Check with Elixir')
@@ -91,52 +89,49 @@ describe('ElixirConnection', () => {
     expect(host.textContent).toContain('Re-check with Elixir')
   })
 
-  it('asks for a choice when more than one player is offered, and picks by tag', async () => {
+  it("never offers a picker, even with an alt on the account; the name and picture are Elixir's", () => {
     draw(
       <ElixirConnection
         player={{
           ...base,
+          playerTag: KING.playerTag,
           elixir: {
             linkedAt: '2026-09-12T18:00:00.000Z',
             checkedAt: '2026-09-12T18:00:00.000Z',
-            verified: false,
+            playerTag: KING.playerTag,
+            playerName: 'King Thing',
+            verified: true,
             candidates: [KING, ALT]
           }
         }}
       />
     )
-    expect(host.textContent).toContain('Choose the player Drop shows')
-    const candidates = [...host.querySelectorAll<HTMLButtonElement>('.ed-elixir__candidate')]
-    expect(candidates.map((c) => c.textContent)).toEqual([
-      expect.stringContaining('King Thing'),
-      expect.stringContaining('Sample Alt')
-    ])
-    expect(candidates[0]!.textContent).toContain('verified')
-    expect(candidates[1]!.textContent).toContain('not verified')
-    await click(candidates[1]!)
-    expect(accountMock.chooseElixirPlayer).toHaveBeenCalledWith('#2PYQ0C')
+    expect(host.querySelector('.ed-elixir__picker')).toBeNull()
+    expect(host.querySelector('.ed-elixir__candidate')).toBeNull()
+    expect(host.textContent).not.toContain('Sample Alt')
+    expect(host.textContent).toContain('Your name and picture come from your Elixir account')
+    expect(host.querySelector('a[href="https://elixir.poapkings.com/"]')).not.toBeNull()
   })
 
-  it('an unverified choice points at Elixir → Verify; there is no disconnect', async () => {
+  it('an unverified primary points at Elixir → Verify; there is no disconnect', async () => {
     draw(
       <ElixirConnection
         player={{
           ...base,
-          playerTag: ALT.playerTag,
+          playerTag: KING.playerTag,
           elixir: {
             linkedAt: '2026-09-12T18:00:00.000Z',
             checkedAt: '2026-09-12T18:00:00.000Z',
-            playerTag: ALT.playerTag,
+            playerTag: KING.playerTag,
             verified: false,
-            candidates: [KING, ALT]
+            candidates: [{ ...KING, verified: false }]
           }
         }}
       />
     )
     expect(host.querySelector('a[href="https://elixir.poapkings.com/console/account/verify"]')).not.toBeNull()
     expect(host.textContent).not.toContain('would not add')
-    const current = host.querySelector<HTMLButtonElement>('.ed-elixir__candidate--current')!
-    expect(current.disabled).toBe(true)
+    expect(host.querySelector('.ed-elixir__unverified')).not.toBeNull()
     expect([...host.querySelectorAll('button')].some((b) => /disconnect/i.test(b.textContent ?? ''))).toBe(false)
   })
 
@@ -156,7 +151,7 @@ describe('ElixirConnection', () => {
       />
     )
     expect(host.textContent).toContain(
-      'Your Elixir account has no Clash Royale player yet. Add one at elixir.poapkings.com, then sign in with Elixir again to choose it here.'
+      'Your Elixir account has no Clash Royale player yet. Add one at elixir.poapkings.com, then sign in with Elixir again.'
     )
     expect(host.querySelector('a[href="https://elixir.poapkings.com"]')).not.toBeNull()
     expect(host.textContent).toContain('Drop keeps the tag you typed in before, #2PP, as not verified.')

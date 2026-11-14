@@ -7,6 +7,7 @@ import { emailSubject } from "../src/validation.js";
 const repository = vi.hoisted(() => ({
   attachRecruiter: vi.fn(),
   bindElixirAccount: vi.fn(),
+  applyElixirIdentity: vi.fn(),
   creditRecruiter: vi.fn(),
   completeRun: vi.fn(),
   consumeMagicLink: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("../src/repository.js", () => ({
   Repository: class {
     attachRecruiter = repository.attachRecruiter;
     bindElixirAccount = repository.bindElixirAccount;
+    applyElixirIdentity = repository.applyElixirIdentity;
     creditRecruiter = repository.creditRecruiter;
     completeRun = repository.completeRun;
     consumeMagicLink = repository.consumeMagicLink;
@@ -230,10 +232,12 @@ describe("Clash Royale refresh scheduling", () => {
     });
     repository.peekPendingElixirLink.mockResolvedValueOnce({
       link,
+      identity: { primaryName: "Sample Primary", avatarCardId: 26000000 },
       pendingId: "pending-1",
     });
     repository.bindElixirAccount.mockResolvedValueOnce("bound");
     repository.updateProfile.mockResolvedValue(profile);
+    repository.applyElixirIdentity.mockResolvedValue(profile);
     const response = await invoke("POST", "/auth/redeem", {
       token: "a".repeat(32),
     });
@@ -260,6 +264,12 @@ describe("Clash Royale refresh scheduling", () => {
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
       playerTag: "#2PYQ0",
     });
+    // The name and picture the callback read from Elixir (2026-11-14).
+    expect(repository.applyElixirIdentity).toHaveBeenCalledWith(
+      profile.sub,
+      { primaryName: "Sample Primary", avatarCardId: 26000000 },
+      profile,
+    );
   });
   it("a failed binding fails the redemption and keeps the credential and pending link for the retry", async () => {
     const link = {
@@ -422,37 +432,6 @@ describe("Clash Royale refresh scheduling", () => {
       clearPlayerTag: true,
     });
     expect(enqueueRefresh).not.toHaveBeenCalled();
-  });
-  it("accepts a safe signed card-inspired name without the exact card title", async () => {
-    const favoriteCardId = 26000018;
-    const publicName = "Pancake Patrol";
-    const nameToken = signToken(
-      {
-        type: "names",
-        sub: profile.sub,
-        favoriteCardId,
-        names: [publicName, "Mini P Griddle"],
-        iat: nowSeconds - 60,
-        exp: nowSeconds + 900,
-      },
-      secret,
-    );
-    repository.updateProfile.mockResolvedValue({
-      ...profile,
-      favoriteCardId,
-      publicName,
-    });
-    const response = await invoke(
-      "PATCH",
-      "/me",
-      { favoriteCardId, publicName, nameToken },
-      true,
-    );
-    expect(response.statusCode).toBe(200);
-    expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
-      favoriteCardId,
-      publicName,
-    });
   });
   it("records a new-season game without reading or refreshing CR identity", async () => {
     // Drop's own newsletter was the one consumer of the cached snapshot on

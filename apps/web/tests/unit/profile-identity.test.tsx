@@ -21,8 +21,8 @@ afterEach(() => {
   accountStatus.value = 'anonymous'
 })
 
-describe('favorite-card identity', () => {
-  it('shows the saved card as the player profile image', async () => {
+describe('identity from Elixir', () => {
+  it('shows the Elixir name and picture', async () => {
     accountStatus.value = 'authenticated'
     player.value = {
       ...basePlayer,
@@ -34,29 +34,24 @@ describe('favorite-card identity', () => {
     const html = await renderToStringAsync(<Profile />)
 
     expect(html).toContain('Knight Main')
-    expect(html).toContain('Knight · Player Card')
-    expect(html).toContain('Knight favorite card')
+    expect(html).not.toContain('Player Card')
+    expect(html).toContain('Knight profile picture')
     expect(html).toContain('Elixir Drop developer')
     expect(html).toContain('DEV')
-    // The profile view offers an Edit action into the identity editor.
-    expect(html).toContain('ed-profile__edit')
+    // Edit leaves for Elixir: Drop has no identity editor (2026-11-14).
+    expect(html).toContain('Edit on Elixir')
   })
 
-  it('prompts a legacy profile to choose from the canonical cards', async () => {
+  it('has no setup for a profile without a name or picture', async () => {
     accountStatus.value = 'authenticated'
     player.value = basePlayer
 
-    // No favorite card yet → setup opens at step 1 (card), card before name.
     const html = await renderToStringAsync(<Profile />)
 
-    expect(html).toContain('Step 1 of 3')
-    expect(html).toContain('Choose your Player Card')
-    expect(html).toContain('Search cards')
-    expect(html).toContain('aria-label="Choose your favorite card"')
-    expect(html).toContain('Knight')
-    // Card before name: the name and tag steps are not on the first screen.
+    expect(html).toContain('Elixir Player')
+    expect(html).not.toContain('Step 1 of 3')
+    expect(html).not.toContain('Search cards')
     expect(html).not.toContain('name-option')
-    expect(html).not.toContain('aria-label="Clash Royale player tag"')
   })
 
   it('syncs a returning player that arrives after the profile mounts', async () => {
@@ -74,8 +69,7 @@ describe('favorite-card identity', () => {
     accountStatus.value = 'authenticated'
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    // Sync ran → the player has a favorite card, so the view (not the editor) shows.
-    expect(container.textContent).toContain('Knight · Player Card')
+    expect(container.textContent).toContain('Knight Main')
     expect(container.querySelector('input[placeholder="Search cards"]')).toBeNull()
     expect(container.querySelector('.ed-profile__edit')).not.toBeNull()
 

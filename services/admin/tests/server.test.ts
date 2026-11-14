@@ -338,6 +338,8 @@ it("maps a profile correction to the separate audited account command", async ()
       Origin: base,
       "X-Drop-Admin-CSRF": overview.csrfToken,
     },
+    // A name or picture sent here is not forwarded: they come from the
+    // player's Elixir account (2026-11-14).
     body: JSON.stringify({
       publicName: "Knight Main",
       favoriteCardId: 26000000,
@@ -354,8 +356,6 @@ it("maps a profile correction to the separate audited account command", async ()
   expect(
     JSON.parse(Buffer.from(String(encoded), "base64url").toString("utf8")),
   ).toEqual({
-    publicName: "Knight Main",
-    favoriteCardId: 26000000,
     playerTag: "#2PYQ0",
     reason: "Correcting the linked player profile.",
     operator: "local-development",

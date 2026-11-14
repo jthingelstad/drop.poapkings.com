@@ -307,14 +307,14 @@ export default function Leaderboards() {
       },
       'tag-required': {
         state: 'Player needed',
-        line: 'Choose a Clash Royale player from your Elixir account so Drop can find your current clan.',
-        label: 'Choose player',
+        line: 'Drop shows the primary Clash Royale player on your Elixir account. Add one on Elixir, then sign in again.',
+        label: 'Open Account',
         href: '/profile?edit=player-tag'
       },
       'profile-missing': {
         state: 'Clan not known yet',
         line: 'Drop learns your clan when you sign in with Elixir. Sign in with Elixir again, then open Clan.',
-        label: 'Choose player',
+        label: 'Open Account',
         href: '/profile?edit=player-tag'
       },
       'no-clan': {
@@ -369,7 +369,7 @@ export default function Leaderboards() {
             </small>
           </span>
           <button class="ed-textlink" onClick={() => navigate('/profile?edit=player-tag')}>
-            Change <Icon name="chevron-right" />
+            Account <Icon name="chevron-right" />
           </button>
         </div>
       )}

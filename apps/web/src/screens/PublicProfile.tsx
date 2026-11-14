@@ -6,7 +6,6 @@ import BadgeGrid from '../components/BadgeGrid'
 import Icon from '../components/Icon'
 import PlayerAvatar from '../components/PlayerAvatar'
 import { ApiError, getPublicPlayer, type PublicPlayer as PublicPlayerData, type RecentRun } from '../lib/api'
-import { challengeCard } from '../lib/challenge-cards'
 import ModeIcon from '../components/ModeIcon'
 import { gameDisplay, scoreLabel } from '../lib/game-metadata'
 import {
@@ -86,7 +85,6 @@ export default function PublicProfile() {
     )
   }
 
-  const favorite = current.favoriteCardId ? challengeCard(current.favoriteCardId) : undefined
   const badgeCount = earnedCount(badgeViews(publicBadges.value))
   const clashRoyale = 'clashRoyale' in current ? current.clashRoyale : undefined
 
@@ -104,7 +102,6 @@ export default function PublicProfile() {
               <span>{current.publicName}</span>
               <AccountTags tags={current.accountTags} />
             </h1>
-            <div class="ed-profile__card">{favorite ? `${favorite.name} · Player Card` : 'Drop Player'}</div>
             <div class="ed-profile__reference" aria-label={`Player tag ${playerReference(current.id)}`}>
               Player {playerReference(current.id)}
             </div>

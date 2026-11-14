@@ -726,7 +726,7 @@ describe('DesktopNav', () => {
     const shortcut = host.querySelector<HTMLButtonElement>('.ed-desktop__me')!
     expect(shortcut.getAttribute('aria-label')).toBe('Knight Main — 60 XP — open You')
     expect(shortcut.querySelector('.ed-desktop__xp')?.textContent).toBe('60 XP')
-    expect(shortcut.querySelector('.player-avatar img')?.getAttribute('alt')).toBe('Knight favorite card')
+    expect(shortcut.querySelector('.player-avatar img')?.getAttribute('alt')).toBe('Knight profile picture')
 
     shortcut.click()
     expect(window.location.hash).toBe('#/profile')

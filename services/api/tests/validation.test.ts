@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GAME_MODES } from "@elixir-drop/contracts";
 import { favoriteCard } from "../src/cards.js";
-import { isSafeGeneratedName } from "../src/names.js";
 import {
   normalizeAuthReturnPath,
   normalizeEmail,
@@ -70,28 +69,6 @@ describe("player input validation", () => {
   // must be returnable, and a retired one must stop being.
   it.each(GAME_MODES)("carries every shipped mode home: %s", (mode) => {
     expect(normalizeAuthReturnPath(`/${mode}`)).toBe(`/${mode}`);
-  });
-
-  it("allows creative card-inspired names without requiring the exact title", () => {
-    expect(isSafeGeneratedName("Skarmy Picnic")).toBe(true);
-    expect(isSafeGeneratedName("Mini P Pancakes")).toBe(true);
-    expect(isSafeGeneratedName("Pancake Patrol")).toBe(true);
-    expect(isSafeGeneratedName("Bone Parade")).toBe(true);
-  });
-
-  it("rejects unsafe, identifying, or impersonating generated names", () => {
-    for (const name of [
-      "Supercell Support",
-      "Goblin Admin",
-      "Skarmy@home",
-      "https Pekka",
-      "Mini P   Party",
-      "DefinitelyShitty",
-      "Midladder Menace",
-      "P2W Pekka",
-    ]) {
-      expect(isSafeGeneratedName(name)).toBe(false);
-    }
   });
 
   it("only accepts cards in the canonical catalog", () => {

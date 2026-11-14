@@ -111,9 +111,9 @@ export default function Login() {
           )}
         </div>
         <p class="account-privacy">
-          Choose which of your players Drop shows, and a player Elixir has verified gets the same checkmark here. Your
-          email stays private and is used for sign-in plus occasional Drop release news. Your chosen player name,
-          favorite card, scores, and optional public Clash Royale tag appear in Drop.{' '}
+          Drop shows the primary Clash Royale player on your Elixir account, by its game name, and the profile picture
+          you set in Elixir; a player Elixir has verified gets the same checkmark here. Your email stays private and is
+          used for sign-in. That name, picture, your scores, and your player's Clash Royale tag appear in Drop.{' '}
           <a class="text-link" href="/privacy/">
             Privacy details
           </a>
