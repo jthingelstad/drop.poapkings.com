@@ -20,8 +20,16 @@ import { client } from "../dynamo.js";
 // drawn as a CSS crop of the card's base art. That method has moved into
 // Elixir, which keeps one card per account (`account.avatar_card_id`) and
 // imports Drop's choices once, never over a choice made in Elixir. This
-// script lists `{ elixirAccountId, favoriteCardId }` for every Drop profile
-// that has both, for that import.
+// script writes that import's input for every Drop profile that has both an
+// Elixir account and a card, exactly as Elixir's `avatar_import` op takes it
+// (elixir-mcp `services/migrate/src/ops-avatar-import.mjs`, which refuses
+// unknown keys):
+//
+//   {"avatar_import": {"pairs": [{"account_id": "<uuid>", "card_id": 26000000}]}}
+//
+// With no `apply` key it is the op's dry run; Elixir adds `apply: true` when
+// it sets them. At most 5000 pairs, the op's limit; more is refused here
+// before anything is written.
 //
 // Read only: one Scan of the base table's PLAYER#/PROFILE rows, projecting
 // the two fields and the key. It writes nothing to DynamoDB and takes no
@@ -34,6 +42,9 @@ import { client } from "../dynamo.js";
 // `avatar_card_id` is its `card.card_id`, the same Clash Royale id. A card
 // Drop's own catalog does not hold is left out and counted; Elixir checks
 // its catalog again when it imports.
+
+/** Elixir's `avatar_import` takes at most this many pairs. */
+export const MAX_PAIRS = 5000;
 //
 // The file holds account ids and card ids only: no address, name, player
 // tag, Drop sub or player id. It is written where the operator names
@@ -57,9 +68,10 @@ export interface AvatarProfileRow {
   favoriteCardId?: unknown;
 }
 
+/** One pair of Elixir's `avatar_import`, in its field names. */
 export interface AvatarExportEntry {
-  elixirAccountId: string;
-  favoriteCardId: number;
+  account_id: string;
+  card_id: number;
 }
 
 export type AvatarExportSkip =
@@ -70,7 +82,7 @@ export type AvatarExportSkip =
   | "account_on_two_profiles";
 
 export interface AvatarExportPlan {
-  avatars: AvatarExportEntry[];
+  pairs: AvatarExportEntry[];
   skipped: Record<AvatarExportSkip, number>;
 }
 
@@ -183,35 +195,34 @@ export function planAvatarExport(
       continue;
     }
     const entries = byAccount.get(accountId) ?? [];
-    entries.push({ elixirAccountId: accountId, favoriteCardId: card.id });
+    entries.push({ account_id: accountId, card_id: card.id });
     byAccount.set(accountId, entries);
   }
-  const avatars: AvatarExportEntry[] = [];
+  const pairs: AvatarExportEntry[] = [];
   for (const entries of byAccount.values()) {
     // One Elixir account opens one Drop account, so two rows for one
     // account is a defect to look at, not a choice to guess between.
     const [only, ...others] = entries;
-    if (only && others.length === 0) avatars.push(only);
+    if (only && others.length === 0) pairs.push(only);
     else skipped.account_on_two_profiles += entries.length;
   }
-  avatars.sort((left, right) =>
-    left.elixirAccountId.localeCompare(right.elixirAccountId),
-  );
-  return { avatars, skipped };
+  pairs.sort((left, right) => left.account_id.localeCompare(right.account_id));
+  return { pairs, skipped };
 }
 
-export function avatarExportDocument(
-  plan: AvatarExportPlan,
-  generatedAt: Date,
-) {
-  return {
-    kind: "drop-profile-images",
-    version: 1,
-    generatedAt: generatedAt.toISOString(),
-    cardIds: "clash-royale",
-    count: plan.avatars.length,
-    avatars: plan.avatars,
-  };
+/** The file: exactly the body Elixir's `avatar_import` op takes, and
+ *  nothing beside it (the op refuses unknown keys). Refused when there is
+ *  nothing to import or more than the op accepts. */
+export function avatarImportBody(plan: AvatarExportPlan): {
+  avatar_import: { pairs: AvatarExportEntry[] };
+} {
+  if (plan.pairs.length === 0)
+    throw new Error("No profile has both an Elixir account and a card");
+  if (plan.pairs.length > MAX_PAIRS)
+    throw new Error(
+      `${plan.pairs.length} pairs is more than Elixir's avatar_import takes (${MAX_PAIRS}); nothing was written`,
+    );
+  return { avatar_import: { pairs: plan.pairs } };
 }
 
 async function* scanProfiles(tableName: string) {
@@ -265,18 +276,18 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   for await (const profile of scanProfiles(args.tableName))
     profiles.push(profile);
   const plan = planAvatarExport(profiles);
-  await writeFile(
-    out,
-    `${JSON.stringify(avatarExportDocument(plan, new Date()), null, 2)}\n`,
-    { mode: 0o600, flag: "wx" },
-  );
+  const body = avatarImportBody(plan);
+  await writeFile(out, `${JSON.stringify(body, null, 2)}\n`, {
+    mode: 0o600,
+    flag: "wx",
+  });
   process.stdout.write(
     `${JSON.stringify(
       {
         status: "written",
         table: args.tableName,
         profiles: profiles.length,
-        exported: plan.avatars.length,
+        pairs: plan.pairs.length,
         skipped: plan.skipped,
       },
       null,
