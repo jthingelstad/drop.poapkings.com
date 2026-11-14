@@ -436,28 +436,6 @@ export function createAdminServer(options: AdminServerOptions): Server {
         return json(response, 200, mergePlayerAccount(player, account));
       }
 
-      const profileMatch = url.pathname.match(
-        /^\/api\/players\/([^/]+)\/profile$/,
-      );
-      if (request.method === "POST" && profileMatch?.[1]) {
-        const playerId = identifier(decodeURIComponent(profileMatch[1]));
-        const input = await body(request);
-        const patch = {
-          ...(Object.hasOwn(input, "playerTag")
-            ? { playerTag: input.playerTag }
-            : {}),
-          reason: stringField(input.reason, "reason", 8, 1_000),
-          operator,
-        };
-        const account = await runAccount("control-player-update.mjs", [
-          playerId,
-          "--patch",
-          Buffer.from(JSON.stringify(patch)).toString("base64url"),
-        ]);
-        const player = await run("referee-player.mjs", [playerId]);
-        return json(response, 200, mergePlayerAccount(player, account));
-      }
-
       const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
       if (request.method === "GET" && runMatch?.[1])
         return json(

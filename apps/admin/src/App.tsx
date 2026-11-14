@@ -10,7 +10,6 @@ import {
   getUpdates,
   publishUpdate,
   setRankedAccess,
-  updatePlayerProfile,
 } from "./api";
 import type {
   BulkDecisionResult,
@@ -401,12 +400,6 @@ export default function App() {
               setPlayerDetail(await setRankedAccess(selectedPlayerId, body));
               await refresh();
             }}
-            onProfile={async (body) => {
-              setPlayerDetail(
-                await updatePlayerProfile(selectedPlayerId, body),
-              );
-              await refresh();
-            }}
           />
         ) : (
           <WorkspaceEmpty />
@@ -693,7 +686,6 @@ function PlayerWorkspace({
   onDecide,
   onBulkDecide,
   onAccess,
-  onProfile,
 }: {
   detail: PlayerDetail | null;
   summary?: PlayerSummary;
@@ -711,7 +703,6 @@ function PlayerWorkspace({
     status: "allowed" | "restricted";
     reason: string;
   }) => Promise<void>;
-  onProfile: (body: { playerTag?: string; reason: string }) => Promise<void>;
 }) {
   const [tab, setTab] = useState<WorkspaceTab>("runs");
   const name = scalar(
@@ -784,11 +775,7 @@ function PlayerWorkspace({
           onBulkDecide={onBulkDecide}
         />
       ) : tab === "profile" ? (
-        <ProfilePanel
-          detail={detail}
-          onAccess={onAccess}
-          onProfile={onProfile}
-        />
+        <ProfilePanel detail={detail} onAccess={onAccess} />
       ) : (
         <BadgesPanel detail={detail} />
       )}
@@ -1334,16 +1321,13 @@ function Filter({
 function ProfilePanel({
   detail,
   onAccess,
-  onProfile,
 }: {
   detail: PlayerDetail;
   onAccess: (body: {
     status: "allowed" | "restricted";
     reason: string;
   }) => Promise<void>;
-  onProfile: (body: { playerTag?: string; reason: string }) => Promise<void>;
 }) {
-  const [editing, setEditing] = useState(false);
   const account = detail.account;
   const clash = detail.clashRoyale;
   return (
@@ -1354,12 +1338,6 @@ function ProfilePanel({
             <span class="cr-eyebrow">Drop account</span>
             <h3>Identity & access</h3>
           </div>
-          <button
-            class="cr-button cr-button--ghost"
-            onClick={() => setEditing(!editing)}
-          >
-            {editing ? "Cancel" : "Edit profile"}
-          </button>
         </header>
         <dl class="cr-detail-grid">
           <Detail label="Email" value={account.email} copy />
@@ -1380,14 +1358,10 @@ function ProfilePanel({
         <p class="cr-help">
           Email is the authentication key and is intentionally read-only.
           Changing it safely requires an account migration, not a profile edit.
+          The name, picture and Clash Royale player come from the player's
+          Elixir account at each sign-in, so they are corrected there; the
+          Control Room changes none of them.
         </p>
-        {editing && (
-          <EditProfileForm
-            detail={detail}
-            onSave={onProfile}
-            onDone={() => setEditing(false)}
-          />
-        )}
       </section>
 
       <section class="cr-profile-card">
@@ -1449,7 +1423,8 @@ function ProfilePanel({
           </div>
         ) : (
           <p class="cr-help">
-            No Control Room profile corrections have been made.
+            No Control Room profile corrections were made before the player's
+            identity moved to Elixir.
           </p>
         )}
       </section>
@@ -1479,74 +1454,6 @@ function Detail({
         )}
       </dd>
     </div>
-  );
-}
-
-function EditProfileForm({
-  detail,
-  onSave,
-  onDone,
-}: {
-  detail: PlayerDetail;
-  onSave: (body: { playerTag?: string; reason: string }) => Promise<void>;
-  onDone: () => void;
-}) {
-  const [playerTag, setPlayerTag] = useState(detail.account.playerTag ?? "");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  return (
-    <form
-      class="cr-edit-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setBusy(true);
-        setMessage("");
-        const body = { playerTag, reason };
-        void onSave(body)
-          .then(() => {
-            setMessage("Profile correction saved and audited.");
-            onDone();
-          })
-          .catch((error) =>
-            setMessage(
-              error instanceof Error ? error.message : "Profile update failed.",
-            ),
-          )
-          .finally(() => setBusy(false));
-      }}
-    >
-      <div class="cr-edit-form__row">
-        <label>
-          Clash player tag
-          <input
-            value={playerTag}
-            maxLength={16}
-            onInput={(event) => setPlayerTag(event.currentTarget.value)}
-            placeholder="#PLAYER"
-          />
-        </label>
-      </div>
-      <p class="cr-form-message">
-        The name and picture come from the player's Elixir account at each
-        sign-in, so they are corrected there, not here.
-      </p>
-      <label>
-        Audit reason
-        <textarea
-          required
-          minLength={8}
-          maxLength={1000}
-          value={reason}
-          onInput={(event) => setReason(event.currentTarget.value)}
-          placeholder="Why this correction is needed"
-        />
-      </label>
-      <button class="cr-button" disabled={busy || reason.trim().length < 8}>
-        {busy ? "Saving…" : "Save audited correction"}
-      </button>
-      {message && <p class="cr-form-message">{message}</p>}
-    </form>
   );
 }
 

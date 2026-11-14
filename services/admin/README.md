@@ -22,12 +22,15 @@ Three deliberately separate capabilities feed it:
   sanctioned `scripts/referee-*.mjs` under `referee-read`, preserving their
   pseudonymous output, validation, immutable decision history, and reversible
   overlays.
-- Account details and audited public-profile corrections invoke only
-  `services/admin/scripts/control-*.mjs` under `drop-control`. That role may read
-  email/profile/CR snapshot fields and atomically update the unverified Clash
-  tag with an immutable `CONTROL#` audit event. The name and picture come from
-  Elixir (2026-11-14) and cannot be edited here. Email is visible but cannot be
-  edited.
+- Account details invoke only `services/admin/scripts/control-*.mjs` under
+  `drop-control`, and only to read: email/profile/CR snapshot fields and the
+  `CONTROL#` audit events of corrections made before 2026-11-14. Nothing about
+  who a player is can be edited here. The name, the picture and the Clash
+  Royale player tag all come from the player's Elixir account at each sign-in,
+  so a correction belongs on Elixir. Email is visible but cannot be edited.
+  The role still holds the `TransactWriteItems` grant the retired tag
+  correction used; removing it is an infrastructure change for a later pull
+  request.
 - Player Updates invoke `scripts/player-updates.mjs`. The CLI reads a
   dedicated bearer token from the repository's mode-0600 `.env` and calls the
   API directly, so the Control Room needs no AWS session for this action. It
