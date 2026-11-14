@@ -900,6 +900,49 @@ describe("repository conditional writes", () => {
     expect(third.UpdateExpression).toContain("REMOVE #card");
   });
 
+  it("writes the migration's identity: no name, no picture, the typed tag gone, all kept once", async () => {
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+    await new Repository("test-table").applyElixirIdentity(
+      "player-sub",
+      { avatarCardId: null },
+      {
+        publicName: "Pancake Patrol",
+        favoriteCardId: 26000018,
+        playerTag: "#2PYQ0C",
+      },
+      { firstTimeOnly: true, clearPlayerTag: true },
+    );
+    const update = send.mock.calls[0]?.[0].input;
+    expect(update.ConditionExpression).toBe(
+      "attribute_exists(pk) AND attribute_not_exists(#from)",
+    );
+    expect(update.ExpressionAttributeValues[":legacy"]).toEqual({
+      publicName: "Pancake Patrol",
+      favoriteCardId: 26000018,
+      playerTag: "#2PYQ0C",
+    });
+    expect(update.UpdateExpression).toContain(
+      "REMOVE #publicName, #playerTag, #gsi2pk, #gsi2sk, #elixirVerified, #card",
+    );
+
+    // A tag the migration keeps is neither removed nor copied.
+    send.mockResolvedValueOnce({ Attributes: { sub: "player-sub" } });
+    await new Repository("test-table").applyElixirIdentity(
+      "player-sub",
+      { primaryName: "Sample Primary", avatarCardId: null },
+      { publicName: "Pancake Patrol", playerTag: "#20JJJ2CCRU" },
+      { firstTimeOnly: true, clearPlayerTag: false },
+    );
+    const kept = send.mock.calls[1]?.[0].input;
+    expect(kept.UpdateExpression).not.toContain("#playerTag");
+    expect(kept.ExpressionAttributeValues[":legacy"]).toEqual({
+      publicName: "Pancake Patrol",
+    });
+    expect(kept.ExpressionAttributeValues[":publicName"]).toBe(
+      "Sample Primary",
+    );
+  });
+
   it("skips the cluster keys when the profile has no playerId yet", async () => {
     send
       .mockResolvedValueOnce({ Item: {} })

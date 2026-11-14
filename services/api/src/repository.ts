@@ -1024,20 +1024,22 @@ export class Repository {
   }
 
   // What Drop shows for a signed-in person, from their Elixir account
-  // (elixir-identity.ts): the verified primary player's name, or none, and
-  // the profile image's card when Elixir says. The first time, the made-up
-  // name and Player Card the profile had are kept in `legacyIdentity`, never
-  // overwritten, so the change can be undone.
+  // (elixir-identity.ts): the primary player's name, or none, and the
+  // profile image's card when Elixir says. The first time, the made-up name
+  // and Player Card the profile had (and a tag the migration clears) are kept
+  // in `legacyIdentity`, never overwritten, so the change can be undone.
   async applyElixirIdentity(
     sub: string,
     identity: ElixirIdentity,
     before?: Pick<
       PlayerProfile,
-      "publicName" | "favoriteCardId" | "identityFromElixirAt"
+      "publicName" | "favoriteCardId" | "identityFromElixirAt" | "playerTag"
     >,
     // The one-time migration writes only a profile no sign-in has reached
-    // since its scan: a newer sign-in's identity is never overwritten.
-    options: { firstTimeOnly?: boolean } = {},
+    // since its scan: a newer sign-in's identity is never overwritten. It
+    // also clears a tag that is not the stored primary player's, in the
+    // same conditional write.
+    options: { firstTimeOnly?: boolean; clearPlayerTag?: boolean } = {},
   ): Promise<PlayerProfile> {
     const now = new Date().toISOString();
     const names: Record<string, string> = {
@@ -1055,6 +1057,9 @@ export class Repository {
             ...(before.favoriteCardId !== undefined
               ? { favoriteCardId: before.favoriteCardId }
               : {}),
+            ...(options.clearPlayerTag && before.playerTag
+              ? { playerTag: before.playerTag }
+              : {}),
           }
         : undefined;
     if (legacy && Object.keys(legacy).length) {
@@ -1066,6 +1071,15 @@ export class Repository {
       values[":publicName"] = identity.primaryName;
       sets.push("#publicName = :publicName");
     } else removes.push("#publicName");
+    if (options.clearPlayerTag) {
+      // The tag, its tag-cluster keys and the verified mark (a mark is
+      // about a tag) go together, as in updateProfile.
+      names["#playerTag"] = "playerTag";
+      names["#gsi2pk"] = "GSI2PK";
+      names["#gsi2sk"] = "GSI2SK";
+      names["#elixirVerified"] = "elixirVerified";
+      removes.push("#playerTag", "#gsi2pk", "#gsi2sk", "#elixirVerified");
+    }
     if (identity.avatarCardId !== undefined) {
       names["#card"] = "favoriteCardId";
       if (identity.avatarCardId === null) removes.push("#card");
@@ -1110,26 +1124,6 @@ export class Repository {
           ":verified": Boolean(link.verified && link.playerTag),
           ":updatedAt": new Date().toISOString(),
         },
-        ReturnValues: "ALL_NEW",
-      }),
-    );
-    return result.Attributes as ProfileItem;
-  }
-
-  async clearElixirLink(sub: string): Promise<PlayerProfile> {
-    const result = await client.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: profileKey(sub),
-        UpdateExpression:
-          "REMOVE #elixir, #elixirVerified SET #updatedAt = :updatedAt",
-        ConditionExpression: "attribute_exists(pk)",
-        ExpressionAttributeNames: {
-          "#elixir": "elixir",
-          "#elixirVerified": "elixirVerified",
-          "#updatedAt": "updatedAt",
-        },
-        ExpressionAttributeValues: { ":updatedAt": new Date().toISOString() },
         ReturnValues: "ALL_NEW",
       }),
     );

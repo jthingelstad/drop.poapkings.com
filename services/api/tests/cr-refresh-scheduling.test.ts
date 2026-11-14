@@ -410,27 +410,16 @@ describe("Clash Royale refresh scheduling", () => {
     expect(response.statusCode).toBe(200);
     expect(repository.getCrProfile).toHaveBeenCalledWith(profile.playerTag);
   });
-  it("refuses a typed player tag: a player comes from the Elixir account", async () => {
+  it("refuses any player tag, typed or emptied: the player comes from the Elixir account", async () => {
     repository.getProfile.mockResolvedValue(profile);
-    const response = await invoke("PATCH", "/me", { playerTag: "#2PP" }, true);
-    expect(response.statusCode).toBe(403);
-    expect(JSON.parse(String(response.body)).error.code).toBe(
-      "player_from_elixir",
-    );
+    for (const playerTag of ["#2PP", "", null, profile.playerTag]) {
+      const response = await invoke("PATCH", "/me", { playerTag }, true);
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(String(response.body)).error.code).toBe(
+        "player_from_elixir",
+      );
+    }
     expect(repository.updateProfile).not.toHaveBeenCalled();
-    expect(enqueueRefresh).not.toHaveBeenCalled();
-  });
-  it("clearing a tag typed in before still works and asks Elixir for nothing", async () => {
-    repository.getProfile.mockResolvedValue(profile);
-    repository.updateProfile.mockResolvedValue({
-      ...profile,
-      playerTag: undefined,
-    });
-    const response = await invoke("PATCH", "/me", { playerTag: "" }, true);
-    expect(response.statusCode).toBe(200);
-    expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
-      clearPlayerTag: true,
-    });
     expect(enqueueRefresh).not.toHaveBeenCalled();
   });
   it("records a new-season game without reading or refreshing CR identity", async () => {

@@ -18,6 +18,7 @@ import { issueSession } from "../src/routes/context.js";
 import { accountTagsFor } from "../src/account-tags.js";
 import { publicProfile } from "../src/public-profile.js";
 import { emailSubject } from "../src/validation.js";
+import { ELIXIR_RETURN_PATH } from "@elixir-drop/contracts";
 const config = {
   tableName: "t",
   sessionSecret: "secret",
@@ -200,12 +201,18 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       sub: string,
       updates: {
         playerTag?: string;
+        clearPlayerTag?: boolean;
       },
     ) {
-      profiles[sub] = {
+      const next = {
         ...must(sub),
         ...(updates.playerTag ? { playerTag: updates.playerTag } : {}),
       };
+      if (updates.clearPlayerTag) {
+        delete next.playerTag;
+        delete next.elixirVerified;
+      }
+      profiles[sub] = next;
       return must(sub);
     },
     async savePendingElixirLink(
@@ -497,7 +504,7 @@ describe("sign in with Elixir", () => {
       `returnTo=${encodeURIComponent("/surge")}`,
     );
   });
-  it("callback: a hand-typed tag and no Elixir players goes where the person was going", async () => {
+  it("callback: a hand-typed tag goes once Elixir has no primary player, and Account says to add one", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub, { playerTag: "#2PP" }) });
     const fake = fakeElixir({ players: [] });
@@ -512,10 +519,31 @@ describe("sign in with Elixir", () => {
       },
       fake.client,
     );
-    expect(repo.must(sub).playerTag).toBe("#2PP");
+    expect(repo.must(sub).playerTag).toBeUndefined();
     expect(String(res.headers?.location)).toContain(
-      `returnTo=${encodeURIComponent("/surge")}`,
+      `returnTo=${encodeURIComponent(ELIXIR_RETURN_PATH)}`,
     );
+  });
+  it("callback: an alt never becomes the tag, and a tag that is not the primary goes", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [sub]: profile(sub, { playerTag: "#2PYQ0C" }),
+    });
+    const fake = fakeElixir({ players: [ALT] });
+    const { state } = await start(repo, fake);
+    await elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+    expect(repo.must(sub).playerTag).toBeUndefined();
+    expect(repo.must(sub).elixir?.playerTag).toBeUndefined();
+    expect(accountTagsFor(repo.must(sub))).toEqual([]);
   });
   it("a whole sign-in sends Elixir GETs only, besides OAuth's token request", async () => {
     const sub = emailSubject("jamie@example.com");
@@ -927,17 +955,59 @@ describe("the name and picture come from Elixir", () => {
     );
     expect(repo.must(sub).favoriteCardId).toBeUndefined();
   });
-  it("shows no name for an unverified primary or an alt-only account: the fallback, never the alt's", async () => {
+  it("shows an unverified primary's name with no verified mark, and the fallback for an alt-only account", async () => {
     const sub = emailSubject("jamie@example.com");
     const repo = fakeRepository({ [sub]: profile(sub) });
     await signIn(
       repo,
       fakeElixir({ players: [{ ...KING, claim_status: "unverified" }] }),
     );
-    expect(repo.must(sub).publicName).toBeUndefined();
-    expect(publicProfile(repo.must(sub)).publicName).toBe("Elixir Player");
+    expect(repo.must(sub).publicName).toBe("King Thing");
+    expect(repo.must(sub).playerTag).toBe("#20JJJ2CCRU");
+    // The name is shown; nothing says it is proven.
+    expect(publicProfile(repo.must(sub)).publicName).toBe("King Thing");
+    expect(publicProfile(repo.must(sub)).accountTags).toBeUndefined();
+    // Verified later: the same name, now with the mark.
+    await signIn(repo, fakeElixir({ players: [KING] }));
+    expect(publicProfile(repo.must(sub)).accountTags).toEqual(["verified"]);
+    // An alt-only account: no name, never the alt's, and no tag.
     await signIn(repo, fakeElixir({ players: [ALT, FRIEND] }));
     expect(repo.must(sub).publicName).toBeUndefined();
+    expect(repo.must(sub).playerTag).toBeUndefined();
+    expect(publicProfile(repo.must(sub)).publicName).toBe("Elixir Player");
+    expect(publicProfile(repo.must(sub)).accountTags).toBeUndefined();
+  });
+  it("refreshes from a signed-in browser: the same account, the new name, picture and tag, back to Account", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({ [sub]: profile(sub) });
+    await signIn(repo, fakeElixir({ players: [KING] }));
+    const renamed = { ...KING, name: "Sample Renamed" };
+    const fake = fakeElixir({ players: [renamed], me: { avatar: AVATAR } });
+    const bearer = issueSession(
+      sub,
+      config.sessionSecret,
+      Math.floor(Date.now() / 1000),
+    ).token;
+    const { state, mode } = await start(repo, fake, bearer, ELIXIR_RETURN_PATH);
+    expect(mode).toBe("link");
+    const res = await elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+    expect(repo.must(sub).publicName).toBe("Sample Renamed");
+    expect(repo.must(sub).favoriteCardId).toBe(28000000);
+    expect(repo.must(sub).playerTag).toBe("#20JJJ2CCRU");
+    const location = String(res.headers?.location);
+    expect(location).toContain("/#/auth?token=");
+    expect(location).toContain(
+      `returnTo=${encodeURIComponent(ELIXIR_RETURN_PATH)}`,
+    );
   });
   it("carries the name and picture to the redemption for a new account", async () => {
     const repo = fakeRepository();

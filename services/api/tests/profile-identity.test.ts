@@ -95,19 +95,27 @@ describe("player identity comes from Elixir", () => {
     expect(result.body.error?.code).toBe("identity_from_elixir");
     expect(repository.updateProfile).not.toHaveBeenCalled();
   });
-  it("answers a mistyped player tag with the validation message", async () => {
-    const result = await invoke("PATCH", "/me", { playerTag: "not a tag!" });
-    expect(result.statusCode).toBe(400);
-    expect(result.body.error?.message).toBe(
-      "Enter a valid Clash Royale player tag",
-    );
+  it("refuses a player tag, even a mistyped or emptied one, and writes nothing", async () => {
+    for (const playerTag of ["not a tag!", "", "#20JJJ2CCRU"]) {
+      const result = await invoke("PATCH", "/me", { playerTag });
+      expect(result.statusCode).toBe(400);
+      expect(result.body.error?.code).toBe("player_from_elixir");
+    }
+    // Even beside a field that is allowed: nothing is half-applied.
+    const mixed = await invoke("PATCH", "/me", {
+      playerTag: "",
+      lastOpenedUpdates: "2026-11-14T00:00:00.000Z",
+    });
+    expect(mixed.statusCode).toBe(400);
     expect(repository.updateProfile).not.toHaveBeenCalled();
   });
-  it("treats an emptied tag as an explicit unlink", async () => {
-    const result = await invoke("PATCH", "/me", { playerTag: "" });
+  it("still stamps the Updates read time", async () => {
+    const result = await invoke("PATCH", "/me", {
+      lastOpenedUpdates: "2026-11-14T00:00:00.000Z",
+    });
     expect(result.statusCode).toBe(200);
     expect(repository.updateProfile).toHaveBeenCalledWith(profile.sub, {
-      clearPlayerTag: true,
+      lastOpenedUpdates: expect.any(String),
     });
   });
   it("rejects a PATCH that changes nothing", async () => {

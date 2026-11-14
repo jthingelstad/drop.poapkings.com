@@ -49,11 +49,7 @@ import {
   uploadPublishedProfileImage,
 } from "./routes/published-profiles.js";
 import { getRecruiterInvitePage } from "./routes/recruiter-invites.js";
-import {
-  disconnectElixir,
-  elixirCallback,
-  startElixirLogin,
-} from "./routes/elixir-auth.js";
+import { elixirCallback, startElixirLogin } from "./routes/elixir-auth.js";
 import {
   getUpdates,
   getUpdatesFeed,
@@ -84,7 +80,6 @@ const ROUTE_PATHS = [
   "/auth/refresh",
   "/auth/elixir/start",
   "/auth/elixir/callback",
-  "/me/elixir",
   "/me",
   "/me/seasons",
   "/me/xp",
@@ -153,8 +148,6 @@ async function route(request: HttpRequest) {
     return startElixirLogin(context);
   if (method === "GET" && path === "/auth/elixir/callback")
     return elixirCallback(context);
-  if (method === "DELETE" && path === "/me/elixir")
-    return disconnectElixir(context);
   if (method === "GET" && path === "/me") return getMe(context);
   if (method === "GET" && path === "/me/seasons") return getMySeasons(context);
   if (method === "GET" && path === "/me/xp") return getMyXp(context);

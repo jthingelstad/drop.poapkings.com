@@ -52,6 +52,33 @@ describe("the /me adapter", () => {
     expect(identity.primaryName).toBe("Sample Primary");
   });
 
+  it("takes the primary player's name whether or not Elixir verified it", () => {
+    const unverified = parseElixirMe({
+      players: [primary("Sample Primary", { claim_status: "unverified" })],
+    });
+    expect(unverified.identity.primaryName).toBe("Sample Primary");
+    // The verified fact rides separately, for the mark beside the name.
+    expect(unverified.players[0]?.verified).toBe(false);
+    const pending = parseElixirMe({
+      players: [primary("Sample Primary", { claim_status: "pending" })],
+    });
+    expect(pending.identity.primaryName).toBe("Sample Primary");
+    expect(pending.players[0]?.verified).toBe(false);
+    const verified = parseElixirMe({ players: [primary("Sample Primary")] });
+    expect(verified.players[0]?.verified).toBe(true);
+  });
+
+  it("has no name when the primary's name tidies to nothing or is missing", () => {
+    const rlo = String.fromCodePoint(0x202e);
+    expect(
+      parseElixirMe({ players: [primary(` ${rlo}\t `)] }).identity.primaryName,
+    ).toBeUndefined();
+    expect(
+      parseElixirMe({ players: [primary(undefined)] }).identity.primaryName,
+    ).toBeUndefined();
+    expect(parseElixirMe({ players: [] }).identity.primaryName).toBeUndefined();
+  });
+
   it("never takes a friend's, watched player's or alt's name", () => {
     const { players, identity } = parseElixirMe({
       players: [
