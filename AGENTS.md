@@ -117,9 +117,10 @@ Every other doc points back here instead of keeping its own copy of this list.
    starts, remains reversible, and never deletes the account or evidence.
    Drop Control's account-support data is a separate capability again: the
    tailnet-only `services/admin/scripts/control-*.mjs` run as
-   `elixir-drop-control`, may project email/profile/CR snapshot fields, and may
-   atomically correct only the unverified player tag with a `CONTROL#` audit
-   event (the name and picture are Elixir's since 2026-11-14). They are never an input to the referee scripts, cannot edit
+   `elixir-drop-control`, and may project email/profile/CR snapshot fields.
+   They edit no identity: the name, picture and player tag are Elixir's, so a
+   correction is made on Elixir and reaches Drop at the player's next sign-in
+   (2026-11-14). They are never an input to the referee scripts, cannot edit
    email, runs, scores, evidence, XP, sessions, sign-in links, or Elixir
    identity pointers, and do not weaken
    the pseudonymous referee role.
@@ -273,24 +274,30 @@ production run. A successful exact-head validation triggers
   re-dates the card reference itself. Never stamp the build time.
 - **Authenticated identity comes from Elixir** (Jamie, 2026-11-14). The name
   a signed-in player shows is the Clash Royale game name of their Elixir
-  account's primary player (verified, never an alt's), and the picture is the
+  account's primary player, verified or not and never an alt's, and the
+  picture is the
   profile image they set in Elixir: a card id that must resolve in the
   canonical snapshot, drawn from Drop's committed art with Drop's CSS crop.
   Both are read from `GET /api/v1/me` at each Sign in with Elixir;
   `services/api/src/elixir-identity.ts` is the one adapter that knows that
   shape. Drop has no Player Card picker, no generated names and no model call;
-  `PATCH /me` refuses the name and picture. No name means "Elixir Player", no
+  `PATCH /me` refuses the name, picture and tag. No primary player, or a name
+  that tidies to nothing, means "Elixir Player"; no
   picture the Drop icon; neither blocks play. Names are display text from a
   game that allows almost anything: tidy on the way in, escape at every
   output (pages, canvas, Control Room). Published shares keep the name they
   were frozen with. **Sign in with Elixir**
   (`services/api/src/routes/elixir-auth.ts`, SPEC.md "Sign in with Elixir")
   makes the primary player the Drop tag and carries Elixir's verification as
-  the `verified` account tag.
-  A tag is never typed in any more (2026-11-12): `PATCH /me` refuses a new
-  tag (`player_from_elixir`), a tag typed in before stays, unverified, until
-  a sign-in finds a primary player, and a signed-in player with no player on their Elixir account
-  is sent to elixir.poapkings.com to add one. Sign-in asks only for
+  the `verified` account tag, the checkmark shown beside the name on You,
+  public profiles, boards and the live feed. An unverified name shows with no
+  mark. The tag is the primary player's or nothing: `PATCH /me` refuses any
+  tag (`player_from_elixir`), a sign-in that finds no primary clears the tag
+  (the old value kept in `legacyIdentity`), and a signed-in player with no
+  primary player is sent to Elixir's `/settings/players` to add one. Account's
+  "Refresh from Elixir" runs the same sign-in from the signed-in state and
+  returns to Account; Elixir is read at no other time. Neither the API nor
+  the Control Room offers a way to edit any of it. Sign-in asks only for
   `cr:read account:email`.
   It is the only sign-in. An `ELIXIR#<accountId>` pointer names the Drop
   account an Elixir account opens; without one, the proven email finds the
@@ -517,8 +524,7 @@ production run. A successful exact-head validation triggers
   (Years Played went with the profile read on 2026-11-13). Do not add
   experience, arenas, trophies, wins, or card levels. A snapshot that is not
   `ready` reads as "not read yet: sign in with Elixir again", never as
-  loading, and nothing polls for it. A tag typed into Drop before 2026-11-12
-  gets no snapshot and is never shown as verified. Drop's own arena (below) is a native construct
+  loading, and nothing polls for it. Drop's own arena (below) is a native construct
   from Player XP — unrelated to CR arenas.
 - **Badges are ladders, and awarding is a pure function of counters.** A badge is
   ONE monotonic counter plus an ordered rung list (`BADGES` in
@@ -553,8 +559,8 @@ production run. A successful exact-head validation triggers
   Daily Drop counts distinct played days, never a streak. The rungs
   are not copied from the design draft; ladders with no live data behind them
   are marked "scaled" in the table and want a re-check.
-  Battle Tag is a visible one-time badge derived from the optional unverified
-  player tag. Herald reads the existing distinct shared-run open counter;
+  Battle Tag is a visible one-time badge for having a player tag, which is
+  the primary player on the Elixir account. Herald reads the existing distinct shared-run open counter;
   Recruiter credits the sharer when a newly attributed account is created.
   First Drop recognizes the first 100 registered players, appears on any
   eligible player's public profile, stays absent for non-earners, and never
@@ -796,7 +802,8 @@ them up to date. There is no player picker (`POST /me/elixir/select` was
 removed 2026-11-14). A `player-profile` job left on
 the refresh queue from before the change is acknowledged and dropped.
 
-Saved CR tags remain optional, and unverified unless Elixir verified them. No Drop identities, scores, XP or
+A player tag is the Elixir account's primary player, and is verified only when
+Elixir verified it. No Drop identities, scores, XP or
 badges are uploaded. The clock is policy-based, with season/day boundaries at
 10:00 UTC computed by Drop; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.
