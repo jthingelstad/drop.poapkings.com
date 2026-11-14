@@ -230,6 +230,7 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
       sub: string,
       identity: ElixirIdentity,
       before?: PlayerProfile,
+      options: { clearPlayerTag?: boolean } = {},
     ) {
       const next: PlayerProfile = {
         ...must(sub),
@@ -241,7 +242,14 @@ function fakeRepository(profiles: Record<string, PlayerProfile> = {}) {
           ...(before.favoriteCardId !== undefined
             ? { favoriteCardId: before.favoriteCardId }
             : {}),
+          ...(options.clearPlayerTag && before.playerTag
+            ? { playerTag: before.playerTag }
+            : {}),
         };
+      if (options.clearPlayerTag) {
+        delete next.playerTag;
+        delete next.elixirVerified;
+      }
       if (identity.primaryName) next.publicName = identity.primaryName;
       else delete next.publicName;
       if (identity.avatarCardId === null) delete next.favoriteCardId;
@@ -520,9 +528,39 @@ describe("sign in with Elixir", () => {
       fake.client,
     );
     expect(repo.must(sub).playerTag).toBeUndefined();
+    // Cleared in the identity write itself, so the typed tag is kept for an
+    // undo beside the made-up name and picture.
+    expect(repo.must(sub).legacyIdentity).toEqual({
+      publicName: "Builder",
+      favoriteCardId: 26000000,
+      playerTag: "#2PP",
+    });
     expect(String(res.headers?.location)).toContain(
       `returnTo=${encodeURIComponent(ELIXIR_RETURN_PATH)}`,
     );
+  });
+  it("callback: a tag already from Elixir goes with no primary player, and nothing is kept again", async () => {
+    const sub = emailSubject("jamie@example.com");
+    const repo = fakeRepository({
+      [sub]: profile(sub, {
+        playerTag: "#20JJJ2CCRU",
+        identityFromElixirAt: "2026-11-14T00:00:00.000Z",
+      }),
+    });
+    const fake = fakeElixir({ players: [] });
+    const { state } = await start(repo, fake);
+    await elixirCallback(
+      {
+        request: event("GET", "/auth/elixir/callback", {
+          query: { code: "c", state },
+        }),
+        config,
+        repository: repo as never,
+      },
+      fake.client,
+    );
+    expect(repo.must(sub).playerTag).toBeUndefined();
+    expect(repo.must(sub).legacyIdentity).toBeUndefined();
   });
   it("callback: an alt never becomes the tag, and a tag that is not the primary goes", async () => {
     const sub = emailSubject("jamie@example.com");

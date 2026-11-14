@@ -85,11 +85,18 @@ export async function redeemMagicLink({
         login.profile = await repository.updateProfile(sub, {
           playerTag: pending.playerTag,
         });
-      // The name and picture Elixir named at the callback (2026-11-14).
+      // The name and picture Elixir named at the callback (2026-11-14). A
+      // brand-new profile has no tag; one that appeared since the callback
+      // follows the callback's rule (no primary player, no tag) and is kept
+      // in `legacyIdentity` by the same write.
       login.profile = await repository.applyElixirIdentity(
         sub,
         pendingItem.identity ?? {},
         login.profile,
+        {
+          clearPlayerTag:
+            !pending.playerTag && Boolean(login.profile.playerTag),
+        },
       );
     }
     await repository.clearPendingElixirLink(sub, pendingItem.pendingId);

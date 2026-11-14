@@ -269,7 +269,64 @@ describe("Clash Royale refresh scheduling", () => {
       profile.sub,
       { primaryName: "Sample Primary", avatarCardId: 26000000 },
       profile,
+      { clearPlayerTag: false },
     );
+  });
+  it("redemption with no primary player clears a tag in the identity write, so it is kept once", async () => {
+    const link = {
+      accountId: "acct-new",
+      linkedAt: "2026-10-12T00:00:00.000Z",
+      checkedAt: "2026-10-12T00:00:00.000Z",
+      verified: false,
+      candidates: [],
+    };
+    repository.peekMagicLink.mockResolvedValue({
+      email: profile.email,
+      sub: profile.sub,
+      source: "elixir",
+    });
+    repository.consumeMagicLink.mockResolvedValue(profile.email);
+    const pendingItem = { link, identity: {}, pendingId: "pending-1" };
+    repository.peekPendingElixirLink
+      .mockResolvedValueOnce(pendingItem)
+      .mockResolvedValueOnce(pendingItem);
+    repository.bindElixirAccount
+      .mockResolvedValueOnce("bound")
+      .mockResolvedValueOnce("bound");
+    repository.applyElixirIdentity.mockResolvedValue(profile);
+    // A brand-new profile has no tag: nothing to clear or keep.
+    const created = { ...profile, playerTag: undefined };
+    repository.ensureProfile.mockResolvedValueOnce({
+      profile: created,
+      created: true,
+    });
+    expect(
+      (await invoke("POST", "/auth/redeem", { token: "a".repeat(32) }))
+        .statusCode,
+    ).toBe(200);
+    expect(repository.applyElixirIdentity).toHaveBeenLastCalledWith(
+      profile.sub,
+      {},
+      created,
+      { clearPlayerTag: false },
+    );
+    // A profile that appeared with a tag since the callback: the tag goes in
+    // the same write that keeps it.
+    repository.ensureProfile.mockResolvedValueOnce({
+      profile,
+      created: false,
+    });
+    expect(
+      (await invoke("POST", "/auth/redeem", { token: "a".repeat(32) }))
+        .statusCode,
+    ).toBe(200);
+    expect(repository.applyElixirIdentity).toHaveBeenLastCalledWith(
+      profile.sub,
+      {},
+      profile,
+      { clearPlayerTag: true },
+    );
+    expect(repository.updateProfile).not.toHaveBeenCalled();
   });
   it("a failed binding fails the redemption and keeps the credential and pending link for the retry", async () => {
     const link = {
