@@ -5,7 +5,7 @@
 // without an account.
 
 import { HttpError } from "../errors.js";
-import { json } from "../http.js";
+import { bearerToken, json } from "../http.js";
 import { emailSubject } from "../validation.js";
 import {
   bodyOf,
@@ -157,7 +157,14 @@ export async function redeemMagicLink({
   });
 }
 
-// POST /auth/refresh — slide an active player's session forward.
+// POST /auth/refresh — slide an active player's session forward, but only
+// for a profile whose identity has been read from Elixir. A profile no Sign
+// in with Elixir has reached since identity came from Elixir (2026-11-14)
+// still carries a name, picture or tag made up in Drop; its session is handed
+// back unchanged, same token and same expiry, so it ends when it was always
+// going to and the next sign-in brings the real identity. Nothing is
+// refused (the web app ends such a session at load in its last day, so no
+// game is cut off mid-run).
 export async function refreshSession({
   request,
   config,
@@ -173,6 +180,16 @@ export async function refreshSession({
       "Your session has expired. Sign in again.",
       "invalid_session",
     );
+  if (!profile.identityFromElixirAt) {
+    const token = bearerToken(request.headers.authorization);
+    if (token)
+      return json(200, {
+        session: {
+          token,
+          expiresAt: new Date(session.exp * 1000).toISOString(),
+        },
+      });
+  }
   return json(200, {
     session: issueSession(
       session.sub,

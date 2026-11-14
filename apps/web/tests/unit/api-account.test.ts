@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const API_BASE = 'https://api.example'
 const ISO = '2026-07-10T00:00:00.000Z'
 const FUTURE = () => new Date(Date.now() + 1_000_000).toISOString()
+// A session the server slid forward: 28 days out.
+const RENEWED = () => new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString()
 
 const season = {
   id: 134,
@@ -604,7 +606,7 @@ describe('account.ts state machine', () => {
   it('initializeAccount with a valid stored session authenticates and persists the refreshed session', async () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't1', expiresAt: FUTURE() }))
     const { account, api } = await load()
-    const refreshed = { session: { token: 't2', expiresAt: FUTURE() } }
+    const refreshed = { session: { token: 't2', expiresAt: RENEWED() } }
     vi.mocked(api.refreshLogin).mockResolvedValue(refreshed)
     vi.mocked(api.getMe).mockResolvedValue(meResponse)
 
@@ -617,6 +619,40 @@ describe('account.ts state machine', () => {
     const stored = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
     expect(stored.token).toBe('t2')
     expect(account.sessionToken()).toBe('t2')
+  })
+
+  it('keeps a session the server handed back unchanged while it can outlast a game', async () => {
+    // A profile whose identity has not been read from Elixir yet: the server
+    // returns the same token and expiry rather than sliding it.
+    const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString()
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't1', expiresAt }))
+    const { account, api } = await load()
+    vi.mocked(api.refreshLogin).mockResolvedValue({ session: { token: 't1', expiresAt } })
+    vi.mocked(api.getMe).mockResolvedValue(meResponse)
+
+    await account.initializeAccount()
+
+    expect(account.accountStatus.value).toBe('authenticated')
+    expect(JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')).toEqual({ token: 't1', expiresAt })
+  })
+
+  it('ends a session at load, as an ordinary sign-out, once it could end inside a game', async () => {
+    const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't1', expiresAt }))
+    localStorage.setItem('elixirdrop:records', '{"surge":1}')
+    const { account, api } = await load()
+    vi.mocked(api.refreshLogin).mockResolvedValue({ session: { token: 't1', expiresAt } })
+
+    await account.initializeAccount()
+
+    expect(account.accountStatus.value).toBe('anonymous')
+    expect(account.accountError.value).toBe('')
+    expect(account.player.value).toBeNull()
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull()
+    expect(account.sessionToken()).toBeUndefined()
+    expect(vi.mocked(api.getMe)).not.toHaveBeenCalled()
+    // Local play on this device is untouched.
+    expect(localStorage.getItem('elixirdrop:records')).toBe('{"surge":1}')
   })
 
   it('exposes a valid stored session before account refresh finishes', async () => {
@@ -663,7 +699,7 @@ describe('account.ts state machine', () => {
   it('initializeAccount de-duplicates concurrent callers', async () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't1', expiresAt: FUTURE() }))
     const { account, api } = await load()
-    vi.mocked(api.refreshLogin).mockResolvedValue({ session: { token: 't2', expiresAt: FUTURE() } })
+    vi.mocked(api.refreshLogin).mockResolvedValue({ session: { token: 't2', expiresAt: RENEWED() } })
     vi.mocked(api.getMe).mockResolvedValue(meResponse)
 
     await Promise.all([account.initializeAccount(), account.initializeAccount()])
