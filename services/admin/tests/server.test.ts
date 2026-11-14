@@ -311,7 +311,7 @@ it("lists and immediately publishes Updates through the dedicated CLI", async ()
   ]);
 });
 
-it("maps a profile correction to the separate audited account command", async () => {
+it("has no profile correction: the player's identity comes from Elixir", async () => {
   const runner = vi.fn(async (script: string) =>
     script === "referee-players.mjs"
       ? { status: "ok", players: [] }
@@ -338,28 +338,17 @@ it("maps a profile correction to the separate audited account command", async ()
       Origin: base,
       "X-Drop-Admin-CSRF": overview.csrfToken,
     },
-    // A name or picture sent here is not forwarded: they come from the
-    // player's Elixir account (2026-11-14).
     body: JSON.stringify({
-      publicName: "Knight Main",
-      favoriteCardId: 26000000,
       playerTag: "#2PYQ0",
       reason: "Correcting the linked player profile.",
     }),
   });
-  expect(response.status).toBe(200);
-  const updateCall = accountRunner.mock.calls.find(
-    ([script]) => script === "control-player-update.mjs",
-  );
-  expect(updateCall).toBeDefined();
-  const encoded = updateCall?.[1]?.[2];
+  expect(response.status).toBe(404);
   expect(
-    JSON.parse(Buffer.from(String(encoded), "base64url").toString("utf8")),
-  ).toEqual({
-    playerTag: "#2PYQ0",
-    reason: "Correcting the linked player profile.",
-    operator: "local-development",
-  });
+    accountRunner.mock.calls.filter(
+      ([script]) => script !== "control-players.mjs",
+    ),
+  ).toEqual([]);
 });
 
 it("gives launchd the executable path required by the AWS credential process", async () => {

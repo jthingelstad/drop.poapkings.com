@@ -237,7 +237,9 @@ it("shows private account context and drills through to retained submission JSON
   expect(host.textContent).toContain("Last login");
   expect(host.textContent).toContain("King Thing");
   expect(host.textContent).toContain("POAP KINGS");
-  expect(host.textContent).toContain("Edit profile");
+  // The Control Room edits no part of a player's identity (2026-11-14).
+  expect(host.textContent).not.toContain("Edit profile");
+  expect(host.textContent).not.toContain("Save audited correction");
   expect(host.textContent).toContain("authentication key");
   void act(() => render(null, host));
 });
