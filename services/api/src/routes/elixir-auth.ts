@@ -269,11 +269,14 @@ export async function elixirCallback(
     // primary player to put in its place.
     if (link.playerTag && link.playerTag !== target.playerTag)
       await repository.updateProfile(sub, { playerTag: link.playerTag });
-    else if (!link.playerTag && target.playerTag)
-      await repository.updateProfile(sub, { clearPlayerTag: true });
     // What Drop shows for them, from the same read (2026-11-14): the
-    // primary player's name and the profile image set in Elixir.
-    await repository.applyElixirIdentity(sub, players.identity, target);
+    // primary player's name and the profile image set in Elixir. A tag that
+    // goes is cleared in this same write, so the first one keeps it in
+    // `legacyIdentity` beside the old name and picture, as the migration
+    // does.
+    await repository.applyElixirIdentity(sub, players.identity, target, {
+      clearPlayerTag: !link.playerTag && Boolean(target.playerTag),
+    });
   } else if (!target) {
     // It lives as long as the credential that will apply it.
     await repository.savePendingElixirLink(
