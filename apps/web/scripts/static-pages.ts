@@ -265,7 +265,7 @@ ${pageSections([
   section(
     'Your account',
     `${paragraph(
-      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address only to recognize your account, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores your chosen player name, favorite-card avatar, game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores which Clash Royale player from your Elixir account you chose, or a player tag you typed in before Drop stopped taking typed tags. All of it is removed when you delete your account.'
+      'Your Drop account is your Elixir account. When you sign in with Elixir, Elixir shares your email address and the Clash Royale players on your Elixir account with Drop. Drop uses the email address only to recognize your account, and keeps which Elixir account your Drop account belongs to so the next sign-in reaches the same account. Your email address is never shown on your public profile. Drop stores the name and profile picture it reads from Elixir, your game results, total games, per-card practice statistics derived from recorded games—including first-response time and whether choices or a requested hint were used. During an active signed-in online Practice session, Drop also temporarily stores 20-answer recovery chunks containing the card, answer, response time, help flag, and review state so the session can resume after an interruption. Recovery chunks are private, expire with the signed run, and award no progress until the normal completion is validated. Saved statistics are used only to deal you better practice rounds and are never shown to other players. Drop also stores the tag of the primary Clash Royale player on your Elixir account. You cannot change your name, picture, or player in Drop; change them on Elixir and refresh from Elixir on Account. All of it is removed when you delete your account.'
     )}`
   ),
   section(
@@ -277,7 +277,7 @@ ${pageSections([
   section(
     'What other players can see',
     paragraph(
-      'Leaderboards can show your name, profile picture, scores, total games, and player tag. Your name is the Clash Royale name of the primary player on your Elixir account, and your picture is the one you set in Elixir; Drop also shows that player&rsquo;s clan. Card levels, trophies, arenas, and experience level are not shown.'
+      'Leaderboards can show your name, profile picture, scores, total games, and player tag. Your name is the Clash Royale name of the primary player on your Elixir account, and your picture is the one you set in Elixir; Drop also shows that player&rsquo;s clan. A checkmark beside a name means Elixir has verified that player is yours; a name without one has not been verified. Card levels, trophies, arenas, and experience level are not shown.'
     )
   ),
   section(
@@ -672,7 +672,7 @@ function xpBody(): string {
     ),
     section(
       'What does not earn XP',
-      '<p>Starting without completing, replaying, sharing, installing, signing in, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Having a Clash Royale player on your Drop profile is the one profile fact that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
+      '<p>Starting without completing, replaying, sharing, installing, signing in, opening Updates, using the screensaver, receiving a prize, referee activity, and arriving at an arena do not award XP. Having a primary Clash Royale player on your Elixir account is the one profile fact that does: Battle Tag pays +100 XP once. Guest and offline runs never award XP, save progress, or upload later.</p>'
     ),
     section(
       'Opening balance and retroactive awards',

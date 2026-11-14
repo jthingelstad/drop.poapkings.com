@@ -57,7 +57,7 @@ export async function getLeaderboards(context: RouteContext) {
     if (!profile.playerTag)
       throw new HttpError(
         409,
-        "Choose your Clash Royale player to see clan rankings.",
+        "Add a Clash Royale player on Elixir to see clan rankings.",
         "player_tag_required",
       );
     const crProfile = await repository.getCrProfile(profile.playerTag);
@@ -67,7 +67,7 @@ export async function getLeaderboards(context: RouteContext) {
       if (crProfile?.status !== "ready")
         throw new HttpError(
           409,
-          "Drop learns your clan when you sign in with Elixir. Sign in with Elixir again.",
+          "Drop learns your clan when it reads your Elixir account. Refresh from Elixir on Account.",
           "clan_profile_missing",
         );
       throw new HttpError(
