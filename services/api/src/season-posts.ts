@@ -1,6 +1,11 @@
 import { RANKED_GAME_MODES, type RankedGameMode } from "@elixir-drop/contracts";
 import { HttpError } from "./errors.js";
-import { validateUpdateEntry, type UpdateEntry } from "./player-updates.js";
+import { GAME_NAME_MAX } from "./elixir-identity.js";
+import {
+  MAX_UPDATE_BODY_WORDS,
+  validateUpdateEntry,
+  type UpdateEntry,
+} from "./player-updates.js";
 import type { Repository } from "./repository.js";
 
 // Drop's two automatic season posts (Jamie, 2026-11-02): an opening bell and a
@@ -71,6 +76,16 @@ export function escapeDisplayName(name: string): string {
   );
 }
 
+function wordCount(body: string): number {
+  return body.split(/\s+/).length;
+}
+
+/** The first `limit` words of a name, marked with an ellipsis when cut. */
+function clipWords(name: string, limit: number): string {
+  const words = name.trim().split(/\s+/);
+  return words.length > limit ? `${words.slice(0, limit).join(" ")}…` : name;
+}
+
 function joinNames(names: string[]): string {
   if (names.length <= 2) return names.join(" or ");
   return `${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
@@ -126,20 +141,33 @@ export function renderFinalResults(
       `Season ${season} closed with all five boards empty. Nobody posted a ranked run, so nobody gets the bragging rights. ${link}`,
     );
 
-  const lines = leaders.map(
-    (leader) =>
-      `${MODE_NAMES[leader.mode]}: ${escapeDisplayName(leader.publicName)} at **${seasonPostScore(leader.mode, leader.score)}**.`,
-  );
   const empty = RANKED_GAME_MODES.filter((mode) => !byMode.has(mode));
   const emptyLine = empty.length
     ? ` Nobody posted a ranked ${joinNames(empty.map((mode) => MODE_NAMES[mode]))} run.`
     : "";
+  const render = (nameWords: number) =>
+    `Season ${season} is in the books. ${leaders
+      .map(
+        (leader) =>
+          `${MODE_NAMES[leader.mode]}: ${escapeDisplayName(clipWords(leader.publicName, nameWords))} at **${seasonPostScore(leader.mode, leader.score)}**.`,
+      )
+      .join(" ")}${emptyLine} Bragging rights are official. ${link}`;
+  // Names are Clash Royale game names (since 2026-11-14), which can be many
+  // words. The post must stay within the Updates word cap or it is refused
+  // at publish and at every read, so a long name is shortened in the post
+  // (never in storage) to the most words that fit; one word always fits.
+  let nameWords = GAME_NAME_MAX;
+  let body = render(nameWords);
+  while (nameWords > 1 && wordCount(body) > MAX_UPDATE_BODY_WORDS) {
+    nameWords -= 1;
+    body = render(nameWords);
+  }
   return entry(
     "final-results",
     season,
     publishedAt,
     `Season ${season} is final`,
-    `Season ${season} is in the books. ${lines.join(" ")}${emptyLine} Bragging rights are official. ${link}`,
+    body,
   );
 }
 
