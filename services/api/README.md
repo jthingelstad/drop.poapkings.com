@@ -326,8 +326,21 @@ node scripts/production-lock.mjs run --purpose "Elixir identity backfill" -- env
 
 Drop's profile image (the profile's `favoriteCardId`, cropped by CSS) moved
 into Elixir on 2026-11-14, and Elixir imports Drop's choices once.
-`src/maintenance/export-elixir-avatars.ts` lists `{ elixirAccountId,
-favoriteCardId }` for every profile that has both, for that import. It is
+`src/maintenance/export-elixir-avatars.ts` writes that import's input for
+every profile with both an Elixir account and a card, exactly as Elixir's
+`avatar_import` op takes it and with nothing beside it (the op refuses unknown
+keys):
+
+```json
+{
+  "avatar_import": {
+    "pairs": [{ "account_id": "<uuid>", "card_id": 26000000 }]
+  }
+}
+```
+
+With no `apply` key the op only reports what it would do. At most 5000 pairs
+(the op's limit); more, or none, is refused before anything is written. It is
 read only: one Scan of the `PLAYER#`/`PROFILE` rows, projecting those two
 fields, and it takes no lock. It requires the cloud-engineer identity
 (`ProjectsCloudEngineer/projects-cloud-engineer` in Jamie's account) before
@@ -340,7 +353,7 @@ holds account ids and card ids only, no address, name, tag, sub or player id.
 `--out` names where it goes, outside the repository (a path inside it is
 refused, and a relative path means the directory the command was typed in);
 it is written mode 0600 and never over an existing file. Standard output is
-counts only:
+counts only. The output's directory must already exist:
 
 ```sh
 AWS_PROFILE=cloud-engineer AWS_REGION=us-east-1 npm run export:elixir-avatars --workspace=@elixir-drop/api -- --out ~/drop-avatars.json

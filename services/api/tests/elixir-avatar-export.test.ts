@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   assertOutsideRepository,
   canonicalOutputCheck,
-  avatarExportDocument,
+  avatarImportBody,
+  MAX_PAIRS,
   isCloudEngineerIdentity,
   parseAvatarExportArgs,
   planAvatarExport,
@@ -19,37 +20,34 @@ const FIREBALL = 28000000;
 
 describe("profile image export", () => {
   it("lists account id and card id for every profile that has both, and nothing else", () => {
-    const { avatars, skipped } = planAvatarExport([
+    const { pairs, skipped } = planAvatarExport([
       { elixirAccountId: ACCT_B, favoriteCardId: FIREBALL },
       { elixirAccountId: ACCT_A, favoriteCardId: KNIGHT },
       { favoriteCardId: KNIGHT },
       { elixirAccountId: ACCT_C },
       { elixirAccountId: "not-a-uuid", favoriteCardId: KNIGHT },
     ]);
-    expect(avatars).toEqual([
-      { elixirAccountId: ACCT_A, favoriteCardId: KNIGHT },
-      { elixirAccountId: ACCT_B, favoriteCardId: FIREBALL },
+    expect(pairs).toEqual([
+      { account_id: ACCT_A, card_id: KNIGHT },
+      { account_id: ACCT_B, card_id: FIREBALL },
     ]);
     expect(skipped).toMatchObject({ no_elixir_account: 2, no_card: 1 });
-    for (const entry of avatars)
-      expect(Object.keys(entry).sort()).toEqual([
-        "elixirAccountId",
-        "favoriteCardId",
-      ]);
+    for (const entry of pairs)
+      expect(Object.keys(entry).sort()).toEqual(["account_id", "card_id"]);
   });
 
   it("leaves out a card Drop's catalog does not hold, or a non-integer", () => {
-    const { avatars, skipped } = planAvatarExport([
+    const { pairs, skipped } = planAvatarExport([
       { elixirAccountId: ACCT_A, favoriteCardId: 159000000 },
       { elixirAccountId: ACCT_B, favoriteCardId: "26000000" },
       { elixirAccountId: ACCT_C, favoriteCardId: 26000000.5 },
     ]);
-    expect(avatars).toEqual([]);
+    expect(pairs).toEqual([]);
     expect(skipped.card_not_in_catalog).toBe(3);
   });
 
   it("refuses to guess when one account appears on two profiles or the link disagrees", () => {
-    const { avatars, skipped } = planAvatarExport([
+    const { pairs, skipped } = planAvatarExport([
       { elixirAccountId: ACCT_A, favoriteCardId: KNIGHT },
       { elixirAccountId: ACCT_A.toUpperCase(), favoriteCardId: FIREBALL },
       {
@@ -63,36 +61,51 @@ describe("profile image export", () => {
         favoriteCardId: KNIGHT,
       },
     ]);
-    expect(avatars).toEqual([
-      { elixirAccountId: ACCT_C, favoriteCardId: KNIGHT },
-    ]);
+    expect(pairs).toEqual([{ account_id: ACCT_C, card_id: KNIGHT }]);
     expect(skipped.account_on_two_profiles).toBe(2);
     expect(skipped.link_names_other_account).toBe(1);
   });
 
-  it("writes a document of ids only", () => {
-    const document = avatarExportDocument(
-      {
-        avatars: [{ elixirAccountId: ACCT_A, favoriteCardId: KNIGHT }],
-        skipped: {
-          no_elixir_account: 0,
-          no_card: 0,
-          card_not_in_catalog: 0,
-          link_names_other_account: 0,
-          account_on_two_profiles: 0,
-        },
-      },
-      new Date("2026-11-14T12:00:00Z"),
-    );
-    expect(document).toEqual({
-      kind: "drop-profile-images",
-      version: 1,
-      generatedAt: "2026-11-14T12:00:00.000Z",
-      cardIds: "clash-royale",
-      count: 1,
-      avatars: [{ elixirAccountId: ACCT_A, favoriteCardId: KNIGHT }],
+  it("writes exactly the body of Elixir's avatar_import op, ids only", () => {
+    const skipped = {
+      no_elixir_account: 0,
+      no_card: 0,
+      card_not_in_catalog: 0,
+      link_names_other_account: 0,
+      account_on_two_profiles: 0,
+    };
+    const body = avatarImportBody({
+      pairs: [{ account_id: ACCT_A, card_id: KNIGHT }],
+      skipped,
     });
-    expect(JSON.stringify(document)).not.toMatch(/@|#|PLAYER|sub/);
+    // Nothing beside `pairs`: the op refuses unknown keys, and with no
+    // `apply` key it is a dry run.
+    expect(body).toEqual({
+      avatar_import: { pairs: [{ account_id: ACCT_A, card_id: KNIGHT }] },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/@|#|PLAYER|sub|apply/);
+  });
+
+  it("refuses an empty import and one larger than the op takes", () => {
+    const skipped = {
+      no_elixir_account: 0,
+      no_card: 0,
+      card_not_in_catalog: 0,
+      link_names_other_account: 0,
+      account_on_two_profiles: 0,
+    };
+    expect(() => avatarImportBody({ pairs: [], skipped })).toThrow(
+      /No profile/,
+    );
+    const pairs = Array.from({ length: MAX_PAIRS + 1 }, (_, index) => ({
+      account_id: `aaaaaaaa-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      card_id: KNIGHT,
+    }));
+    expect(MAX_PAIRS).toBe(5000);
+    expect(() => avatarImportBody({ pairs, skipped })).toThrow(/5000/);
+    expect(() =>
+      avatarImportBody({ pairs: pairs.slice(0, MAX_PAIRS), skipped }),
+    ).not.toThrow();
   });
 
   it("accepts only the cloud-engineer session in Jamie's account", () => {
