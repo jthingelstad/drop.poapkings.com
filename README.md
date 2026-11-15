@@ -155,11 +155,13 @@ So card data is refreshed out-of-band and **committed to the repo**:
 
 - A checkout lives on a host whose IP is registered with the token.
 - The token sits in `.env` there (`CR_API_KEY`) — **gitignored**, never committed.
-- A cron job (or manual run) executes
+- A weekly job on that host (otto-ops `refresh-drop-cards`, Mondays) runs
   `node apps/web/scripts/refresh-cards.mjs`, which fetches `/cards`, normalizes
-  it, **diffs** against the committed snapshot, and **commits only when something
-  changed** (printing a changelog of new/changed/removed cards).
-- That push triggers the normal GitHub Actions build + AWS deploy. The web build
+  it and **diffs** against the committed snapshot (printing a changelog of
+  new/changed/removed cards). A change becomes a pull request; a card new to
+  the snapshot is held as a draft for review. The script can also be run by
+  hand there.
+- The merge triggers the normal GitHub Actions build + AWS deploy. The web build
   only ever reads the committed `cards.json` — so the token stays off CI
   entirely.
 
@@ -224,7 +226,7 @@ bug-report intake script) into the gitignored root
 `.env`, generates a Drop-specific signing secret, and creates access
 credentials for the limited `elixir-drop` deploy user. Routine deployment uses
 the AWS SDK and does not invoke the AWS CLI. The Clash Royale token that
-remains is only for the manual card-snapshot refresher.
+remains is only for the host-run card-snapshot refresher.
 
 ---
 
