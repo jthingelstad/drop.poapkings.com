@@ -74,8 +74,9 @@ Every other doc points back here instead of keeping its own copy of this list.
    Mac host were **retired 2026-09-06**. Do not reintroduce a direct Supercell
    call: if the hub cannot answer something, the fix is to record it in the hub.
 3. **Drop holds no Clash Royale token at runtime.** The only remaining CR
-   credential is for `apps/web/scripts/refresh-cards.mjs`, a manual, host-only
-   script that regenerates the committed card snapshot. It is gitignored: never
+   credential is for `apps/web/scripts/refresh-cards.mjs`, a host-only script
+   that regenerates the committed card snapshot (otto-ops' `refresh-drop-cards`
+   runs it weekly and lands a change as a pull request). It is gitignored: never
    commit it, expose it to the browser, place it in CI, or put it in Lambda
    configuration. Drop's only Elixir credential is its OAuth client secret
    (`ELIXIR_OAUTH_CLIENT_SECRET`, runtime secret, API function only); the
@@ -161,7 +162,7 @@ Every other doc points back here instead of keeping its own copy of this list.
   read-only `scripts/mail-bug-reports.mjs` only when Jamie hands it a message
   (`docs/OPERATIONS.md`, "Player reports").
 - `node apps/web/scripts/refresh-cards.mjs` — static card refresh; **runs only on
-  the managed host**. For local development, use the committed snapshot.
+  the managed host**, weekly from otto-ops' `refresh-drop-cards` or by hand. For local development, use the committed snapshot.
 
 The player API, background refresh worker, and infrastructure are implemented and
 documented in their workspace READMEs. Keep the request/result contracts in

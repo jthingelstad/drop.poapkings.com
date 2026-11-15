@@ -100,8 +100,10 @@ The running app reads only the committed snapshot,
 `packages/game-data/cards.json`, and the mirrored art in
 `apps/web/public/cards/`. The data shape is in `AGENTS.md`, "Card data shape".
 
-**Refreshing.** Run `node apps/web/scripts/refresh-cards.mjs` after a known
-Supercell card update. It runs only on the managed host.
+**Refreshing.** otto-ops' `refresh-drop-cards` job runs
+`node apps/web/scripts/refresh-cards.mjs` every Monday and lands a change as a
+pull request (a new card's is held as a draft for its name tiles). Run it by
+hand after a known Supercell card update. It runs only on the managed host.
 
 - The host's IP is allowlisted for the CR developer token.
 - The token is in the gitignored root `.env`.
