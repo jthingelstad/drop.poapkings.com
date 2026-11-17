@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-02",
+  "version": "2026-11-17",
   "count": 121,
   "cards": [
     {
@@ -42,9 +42,10 @@
       "elixir": 5,
       "rarity": "rare",
       "type": "troop",
-      "evo": false,
+      "evo": true,
       "hero": true,
       "icon": "/cards/26000003.png",
+      "iconEvo": "/cards/26000003_evo.png",
       "iconHero": "/cards/26000003_hero.png"
     },
     {

@@ -127,7 +127,7 @@ packages/game-data/cards.json
 
 Current snapshot:
 
-- `version`: `2026-11-02`
+- `version`: `2026-11-17`
 - `count`: `121`
 
 The API is refreshed out-of-band because:
