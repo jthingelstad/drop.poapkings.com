@@ -208,7 +208,7 @@ export function renderPublishedRunPage(
   const canonical = shareUrl(appUrl, share);
   const image = imageUrl(appUrl, share);
   const imageAlt = runShareImageAlt(share);
-  const challenge = `${appUrl}/#${game.path}`;
+  const challenge = `${appUrl}/#${game.path}?target=${share.score}`;
   const profile = `${appUrl}/#/players/${encodeURIComponent(share.playerId)}`;
   return renderPublishedSharePage({
     title,

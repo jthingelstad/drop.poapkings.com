@@ -12,6 +12,9 @@ import {
 } from '../lib/use-game-run'
 import type { Card } from '../types'
 import { CardName, ElixirCostBadge } from './CardChrome'
+import { navigate, route } from '../lib/router'
+import { scoreTarget, targetResult } from '../lib/score-target'
+import { scoreLabel } from '../lib/game-metadata'
 import Icon from './Icon'
 import BadgeEarned from './BadgeEarned'
 import ModeIcon from './ModeIcon'
@@ -47,6 +50,7 @@ interface Props {
   // already records. Falls back to the "Work on these" list below.
   children?: ComponentChildren
   onReplay: () => void
+  resultScore?: number
   replayLabel?: string
   onHome: () => void
 }
@@ -69,6 +73,7 @@ export default function Summary({
   share,
   children,
   onReplay,
+  resultScore,
   replayLabel = 'Play again',
   onHome
 }: Props) {
@@ -88,6 +93,8 @@ export default function Summary({
     for (const card of slowestCards) if (!workOnThese.some((w) => w.id === card.id)) workOnThese.push(card)
   }
 
+  const target = scoreTarget(route.value)
+  const practiceCards = share.mode === 'surge' || share.mode === 'survival' ? weakest.slice(0, 3) : []
   const xpEarned = offline ? 0 : earnedXp.value
   const changed = Boolean(visiblePbCallout) || xpEarned > 0 || earnedBadges.value.length > 0
 
@@ -114,6 +121,11 @@ export default function Summary({
         <div class="ed-sum__score-row">
           <div class="ed-sum__headline">{headline}</div>
         </div>
+        {target && target.mode === share.mode && resultScore !== undefined && (
+          <p class="ed-sum__target">
+            Target {scoreLabel(target.mode, target.score)} · {targetResult(target.mode, target.score, resultScore)}
+          </p>
+        )}
         {stateLine && (
           <p class="ed-sum__state" role="status">
             {stateLine}
@@ -159,6 +171,18 @@ export default function Summary({
               <CardChip card={c} key={c.id} />
             ))}
           </div>
+          {practiceCards.length > 0 && (
+            <button
+              class="ed-textlink"
+              onClick={() =>
+                navigate(
+                  '/practice?' + new URLSearchParams(practiceCards.map((card) => ['card', String(card.id)])).toString()
+                )
+              }
+            >
+              Practice {practiceCards.length === 1 ? practiceCards[0]!.name : `these ${practiceCards.length} misses`}
+            </button>
+          )}
         </div>
       )}
 

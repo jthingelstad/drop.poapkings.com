@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { lazy, Suspense } from 'preact/compat'
-import { route, navigate, replace, routePathname } from './lib/router'
+import { route, navigate, replace, parseHash, routePathname } from './lib/router'
 import { accountError, accountStatus, initializeAccount, player } from './lib/account'
 import { gamePathForRoute } from './lib/game-routes'
 import UpdateBanner from './components/UpdateBanner'
@@ -32,6 +32,7 @@ import { GAMES } from './lib/game-metadata'
 import { refreshUpdates } from './lib/updates'
 
 // The six shipped modes, each lazy-loaded as its own route chunk.
+const loadExactTen = () => import('./modes/exact-ten/ExactTen')
 const loadPractice = () => import('./modes/practice/Practice')
 const loadSurge = () => import('./modes/surge/Surge')
 const loadHigherLower = () => import('./modes/higher-lower/HigherLower')
@@ -41,8 +42,9 @@ const loadRain = () => import('./modes/rain/Rain')
 const loadAvatarAudit = () => import('./screens/AvatarAudit')
 
 const loadOfflineGames = () =>
-  Promise.all([loadPractice(), loadSurge(), loadHigherLower(), loadTrade(), loadSurvival(), loadRain()])
+  Promise.all([loadPractice(), loadSurge(), loadHigherLower(), loadTrade(), loadSurvival(), loadRain(), loadExactTen()])
 
+const ExactTen = lazy(loadExactTen)
 const Practice = lazy(loadPractice)
 const Surge = lazy(loadSurge)
 const HigherLower = lazy(loadHigherLower)
@@ -58,6 +60,7 @@ const AvatarAudit = import.meta.env.DEV ? lazy(loadAvatarAudit) : null
 // generic "Elixir Drop" as its page heading.
 const ROUTE_LABELS: { path: string; label: string; nested?: boolean }[] = [
   { path: '/practice', label: 'Practice' },
+  { path: '/exact-ten', label: 'Exact Ten' },
   { path: '/surge', label: 'Surge' },
   { path: '/higher-lower', label: 'Higher / Lower' },
   { path: '/trade', label: 'Trade' },
@@ -122,7 +125,10 @@ function AccountUnavailable() {
 }
 
 function HomeRedirect({ from }: { from: string }) {
-  useEffect(() => replace('/'), [from])
+  useEffect(() => {
+    // A newer hash may already be in the address bar while its change event is pending.
+    if (parseHash() === from) replace('/')
+  }, [from])
   return <Home />
 }
 
@@ -133,6 +139,7 @@ function ScreenContent({ r }: { r: string }) {
   // with a header chip and shows what it has, never a takeover. The Ladder and You
   // are live views that go quiet offline, not offline destinations — so the bundled
   // /offline explainer is retired; a legacy link to it lands Home.
+  if (pathname === '/exact-ten') return <ExactTen />
   if (pathname === '/offline') return <HomeRedirect from={r} />
   // A shared run opens the RUN, never the home page. It needs no account and no
   // network state beyond its own read, so it sits above every account gate.
@@ -195,7 +202,7 @@ function screenTitle(r: string): string | null {
 
 function screenOwnsPageHeading(r: string): boolean {
   const pathname = routePathname(r)
-  return pathname === '/login' || pathname === '/auth' || pathname.startsWith('/players/')
+  return pathname === '/exact-ten' || pathname === '/login' || pathname === '/auth' || pathname.startsWith('/players/')
 }
 
 export default function App() {
@@ -207,7 +214,7 @@ export default function App() {
     // answers; everywhere else the caps keep their US letters.
     void resolveKeyLegend()
     // Every game is a lazy route, so none of their chunks are guaranteed to be
-    // in the document's script list. Warm all six through the active worker,
+    // in the document's script list. Warm the games through the active worker,
     // then atomically commit the shell that makes every mode open offline.
     void initCardArtCache().then(async (worker) => {
       try {

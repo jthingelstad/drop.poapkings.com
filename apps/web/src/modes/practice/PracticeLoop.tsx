@@ -15,7 +15,8 @@ import {
 import { saveResult, getCardStats, getSettings, saveSettings, recordSession } from '../../lib/storage'
 import { computeInsights } from '../../lib/insights'
 import { playCorrect, playWrong } from '../../lib/sound'
-import { navigate } from '../../lib/router'
+import { challengeCard } from '../../lib/challenge-cards'
+import { navigate, replace, route, routeQuery } from '../../lib/router'
 import CardDisplay from '../../components/CardDisplay'
 import PipKeypad from '../../components/PipKeypad'
 import MultipleChoice from '../../components/MultipleChoice'
@@ -144,7 +145,18 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
   const restoredHydrated = useRef(restoredDraft === null || restoredDraft.answers.length === 0)
   const recorded = useRef(false)
   const wrongAttempts = useRef(0)
-  const reviewQueue = useRef<PracticeReviewItem[]>(restoredDraft?.reviewQueue ?? [])
+  const seeded = useMemo(() => {
+    const queue = [...(restoredDraft?.reviewQueue ?? [])]
+    const ids = new URLSearchParams(routeQuery(route.peek())).getAll('card').map(Number)
+    const selected = [...new Set(ids)].filter((id) => challengeCard(id)).slice(0, 3)
+    for (const [index, cardId] of selected.entries()) {
+      if (!queue.some((item) => item.cardId === cardId))
+        queue.push({ cardId, dueAtAnswered: (restoredDraft?.answers.length ?? 0) + index * 2, stage: 'retry' })
+    }
+    return { queue, requested: ids.length > 0 }
+  }, [restoredDraft])
+  const reviewQueue = useRef<PracticeReviewItem[]>(seeded.queue)
+  const seedPending = useRef(seeded.requested)
   const promptStartedAt = useRef(0)
   const promptPausedAt = useRef<number | null>(null)
   const promptPausedMs = useRef(0)
@@ -163,6 +175,22 @@ export default function PracticeLoop({ eyebrow, onExit }: Props) {
     | undefined
   >(undefined)
   const deck = gameRun.content
+
+  useEffect(() => {
+    const active = draft.current
+    if (!seedPending.current || !deck || !active) return
+    reviewQueue.current = reviewQueue.current.filter((item) => deck.some((card) => card.id === item.cardId))
+    if (
+      savePracticeDraft(active, {
+        answers: active.answers,
+        reviewQueue: reviewQueue.current,
+        recovered: active.recovered
+      })
+    ) {
+      seedPending.current = false
+      replace('/practice')
+    }
+  }, [deck])
 
   useEffect(() => {
     if (draft.current) void syncPracticeCheckpoints(draft.current, sessionToken())

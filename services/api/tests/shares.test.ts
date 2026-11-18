@@ -345,6 +345,9 @@ describe("published run link", () => {
       "font-src 'self'",
     );
     expect(response.body).toContain("BEAT 17.412s");
+    const target = 'href="https://drop.example/#/surge?target=17412"';
+    expect(response.body).toContain(`class="cta" ${target}`);
+    expect(response.body).toContain(`class="card" ${target}`);
     expect(response.body).toContain("Free · no account needed");
     expect(repository.creditPublishedRunOpen).not.toHaveBeenCalled();
   });

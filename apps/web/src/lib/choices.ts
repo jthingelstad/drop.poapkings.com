@@ -8,6 +8,7 @@
 // giveaway: for costs 3–6, which is 94% of the catalog, exactly one answer could
 // produce that set, so a player could score without ever looking at the card.
 
+import { shuffle } from './shuffle'
 import { allCards } from './card-catalog'
 
 const MIN = 1
@@ -15,15 +16,6 @@ const MIN = 1
 // has is a trap, not a distractor.
 const MAX = Math.max(...allCards.map((card) => card.elixir))
 const WINDOW = 4
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
 
 export function makeChoices(elixir: number): number[] {
   const answer = Math.min(Math.max(Math.round(elixir), MIN), MAX)

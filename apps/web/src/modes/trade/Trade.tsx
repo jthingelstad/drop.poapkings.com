@@ -274,6 +274,7 @@ export default function Trade() {
             mode: 'trade',
             score: `${formatSeconds(totalMs.value)}s`
           }}
+          resultScore={totalMs.value}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}

@@ -243,6 +243,7 @@ export default function Surge() {
             mode: 'surge',
             score: `${formatSeconds(totalMs.value)}s`
           }}
+          resultScore={totalMs.value}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}

@@ -439,7 +439,7 @@ function gamesBody(): string {
         'New to the card catalog? Begin with <a href="#practice">Practice</a> to learn exact values at your own pace. Want a clean speed benchmark? Play <a href="#surge">Surge</a>. Use <a href="#higher-lower">Higher / Lower</a> for comparisons, <a href="#trade">Trade</a> for match math, <a href="#survival">Survival</a> for consistency, and <a href="#rain">Rain</a> for an arcade challenge.'
       )}${paragraph(
         'Practice is intentionally unranked. The other five modes have seasonal and all-time leaderboards for signed-in online runs. Read <a href="/fair-play/">Fair Play</a> before competing for a leading result.'
-      )}`
+      )}${paragraph('For an untimed puzzle, try <a href="/#/exact-ten">Exact Ten</a>. Choose cards from a five-card hand that add up to ten elixir.')}`
     ),
     ...modeSections
   ])}`

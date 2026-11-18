@@ -117,7 +117,7 @@ export default function SharedRun({ token }: { token: string }) {
               challenge that opens a menu is not a challenge. */}
           <button
             class="ed-btn ed-btn--gold ed-btn--lg ed-sharedrun__cta tap-fx"
-            onClick={() => navigate(game ? game.path : '/')}
+            onClick={() => navigate(game ? `${game.path}?target=${shared.score}` : '/')}
           >
             <span class="tap-face">BEAT {score}</span>
           </button>

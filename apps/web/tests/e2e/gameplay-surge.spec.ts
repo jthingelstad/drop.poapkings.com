@@ -283,7 +283,18 @@ test('a shared link opens the run itself, with the score as the button', async (
 
   // The button opens the mode, not the home page.
   await page.getByRole('button', { name: 'BEAT 17.412s' }).click()
-  await expect(page).toHaveURL(/#\/surge$/)
+  await expect(page).toHaveURL(/#\/surge\?target=17412$/)
+  await expect(page.getByText('Target 17.412s', { exact: true })).toBeVisible({ timeout: 12_000 })
+  await completeSurge(page)
+  const time = Number((await page.locator('.ed-sum__headline').innerText()).replace('s', ''))
+  const delta = Math.abs(17412 - Math.round(time * 1000))
+  const outcome =
+    time === 17.412
+      ? 'You tied the target!'
+      : time < 17.412
+        ? `You beat the target by ${(delta / 1000).toFixed(3)}s!`
+        : `${(delta / 1000).toFixed(3)}s to match the target.`
+  await expect(page.locator('.ed-sum__target')).toContainText(outcome)
 })
 
 test('sharing the same run again returns the same permanent link', async ({ page }) => {

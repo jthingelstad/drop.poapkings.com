@@ -16,7 +16,7 @@ describe('SignaturePanel', () => {
     const html = await renderToStringAsync(
       <SignaturePanel
         unit="Seconds per card"
-        legend="The same card in your best run"
+        legend="Same position in your best run"
         badLabel="slower than your best there"
         values={[1200, 1800]}
         refs={[1500, 1500]}
@@ -27,7 +27,7 @@ describe('SignaturePanel', () => {
     expect((html.match(/<rect/g) ?? []).length).toBe(2)
     expect((html.match(/ed-sig__tick/g) ?? []).length).toBe(2)
     expect(html).toContain('Seconds per card')
-    expect(html).toContain('The same card in your best run')
+    expect(html).toContain('Same position in your best run')
     expect(html).toContain('ed-sig__ref-tick')
     // The scale names the peak and zero, so bar height is a quantity.
     expect(html).toContain('1.800s')
@@ -84,7 +84,7 @@ describe('signature builders', () => {
     expect(sig.unit).toBe('Seconds per card')
     expect(sig.refs).toEqual([1100, 1000, 1000])
     expect(sig.bad).toEqual([false, true, false])
-    expect(sig.reading).toContain('1 of 3')
+    expect(sig.reading).toContain('At card 3 you were level')
   })
 
   it('surge without a previous best has no reference and nothing red', () => {

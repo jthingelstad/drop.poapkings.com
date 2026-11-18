@@ -31,6 +31,11 @@ nudge nor a share action.
 Local personal bests still track on-device — except Practice, which keeps no
 best for anyone. Signing in unlocks recording and ranking.
 
+Surge and Survival offer targeted Practice after a miss. Up to three
+missed cards join the ordinary Practice review queue, including a resumed drill.
+A shared score carries its target through a fresh deal and its result, using each
+mode's scoring direction. Replaying that challenge keeps its target.
+
 **Offline play:** every mode uses the same browser game loop and shared deal
 rules without creating a server run. The result is session-only: no local
 personal or season best, account history, Player XP, badge progress, daily
@@ -422,6 +427,14 @@ seal. The floor is a difficulty model, and a model is exactly the kind of thing
 that false-positives on an exceptional player — which is precisely why it never
 costs that player their rank.
 
+### Exact Ten · local prototype
+
+Open **Exact Ten puzzle** beside Practice on Home. Pick any of five cards whose
+base costs add up to ten and check the total. Every hand has a solution.
+A miss gives the sum and lets the player change the selection. A solve reveals
+the card costs and offers **Deal again**. The puzzle is untimed and local, with
+no recorded run, XP, badges or standings.
+
 ### "Elixir Rain" screensaver
 
 Three doors in (`apps/web/src/lib/screensaver.ts`): the **nav launcher** — a
@@ -461,7 +474,7 @@ each mode names its own cost.
 
 | Mode           | Bars                 | Reference tick                      | Red bar means               |
 | -------------- | -------------------- | ----------------------------------- | --------------------------- |
-| Surge          | Seconds per card     | The same card in your best run      | slower than your best there |
+| Surge          | Seconds per card     | The same position in your best run      | slower at this position |
 | Rain           | Seconds to answer    | How long that card had left to fall | a life lost                 |
 | Survival       | Seconds to answer    | Your window at that streak          | the card that ended it      |
 | Trade          | Seconds per exchange | Your average round this run         | it took a retry             |
@@ -525,12 +538,6 @@ remaining useful whitespace is **small arithmetic** and **single-card
 estimation** — still without deck data.
 
 ### Strong non-deck candidates
-
-**Exact Ten** — _arithmetic / set-building_
-Show a random pool of visible cards and ask the player to pick a subset totaling
-exactly 10 elixir. This should be framed as "fill the bar" or "make 10," not deck
-construction. Random pools are acceptable because the mechanic is arithmetic, not
-authentic archetype recognition.
 
 **Mystery Cost** — _deduction_
 Show a card with the elixir badge hidden and reveal type/rarity/name clues over
