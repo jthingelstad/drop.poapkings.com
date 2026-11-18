@@ -267,23 +267,25 @@ test('practice never exposes the next hand before its image decode completes', a
   const first = cardsData.cards.find((card) => card.name === firstName)
   expect(first).toBeTruthy()
 
-  await page.evaluate(() => {
-    ;(window as unknown as { holdCardDecode: boolean }).holdCardDecode = true
-  })
-  await page.getByRole('button', { name: `${first!.elixir} elixir`, exact: true }).click()
-  await page.waitForTimeout(400)
-
-  // The feedback beat has elapsed, but the next hand remains entirely hidden
-  // behind the solved one until its exact art can paint.
-  await expect(image).toHaveAttribute('alt', first!.name)
-  await expect(page.locator('.pcard')).toHaveClass(/pcard--correct/)
-  await expect(page.locator('.pcard__answer-cost')).toHaveText(String(first!.elixir))
-
-  await page.evaluate(() => {
+  const key = page.getByRole('button', { name: `${first!.elixir} elixir`, exact: true })
+  await expect(key).toBeEnabled()
+  // Observe the held frame on the page's clock. Separate browser round trips
+  // can outlast the preloader's 2.5s fallback on a busy runner.
+  const held = await key.evaluate(async (button: HTMLButtonElement) => {
     const testWindow = window as unknown as { holdCardDecode: boolean; releaseCardDecodes: () => void }
+    testWindow.holdCardDecode = true
+    button.click()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    const frame = {
+      name: document.querySelector('.pcard__img')?.getAttribute('alt'),
+      correct: document.querySelector('.pcard')?.classList.contains('pcard--correct'),
+      cost: document.querySelector('.pcard__answer-cost')?.textContent
+    }
     testWindow.holdCardDecode = false
     testWindow.releaseCardDecodes()
+    return frame
   })
+  expect(held).toEqual({ name: first!.name, correct: true, cost: String(first!.elixir) })
   await expect(image).not.toHaveAttribute('alt', first!.name)
   await expect(image).toHaveJSProperty('complete', true)
   expect(await image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
