@@ -154,6 +154,21 @@ async function fetchAndCache(request) {
   return response
 }
 
+// A player can go offline before the optional form pack finishes. Serve the
+// base illustration for a missing form without storing it under the form URL.
+async function cardResponse(request) {
+  const url = new URL(request.url)
+  const basePath = url.pathname.replace(/_(?:evo|hero)\.png$/, '.png')
+  if (basePath === url.pathname) return fetchAndCache(request)
+  try {
+    const response = await fetchAndCache(request)
+    if (response.ok) return response
+  } catch {
+    // Try the same card's base art after a network failure too.
+  }
+  return fetchAndCache(new Request(new URL(basePath, url.origin).href))
+}
+
 async function cacheBatch(urls) {
   for (const value of urls) {
     const url = new URL(value, self.location.origin)
@@ -192,7 +207,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (isCardRequest(event.request)) {
-    event.respondWith(fetchAndCache(event.request))
+    event.respondWith(cardResponse(event.request))
     return
   }
   if (event.request.mode === 'navigate') {

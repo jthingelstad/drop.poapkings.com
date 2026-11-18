@@ -336,11 +336,12 @@ test('an installed PWA replaces Install app with live App Info diagnostics', asy
   })
 })
 
-test('the Settings scope has three toggles that persist per device', async ({ page }) => {
+test('the Settings switches persist per device', async ({ page }) => {
   await page.goto('/#/profile', { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Settings' }).click()
   const settings = page.locator('.ed-settings')
 
+  const forms = settings.getByRole('switch', { name: 'Evolution and Hero forms' })
   const sound = settings.getByRole('switch', { name: 'Sound effects' })
   const motion = settings.getByRole('switch', { name: 'Reduce motion' })
   const effects = settings.getByRole('switch', { name: 'Enhance effects' })
@@ -348,6 +349,8 @@ test('the Settings scope has three toggles that persist per device', async ({ pa
   await expect(motion).toHaveAttribute('aria-checked', 'false')
   await expect(effects).toHaveAttribute('aria-checked', 'true')
 
+  await expect(forms).not.toBeChecked()
+  await forms.click()
   await sound.click()
   await motion.click()
   await effects.click()
@@ -355,9 +358,27 @@ test('the Settings scope has three toggles that persist per device', async ({ pa
 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Settings' }).click()
+  await expect(forms).toBeChecked()
   await expect(settings.getByRole('switch', { name: 'Sound effects' })).toHaveAttribute('aria-checked', 'true')
   await expect(settings.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settings.getByRole('switch', { name: 'Enhance effects' })).toHaveAttribute('aria-checked', 'false')
+})
+
+test('a guest can mix card forms and answer with the base elixir cost', { tag: '@deploy' }, async ({ page }) => {
+  await page.goto('/?signedOut=1#/profile')
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
+  await page.getByRole('switch', { name: 'Evolution and Hero forms' }).click()
+  await page.goto('/?signedOut=1#/survival')
+  const knight = cardsData.cards[0]!
+  const art = page.locator('.pcard__img')
+  // The fixture deals Knight first and rolls 0.42, the Evolution of its three forms.
+  await expect(art).toHaveAttribute('src', knight.iconEvo!, { timeout: 12000 })
+  await page.getByRole('button', { name: `${knight.elixir} elixir`, exact: true }).click()
+  await expect(art).toHaveAttribute('alt', cardsData.cards[1]!.name)
+  await page.goto('/?signedOut=1#/profile?scope=settings')
+  await page.getByRole('switch', { name: 'Evolution and Hero forms' }).click()
+  await page.goto('/?signedOut=1#/survival')
+  await expect(art).toHaveAttribute('src', knight.icon, { timeout: 12000 })
 })
 
 test('the Ladder Badges scope shows the full collection without unrelated helper copy', async ({ page }) => {

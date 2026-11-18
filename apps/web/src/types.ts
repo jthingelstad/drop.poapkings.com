@@ -22,6 +22,7 @@ export type InputStyle = 'keypad' | 'choice'
 export interface Settings {
   inputStyle: InputStyle
   sound: boolean
+  includeCardForms?: boolean
   reducedMotion?: boolean
   // Richer particle FX across the games. On by default; reduced motion overrides.
   enhancedEffects?: boolean

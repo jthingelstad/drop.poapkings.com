@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useState } from 'preact/hooks'
+import { useRef, useState } from 'preact/hooks'
 import type { Card } from '../types'
 import { cardNameToneClass, classNames, type ElixirBadgeTone } from '../lib/card-rendering'
 
@@ -59,11 +59,12 @@ export function CardArt({
   nameClassName,
   overlay
 }: CardArtProps) {
-  const [imageState, setImageState] = useState<{ cardId: number; status: 'loading' | 'ready' | 'failed' }>({
-    cardId: card.id,
+  const currentImage = useRef<HTMLImageElement>(null)
+  const [imageState, setImageState] = useState<{ icon: string; status: 'loading' | 'ready' | 'failed' }>({
+    icon: card.icon,
     status: 'loading'
   })
-  const status = imageState.cardId === card.id ? imageState.status : 'loading'
+  const status = imageState.icon === card.icon ? imageState.status : 'loading'
   const imgFailed = status === 'failed'
   const imgReady = status === 'ready'
   const showImage = card.icon && !imgFailed
@@ -73,21 +74,27 @@ export function CardArt({
       {!imgReady && <span class={classNames('cr-card-art__fallback', fallbackClassName)} aria-hidden="true" />}
       {showImage && (
         <img
-          key={card.id}
+          key={card.icon}
+          ref={currentImage}
           class={classNames('cr-card-art__img', !imgReady && 'cr-card-art__img--loading', imgClassName)}
           src={card.icon}
           alt={alt}
           loading={loading}
           onLoad={(event) => {
             const image = event.currentTarget
-            const markReady = () => setImageState({ cardId: card.id, status: 'ready' })
+            const mark = (status: 'ready' | 'failed') => {
+              if (currentImage.current === image) setImageState({ icon: card.icon, status })
+            }
             if (typeof image.decode !== 'function') {
-              markReady()
+              mark('ready')
               return
             }
-            void image.decode().then(markReady, () => setImageState({ cardId: card.id, status: 'failed' }))
+            void image.decode().then(
+              () => mark('ready'),
+              () => mark('failed')
+            )
           }}
-          onError={() => setImageState({ cardId: card.id, status: 'failed' })}
+          onError={() => setImageState({ icon: card.icon, status: 'failed' })}
         />
       )}
       {overlay}

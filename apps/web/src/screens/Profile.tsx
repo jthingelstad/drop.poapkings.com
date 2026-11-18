@@ -78,6 +78,7 @@ export default function Profile() {
   }, [scope, unreadUpdates])
 
   if (accountStatus.value !== 'authenticated' || !player.value) {
+    if (scope === 'settings') return <SettingsScope />
     return (
       <div class="ed-profile-guest">
         <span class="ed-profile-guest__halo" aria-hidden="true">
@@ -104,6 +105,9 @@ export default function Profile() {
         <button class="ed-textlink" onClick={() => navigate('/')}>
           Keep playing as guest
         </button>
+        <a class="ed-textlink" href="#/profile?scope=settings">
+          Settings
+        </a>
       </div>
     )
   }
