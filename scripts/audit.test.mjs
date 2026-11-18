@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { EXCEPTIONS, judgeAudit } from "./audit.mjs";
+import { EXCEPTIONS, judgeAudit, productionCopiesOf } from "./audit.mjs";
 
 const URL = "https://github.com/advisories/";
 const report = {
@@ -58,4 +58,19 @@ void test("every exception is dated, explained and short-lived", () => {
     assert.match(e.expires, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(e.package && e.reason.length > 40);
   }
+});
+
+void test("a dev-only exception rejects nested, optional and aliased production copies", () => {
+  const packages = {
+    "node_modules/picomatch": { dev: true },
+    "node_modules/first/node_modules/picomatch": {},
+    "node_modules/second/node_modules/picomatch": { devOptional: true },
+    "node_modules/alias": { name: "picomatch", optional: true },
+    "node_modules/other": {},
+  };
+  assert.deepEqual(productionCopiesOf(packages, "picomatch"), [
+    "node_modules/first/node_modules/picomatch",
+    "node_modules/second/node_modules/picomatch",
+    "node_modules/alias",
+  ]);
 });
