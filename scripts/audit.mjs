@@ -12,9 +12,32 @@
 
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import lockfile from "../package-lock.json" with { type: "json" };
 
 /** Accepted advisories; the gate fails again on the day after `expires`. */
-export const EXCEPTIONS = [];
+export const EXCEPTIONS = [
+  {
+    advisory: "GHSA-fc5q-39xc-vjpf",
+    package: "picomatch",
+    expires: "2026-11-24",
+    developmentOnly: true,
+    reason:
+      "Upstream lists no patched release. Only development tools use picomatch for file matching.",
+  },
+];
+
+// npm marks a locked copy dev:true only when exclusively development code
+// needs it. Copies shared with production (including optional dependencies)
+// must fail this check, even when another installed copy is dev-only.
+export function productionCopiesOf(packages, name) {
+  return Object.entries(packages)
+    .filter(
+      ([path, pkg]) =>
+        (pkg.name === name || path.endsWith(`node_modules/${name}`)) &&
+        pkg.dev !== true,
+    )
+    .map(([path]) => path);
+}
 
 const FAILING = new Set(["high", "critical"]);
 
@@ -65,6 +88,16 @@ function advisoryId(url = "") {
 }
 
 function main() {
+  for (const exception of EXCEPTIONS) {
+    if (!exception.developmentOnly) continue;
+    const production = productionCopiesOf(lockfile.packages, exception.package);
+    if (production.length) {
+      console.error(
+        `FAIL ${exception.package} is allowed only in development dependencies: ${production.join(", ")}`,
+      );
+      return 1;
+    }
+  }
   const run = spawnSync("npm", ["audit", "--json"], { encoding: "utf8" });
   let report;
   try {
