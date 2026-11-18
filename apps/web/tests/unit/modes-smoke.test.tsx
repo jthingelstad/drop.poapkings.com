@@ -46,7 +46,7 @@ vi.mock('../../src/components/GameFxLayer', () => ({
 
 // The real hooks (imported after the mocks above) for the direct-content tests.
 import { setSoundEnabled, playCorrect } from '../../src/lib/sound'
-import { getSettings } from '../../src/lib/storage'
+import { getSettings, saveSettings } from '../../src/lib/storage'
 import { challengePreparers } from '../../src/lib/game-challenge-content'
 import { challengeCard, challengeCards, fullDeckSize } from '../../src/lib/challenge-cards'
 import { route } from '../../src/lib/router'
@@ -186,9 +186,9 @@ describe('PlayerPreferences', () => {
     expect(getSettings().enhancedEffects).toBe(false)
   })
 
-  it('shows exactly three toggles — Sound, Reduce motion, Enhance effects', () => {
+  it('shows the device preference switches', () => {
     const c = mount(<PlayerPreferences />)
-    expect(c.querySelectorAll('.switch').length).toBe(3)
+    expect(byLabel(c, 'Evolution and Hero forms')).toBeTruthy()
     expect(byLabel(c, 'Sound effects')).toBeTruthy()
     expect(byLabel(c, 'Reduce motion')).toBeTruthy()
     expect(byLabel(c, 'Enhance effects')).toBeTruthy()
@@ -199,6 +199,30 @@ describe('PlayerPreferences', () => {
 // game-challenge-content — resolving each mode's signed challenge into content
 // ══════════════════════════════════════════════════════════════════════════════
 describe('challengePreparers', () => {
+  it('preloads the selected form and preserves every signed card and cost', () => {
+    const knight = challengeCard(26000000)!
+    const challenge = { mode: 'surge' as const, cardIds: Array<number>(15).fill(knight.id) }
+    expect(challengePreparers.surge(challenge).content[0]).toBe(knight)
+    saveSettings({ includeCardForms: true })
+    const random = vi.spyOn(Math, 'random')
+    try {
+      for (const [roll, icon] of [
+        [0, knight.icon],
+        [0.5, knight.iconEvo],
+        [0.99, knight.iconHero]
+      ] as const) {
+        random.mockReturnValue(roll)
+        const { content, assets } = challengePreparers.surge(challenge)
+        expect(content[0]).toEqual({ ...knight, icon })
+        expect(assets[0]).toBe(content[0])
+      }
+      expect(knight.icon).toBe('/cards/26000000.png')
+    } finally {
+      random.mockRestore()
+      saveSettings({ includeCardForms: false })
+    }
+  })
+
   it('surge resolves 15 cards with 15 assets', () => {
     const out = challengePreparers.surge({ mode: 'surge', cardIds: CARD_IDS.slice(0, 15) } as never)
     expect(out.content).toHaveLength(15)

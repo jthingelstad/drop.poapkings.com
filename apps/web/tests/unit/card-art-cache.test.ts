@@ -3,11 +3,13 @@ import { readFileSync } from 'node:fs'
 import {
   allCardArtUrls,
   cacheAppShell,
+  warmCardFormArt,
   cardArtBatches,
   cardArtCacheName,
   getCardArtCacheInfo,
   initCardArtCache
 } from '../../src/lib/card-art-cache'
+import { saveSettings } from '../../src/lib/storage'
 import { allCards, cardCatalogVersion } from '../../src/lib/card-catalog'
 
 describe('card art cache', () => {
@@ -52,6 +54,29 @@ describe('card art cache', () => {
     expect(allCardArtUrls).toHaveLength(allCards.length)
     expect(allCardArtUrls.every((url) => /^\/cards\/\d+\.png$/.test(url))).toBe(true)
     expect(allCardArtUrls.some((url) => /_(?:evo|hero)\.png$/.test(url))).toBe(false)
+  })
+
+  it('warms alternate art on opt-in and leaves it out when disabled', async () => {
+    const postMessage = vi.fn()
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { register: vi.fn(async (url: string) => activeRegistration(url, postMessage)) }
+    })
+    saveSettings({ includeCardForms: true })
+    try {
+      await initCardArtCache(true)
+      vi.runAllTimers()
+      const warmed = postMessage.mock.calls.flatMap(([message]) => message.urls as string[])
+      const expected = new Set(allCards.flatMap((card) => [card.icon, card.iconEvo, card.iconHero].filter(Boolean)))
+      expect(new Set(warmed)).toEqual(expected)
+      saveSettings({ includeCardForms: false })
+      postMessage.mockClear()
+      warmCardFormArt()
+      vi.runAllTimers()
+      expect(postMessage).not.toHaveBeenCalled()
+    } finally {
+      saveSettings({ includeCardForms: false })
+    }
   })
 
   it('splits the offline pack into bounded ordered batches', () => {
@@ -213,7 +238,7 @@ describe('card art cache', () => {
   it('ships a service worker with runtime and background card-art cache paths', () => {
     const source = readFileSync('public/card-art-sw.js', 'utf8')
     expect(source).toContain('const cardPath = /^\\/cards\\/')
-    expect(source).toContain('event.respondWith(fetchAndCache(event.request))')
+    expect(source).toContain('event.respondWith(cardResponse(event.request))')
     expect(source).toContain("event.data?.type !== 'cache-card-art'")
     expect(source).toContain("const LEGACY_CARD_CACHE_PREFIX = 'elixir-drop-card-art-'")
     expect(source).toContain('name.startsWith(LEGACY_CARD_CACHE_PREFIX)')

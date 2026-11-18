@@ -1,5 +1,6 @@
 import { TRADE_ROUNDS, type GameMode, type RunChallenge } from '@elixir-drop/contracts'
 import type { Card } from '../types'
+import { cardArtForDeal } from './card-rendering'
 import type { TradeRound } from './trade'
 import { challengeCard, challengeCards, fullDeckSize } from './challenge-cards'
 
@@ -29,7 +30,7 @@ function sequenceChallenge<T extends SequenceMode>(
   assetLimit = count
 ): (challenge: SequenceChallengeFor<T>) => PreparedChallenge<Card[]> {
   return (challenge) => {
-    const cards = exactCards(challenge.cardIds, count, label)
+    const cards = exactCards(challenge.cardIds, count, label).map(cardArtForDeal())
     return { content: cards, assets: cards.slice(0, assetLimit) }
   }
 }
@@ -52,24 +53,26 @@ export const challengePreparers = {
     // A long draw deck (shared RAIN_DECK_SIZE); tiles spawn from it in order. Any
     // non-empty resolvable deck is valid; only a first handful needs preloading.
     if (!Array.isArray(challenge.cardIds) || challenge.cardIds.length < 1) invalid('Rain')
-    const cards = challengeCards(challenge.cardIds)
+    const cards = challengeCards(challenge.cardIds).map(cardArtForDeal())
     if (cards.length !== challenge.cardIds.length) invalid('Rain')
     return { content: cards, assets: cards.slice(0, 24) }
   },
   'higher-lower': (challenge: ChallengeFor<'higher-lower'>): PreparedChallenge<Array<[Card, Card]>> => {
     if (!Array.isArray(challenge.pairs) || challenge.pairs.length !== 250) invalid('Higher or Lower')
+    const chooseArt = cardArtForDeal()
     const pairs = challenge.pairs.map((pair) => {
       if (!Array.isArray(pair) || pair.length !== 2) invalid('Higher or Lower')
       const left = challengeCard(pair[0])
       const right = challengeCard(pair[1])
       if (!left || !right) invalid('Higher or Lower')
-      return [left, right] as [Card, Card]
+      return [chooseArt(left), chooseArt(right)] as [Card, Card]
     })
     return { content: pairs, assets: pairs[0] ? [...pairs[0]] : [] }
   },
   trade: (challenge: ChallengeFor<'trade'>): PreparedChallenge<TradeRound[]> => {
     // The run length is the shared ladder's length, not a local literal.
     if (!Array.isArray(challenge.rounds) || challenge.rounds.length !== TRADE_ROUNDS) invalid('Trade')
+    const chooseArt = cardArtForDeal()
     const rounds = challenge.rounds.map((round) => {
       const blue = challengeCards(round.blueIds)
       const red = challengeCards(round.redIds)
@@ -83,7 +86,7 @@ export const challengePreparers = {
       ) {
         invalid('Trade')
       }
-      return { blue, red }
+      return { blue: blue.map(chooseArt), red: red.map(chooseArt) }
     })
     return { content: rounds, assets: rounds.flatMap((round) => [...round.blue, ...round.red]) }
   }

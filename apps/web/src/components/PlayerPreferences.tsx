@@ -1,6 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { applyReducedMotion } from '../lib/motion'
 import { setSoundEnabled, playCorrect } from '../lib/sound'
+import { warmCardFormArt } from '../lib/card-art-cache'
 import { getSettings, saveSettings } from '../lib/storage'
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
@@ -19,9 +20,17 @@ function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
 
 export default function PlayerPreferences() {
   const settings = getSettings()
+  const includeCardForms = useSignal(settings.includeCardForms === true)
   const sound = useSignal(settings.sound)
   const reducedMotion = useSignal(Boolean(settings.reducedMotion))
   const enhancedEffects = useSignal(settings.enhancedEffects ?? true)
+
+  function toggleCardForms() {
+    const on = !includeCardForms.value
+    includeCardForms.value = on
+    saveSettings({ includeCardForms: on })
+    if (on) warmCardFormArt()
+  }
 
   function toggleSound() {
     const on = !sound.value
@@ -46,6 +55,16 @@ export default function PlayerPreferences() {
 
   return (
     <div class="player-preferences">
+      <div class="setting-row">
+        <div class="setting-row__text">
+          <div class="setting-row__name">Evolution and Hero forms</div>
+          <div class="setting-row__desc">
+            Mix base, Evolution, and Hero art into games. Every form uses the base elixir cost.
+          </div>
+        </div>
+        <Toggle on={includeCardForms.value} onToggle={toggleCardForms} label="Evolution and Hero forms" />
+      </div>
+
       <div class="setting-row">
         <div class="setting-row__text">
           <div class="setting-row__name">Sound</div>

@@ -131,6 +131,21 @@ function workerHarness() {
 }
 
 describe('offline app-shell worker', () => {
+  it('serves the base art for an uncached offline form, then fetches the real form once online', async () => {
+    const harness = workerHarness()
+    const base = ORIGIN + '/cards/26000000.png'
+    const form = ORIGIN + '/cards/26000000_hero.png'
+    const fetchImage = (url: string) => harness.dispatch('fetch', { request: { method: 'GET', mode: 'cors', url } })
+    harness.responses.set(base, new Response('base'))
+    await fetchImage(base)
+    harness.failures.add(base)
+    harness.failures.add(form)
+    await expect((await fetchImage(form))?.text()).resolves.toBe('base')
+    harness.failures.delete(form)
+    harness.responses.set(form, new Response('hero'))
+    await expect((await fetchImage(form))?.text()).resolves.toBe('hero')
+  })
+
   it('keeps the prior shell through activation and a failed replacement, then serves it offline', async () => {
     const harness = workerHarness()
     const previous = await harness.caches.open('elixir-drop-shell-build-a')

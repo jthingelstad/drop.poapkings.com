@@ -4,6 +4,7 @@ import type { Card, InputStyle } from '../../types'
 import type { Answer, Insights } from '../../lib/insights'
 import type { GameRuntimeCue } from '../../lib/game-runtime'
 import { pointerVerb } from '../../lib/use-layout'
+import { cardArtForDeal } from '../../lib/card-rendering'
 import { makeChoices } from '../../lib/choices'
 import { pickPracticeCard } from '../../lib/practice-deal'
 import {
@@ -76,8 +77,9 @@ interface PendingExit {
 }
 
 function handFor(card: Card, reviewStage?: PracticeReviewStage): Hand {
+  const chooseArt = cardArtForDeal()
   return {
-    card,
+    card: chooseArt(card),
     choices: makeChoices(card.elixir),
     ...(reviewStage ? { reviewStage } : {})
   }

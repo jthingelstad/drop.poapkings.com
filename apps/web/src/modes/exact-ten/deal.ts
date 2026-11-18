@@ -1,4 +1,5 @@
 import { allCards } from '../../lib/card-catalog'
+import { cardArtForDeal } from '../../lib/card-rendering'
 import { shuffle } from '../../lib/shuffle'
 import type { Card } from '../../types'
 
@@ -14,7 +15,7 @@ export function dealExactTen(): Card[] {
       const combination = [...cards, card]
       if (next === 10) {
         const extras = pool.filter((candidate) => !combination.includes(candidate))
-        return shuffle([...combination, ...extras.slice(0, 5 - combination.length)])
+        return shuffle([...combination, ...extras.slice(0, 5 - combination.length)]).map(cardArtForDeal())
       }
       if (combination.length < (sums.get(next)?.length ?? Infinity)) sums.set(next, combination)
     }

@@ -310,7 +310,9 @@ Product decisions currently in force:
   `GAMES.md`; only an unassisted retrieval advances or clears a review stage.
   The summary reports recall and assisted recognition separately and derives
   its recovered/still-due counts and review action from that live queue.
-- Evolutions and Hero flags are flavor only; the answer is always base elixir.
+- In You → Settings, **Evolution and Hero forms** mixes base and available alternate
+  illustrations with equal odds. This per-device preference defaults off. Every
+  form uses its card’s base ID and elixir cost.
 - Daily Ladder is not shipped and should not be built without a fresh approval.
 
 ---
@@ -488,7 +490,7 @@ elixirdrop:records       -> { surgeBest, surgeBestPace, higherLowerContinuousBes
                             (no Practice key — Practice keeps no record)
 elixirdrop:seasonRecords -> { seasonId, records } (numeric CR season ID and
                              season-scoped bests; a new ID resets the slate)
-elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects? }
+elixirdrop:settings      -> { inputStyle, sound, reducedMotion?, enhancedEffects?, includeCardForms? }
 ```
 
 Session, active-run recovery, install, and player-nudge state, owned by their
@@ -858,7 +860,9 @@ The service worker atomically caches the document and every lazy game chunk by
 build ID, while card art lives in a catalog-versioned cache. Document navigation
 is bounded network-first: a responsive connection gets the current document,
 while a three-second stall falls back to the last atomically complete shell.
-Every production visit fills the 120-image base-art pack in small serialized batches;
+Every production visit fills the base-art pack in small serialized batches. Enabling
+Evolution and Hero forms also warms the available alternate images. A missing
+form falls back to the base illustration.
 App Info shows its progress and the current device/server Practice recovery
 cursor. For developer-tagged accounts it also shows a
 read-only Practice Recovery diagnostic: device learning totals, saved learning

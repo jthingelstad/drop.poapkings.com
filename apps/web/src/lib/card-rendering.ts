@@ -1,4 +1,5 @@
 import type { Card } from '../types'
+import { getSettings } from './storage'
 
 export type CardRarity = Card['rarity']
 export type ElixirBadgeTone = 'default' | 'wrong'
@@ -33,4 +34,17 @@ export function cardNameToneClass(card: Pick<Card, 'rarity'>): string {
 
 export function cardRarityModifier(card: Pick<Card, 'rarity'>, block: string): string {
   return `${block}--${card.rarity}`
+}
+
+/** Choose the illustration when dealing, so preloading, hints and reveals all use the same image. */
+export function cardArtForDeal() {
+  const mixForms = getSettings().includeCardForms === true
+  return (card: Card): Card => {
+    if (!mixForms || (!card.iconEvo && !card.iconHero)) return card
+    const icons = [card.icon]
+    if (card.iconEvo) icons.push(card.iconEvo)
+    if (card.iconHero) icons.push(card.iconHero)
+    const icon = icons[Math.floor(Math.random() * icons.length)]!
+    return icon === card.icon ? card : { ...card, icon }
+  }
 }

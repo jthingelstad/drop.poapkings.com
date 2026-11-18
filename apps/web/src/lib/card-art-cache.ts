@@ -1,3 +1,4 @@
+import { getSettings } from './storage'
 import { buildMeta } from './build'
 import { allCards, cardCatalogVersion } from './card-catalog'
 
@@ -16,10 +17,13 @@ type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
 }
 
-// Every current Drop surface renders the base art. Keep Evolution and Hero
-// files available in /cards, but do not make installed apps download unused
-// variants as part of the offline pack.
+// Every device warms the base pack. Only players who mix forms into their
+// games also download the catalog's alternate illustrations.
 export const allCardArtUrls = [...new Set(allCards.map((card) => card.icon))]
+const formArtUrls = [
+  ...new Set(allCards.flatMap((card) => [card.iconEvo, card.iconHero].filter((url): url is string => Boolean(url))))
+]
+let activeWorker: ServiceWorker | null = null
 export const cardArtCacheName = `${CARD_CACHE_PREFIX}${cardCatalogVersion}`
 
 export interface CardArtCacheInfo {
@@ -42,12 +46,13 @@ export function cardArtBatches(urls: readonly string[], size = CARD_ART_BATCH_SI
 // are counted against the current catalog so stale or unrelated responses can
 // never make the pack look complete.
 export async function getCardArtCacheInfo(): Promise<CardArtCacheInfo> {
+  const expected = getSettings().includeCardForms ? [...allCardArtUrls, ...formArtUrls] : allCardArtUrls
   const unsupported: CardArtCacheInfo = {
     supported: false,
     workerState: 'unsupported',
     cacheName: cardArtCacheName,
     cachedCount: 0,
-    totalCount: allCardArtUrls.length,
+    totalCount: expected.length,
     ready: false
   }
   if (
@@ -66,7 +71,7 @@ export async function getCardArtCacheInfo(): Promise<CardArtCacheInfo> {
 
   if (names.includes(cardArtCacheName)) {
     const cache = await caches.open(cardArtCacheName)
-    const expectedPaths = new Set(allCardArtUrls)
+    const expectedPaths = new Set(expected)
     const requests = await cache.keys()
     cachedCount = new Set(
       requests.map((request) => new URL(request.url).pathname).filter((pathname) => expectedPaths.has(pathname))
@@ -78,8 +83,8 @@ export async function getCardArtCacheInfo(): Promise<CardArtCacheInfo> {
     workerState: worker?.state ?? 'missing',
     cacheName: cardArtCacheName,
     cachedCount,
-    totalCount: allCardArtUrls.length,
-    ready: cachedCount >= allCardArtUrls.length
+    totalCount: expected.length,
+    ready: cachedCount >= expected.length
   }
 }
 
@@ -91,9 +96,10 @@ function scheduleIdle(callback: () => void): void {
   }, CARD_ART_BATCH_DELAY_MS)
 }
 
-function progressivelyFill(worker: ServiceWorker, batches: string[][]): void {
+function progressivelyFill(worker: ServiceWorker, batches: string[][], wanted = () => true): void {
   let index = 0
   const sendNext = () => {
+    if (!wanted()) return
     if (document.visibilityState !== 'visible') {
       scheduleIdle(sendNext)
       return
@@ -182,6 +188,12 @@ export function cacheAppShell(worker: ServiceWorker): void {
   worker.postMessage({ type: 'cache-shell', urls: shellUrls() })
 }
 
+export function warmCardFormArt(): void {
+  const wanted = () => getSettings().includeCardForms === true
+  if (activeWorker?.state === 'activated' && wanted())
+    progressivelyFill(activeWorker, cardArtBatches(formArtUrls), wanted)
+}
+
 export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<ServiceWorker | null> {
   if (!enabled || !('serviceWorker' in navigator)) return null
 
@@ -189,7 +201,11 @@ export async function initCardArtCache(enabled = import.meta.env.PROD): Promise<
     const workerUrl = `/card-art-sw.js?build=${encodeURIComponent(buildMeta.id)}&catalog=${encodeURIComponent(cardCatalogVersion)}`
     const registration = await navigator.serviceWorker.register(workerUrl, { scope: '/', updateViaCache: 'none' })
     const worker = await waitForExpectedWorker(registration, workerUrl)
-    if (worker) progressivelyFill(worker, cardArtBatches(allCardArtUrls))
+    if (worker) {
+      activeWorker = worker
+      progressivelyFill(worker, cardArtBatches(allCardArtUrls))
+      warmCardFormArt()
+    }
     return worker
   } catch (error) {
     // Card art still loads normally when service workers are unavailable or
