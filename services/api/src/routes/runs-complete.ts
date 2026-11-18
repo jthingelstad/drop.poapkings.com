@@ -1,3 +1,4 @@
+import { playedGame } from "../drop-game.js";
 import { arenaForXp, type XpAward } from "@elixir-drop/contracts";
 import type { Config } from "../config.js";
 import type { HttpRequest } from "../http.js";
@@ -293,7 +294,13 @@ async function recordSignedInRun(
       ? { practiceCards: answerCount }
       : runXp(run.mode, score);
   const result = await repository.completeRun(
-    { ...run, answerCount },
+    {
+      ...run,
+      answerCount,
+      ...(run.timelinePlayer
+        ? { gameResult: playedGame(run, transcript, score) }
+        : {}),
+    },
     score,
     season.id,
     completionXp,

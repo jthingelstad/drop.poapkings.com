@@ -707,7 +707,8 @@ describe('Home', () => {
     expect(html).toContain('<span class="tap-face"><span class="icon"')
     expect(html).not.toContain('PLAY SURGE')
     expect(html).toContain('ed-hero__play')
-    expect(html.match(/ed-grow__play/g)).toHaveLength(5)
+    expect(html).toContain('Exact Ten')
+    expect(html.match(/ed-grow__play/g)).toHaveLength(6)
     expect(html).not.toContain('Ranked runs are played on your phone')
   })
 

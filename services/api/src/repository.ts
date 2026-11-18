@@ -21,6 +21,12 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import type { BadgeCounters } from "./badges.js";
 import type { ElixirIdentity } from "./elixir-identity.js";
+import {
+  gameOutboxItem,
+  type GamePlayer,
+  type GameResult,
+  type DropGame,
+} from "./drop-game.js";
 import { client, profileKey } from "./dynamo.js";
 import { HttpError } from "./errors.js";
 import {
@@ -212,6 +218,8 @@ class PracticeXpConflict extends Error {
 }
 
 export interface RunItem {
+  timelinePlayer?: GamePlayer;
+  gameResult?: GameResult;
   pk: string;
   sk: "RUN";
   runId: string;
@@ -523,6 +531,88 @@ export interface PublicPlayerLookup {
 
 export class Repository {
   constructor(private readonly tableName: string) {}
+
+  async recordExactTen(
+    owner: string,
+    player: GamePlayer | undefined,
+    game: GameResult,
+  ) {
+    const pk = `PLAYER#${owner}`;
+    const sk = `EXACTTEN#${game.gameId}`;
+    const completedAt = new Date().toISOString();
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              ConditionCheck: {
+                TableName: this.tableName,
+                Key: profileKey(owner),
+                ConditionExpression: "attribute_exists(pk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: { pk, sk, ...game, completedAt },
+                ConditionExpression: "attribute_not_exists(pk)",
+              },
+            },
+            ...(player
+              ? [
+                  {
+                    Put: {
+                      TableName: this.tableName,
+                      Item: gameOutboxItem(owner, player, game, completedAt),
+                    },
+                  },
+                ]
+              : []),
+          ],
+        }),
+      );
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "TransactionCanceledException"
+      )
+        throw error;
+      // A retry after a lost success response reads the original durable solve.
+      const prior = await client.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: { pk, sk },
+          ConsistentRead: true,
+        }),
+      );
+      if (!prior.Item) throw error;
+      return String(prior.Item.completedAt);
+    }
+    return completedAt;
+  }
+
+  async pendingDropGames() {
+    const result = await client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: "GSI1",
+        KeyConditionExpression: "GSI1PK = :pending",
+        ExpressionAttributeValues: { ":pending": "GAMEOUT" },
+        Limit: 50,
+      }),
+    );
+    return (result.Items ?? []) as {
+      pk: string;
+      sk: string;
+      event: DropGame;
+    }[];
+  }
+
+  async acknowledgeDropGame(pk: string, sk: string) {
+    await client.send(
+      new DeleteCommand({ TableName: this.tableName, Key: { pk, sk } }),
+    );
+  }
 
   async updates(limit = 100): Promise<UpdateEntry[]> {
     const entries: UpdateEntry[] = [];
@@ -1988,6 +2078,7 @@ export class Repository {
     ranked = true,
     guest = false,
     startCorrelation?: Correlation,
+    timelinePlayer?: GamePlayer,
   ): Promise<RunItem> {
     const runId = randomUUID();
     const boardEpoch = boardEpochFor(mode);
@@ -2005,6 +2096,7 @@ export class Repository {
       guest,
       ...(boardEpoch ? { boardEpoch } : {}),
       ...(startCorrelation ? { startCorrelation } : {}),
+      ...(timelinePlayer ? { timelinePlayer } : {}),
     };
     await client.send(
       new PutCommand({
@@ -3671,6 +3763,19 @@ export class Repository {
       },
     ];
 
+    if (!recovery && run.timelinePlayer && run.gameResult) {
+      transactionItems.push({
+        Put: {
+          TableName: this.tableName,
+          Item: gameOutboxItem(
+            run.owner,
+            run.timelinePlayer,
+            run.gameResult,
+            completedAt,
+          ),
+        },
+      });
+    }
     const practiceXpIndex = practiceXp ? transactionItems.length : -1;
     if (practiceXp) {
       transactionItems.push({

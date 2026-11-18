@@ -25,6 +25,34 @@ function shuffle<T>(values: readonly T[], randomInt: RandomInt): T[] {
   return result;
 }
 
+/** Deal five distinct base cards with at least one subset worth ten. */
+export function exactTenHand<T extends ChallengeCard>(
+  catalog: readonly T[],
+  randomInt: RandomInt,
+): T[] {
+  const pool = shuffle(catalog, randomInt);
+  const sums = new Map<number, T[]>([[0, []]]);
+  for (const card of pool) {
+    for (const [sum, cards] of [...sums]) {
+      const next = sum + card.elixir;
+      if (next > 10 || cards.length >= 5) continue;
+      const combination = [...cards, card];
+      if (next === 10) {
+        const extras = pool.filter(
+          (candidate) => !combination.includes(candidate),
+        );
+        return shuffle(
+          [...combination, ...extras.slice(0, 5 - combination.length)],
+          randomInt,
+        );
+      }
+      if (combination.length < (sums.get(next)?.length ?? Infinity))
+        sums.set(next, combination);
+    }
+  }
+  throw new Error("The card catalog has no Exact Ten hand.");
+}
+
 function cardSequence(
   count: number,
   randomInt: RandomInt,

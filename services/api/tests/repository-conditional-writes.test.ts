@@ -54,6 +54,59 @@ describe("repository conditional writes", () => {
     send.mockReset();
   });
 
+  it("commits the eligible game's immutable outbox alongside its history, and replays a solved hand without republishing", async () => {
+    const player = {
+      accountId: "00000000-0000-4000-8000-000000000001",
+      playerTag: "#PYY",
+    };
+    const game = {
+      gameId: startedRun.runId,
+      mode: startedRun.mode,
+      startedAt: startedRun.startedAt,
+      score: 1300,
+      answers: 1,
+      cards: [],
+    };
+    const repo = new Repository("test-table");
+    send
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { totalGames: 1 } });
+    const result = await repo.completeRun(
+      { ...startedRun, gameResult: game, timelinePlayer: player },
+      game.score,
+      134,
+      1,
+    );
+    const tx = send.mock.calls[0]![0].input.TransactItems;
+    expect(tx).toContainEqual({
+      Put: {
+        TableName: "test-table",
+        Item: expect.objectContaining({
+          pk: "PLAYER#player-sub",
+          GSI1PK: "GAMEOUT",
+          event: {
+            version: 1,
+            type: "drop.game.completed",
+            ...player,
+            ...game,
+            completedAt: result.completedAt,
+          },
+        }),
+      },
+    });
+    send
+      .mockReset()
+      .mockRejectedValueOnce(transactionCanceled())
+      .mockResolvedValueOnce({ Item: { completedAt: result.completedAt } });
+    expect(
+      await repo.recordExactTen("player-sub", player, {
+        ...game,
+        mode: "exact-ten",
+      }),
+    ).toEqual(result.completedAt);
+    expect(send.mock.calls[1]![0].input.ConsistentRead).toBe(true);
+  });
+
   it("maps a failed run condition to a 409, not a retry", async () => {
     send.mockRejectedValueOnce(
       awsError("TransactionCanceledException", {

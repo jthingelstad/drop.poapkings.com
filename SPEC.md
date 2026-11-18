@@ -317,10 +317,8 @@ Product decisions currently in force:
 
 ---
 
-The untimed Exact Ten prototype at `#/exact-ten` deals five cards from the
-bundled catalog and checks their sum locally. The deliberate next-hand action
-emits `puzzle.dealt_again` with value `exact-ten`. The puzzle has no API mode
-or progression writes. Shared scores pass a numeric target in the game route;
+Exact Ten at `#/exact-ten` deals five cards with a guaranteed solution. Online signed-in hands carry a server signature. The API verifies the selected cards and their base costs before recording the solve. Guest and offline hands use the same deal locally. The deliberate next-hand action
+emits `puzzle.dealt_again` with value `exact-ten`. Each solve is one untimed game. The puzzle has no leaderboard or XP. Shared scores pass a numeric target in the game route;
 ranked challenges and server scoring use the ordinary mode contract. Targeted
 Practice merges the selected missed cards into the draft's spaced-review queue.
 
@@ -1325,8 +1323,7 @@ Elixir authentication"). It reaches `/oauth/authorize`, `/oauth/token`,
 `GET /api/v1/me` (scope `cr:read`: the person's own players, with each one's
 name and clan). The recorded-profile read `GET /api/v1/players/{tag}` and the
 game policy clock `GET /api/v1/game/clock` were retired on 2026-11-13; Drop
-holds no integration key. **Drop writes nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and
-ONLY authenticating and getting a verified clash Royale account"): profile
+holds no integration key. **Completed games reach Elixir through SQS** (2026-11-18). The HTTP connection is for sign-in: profile
 refresh requests and adding a player to an Elixir account were removed, and
 the only non-GET Drop sends Elixir is the OAuth token request
 (`services/api/tests/no-elixir-writes.test.ts`). Automatic collection enrollment was retired on 2026-10-02;
@@ -1341,7 +1338,7 @@ and dropped. The collection sync script and collection configuration are
 retired.
 
 A player tag is the Elixir account's primary player, and is verified only
-**when Elixir has proven it** (below). No Drop identities, scores, XP or badges are uploaded.
+**when Elixir has proven it** (below). One event per completed, linked game carries the stable game ID, verified tag, Elixir account ID, start and finish, mode, score, answer count and up to five card highlights. Drop stores the event in the same transaction as the game. The minute worker sends it to `elixir-drop-games` and removes the pending item after SQS acknowledges it. Elixir verifies ownership and deduplicates by game ID. Guests, offline hands and historical repairs produce no events.
 
 ### Sign in with Elixir (2026-09-12; the only sign-in since 2026-10-12)
 

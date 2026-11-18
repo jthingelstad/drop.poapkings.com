@@ -904,6 +904,19 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
+        - PolicyName: publish-completed-games
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !Sub "arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:elixir-drop-games"
+              - Effect: Allow
+                Action: dynamodb:DeleteItem
+                Resource: !GetAtt DataTable.Arn
+                Condition:
+                  "ForAllValues:StringLike":
+                    "dynamodb:LeadingKeys": ["PLAYER#*"]
         - PolicyName: refresh-runtime
           PolicyDocument:
             Version: "2012-10-17"
@@ -958,6 +971,8 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
 
+          DROP_GAMES_QUEUE_URL: !Sub "https://sqs.${AWS::Region}.${AWS::URLSuffix}/${AWS::AccountId}/elixir-drop-games"
+
   RefreshEventSource:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
@@ -994,6 +1009,17 @@ Resources:
                 Action: sqs:SendMessage
                 Resource: !GetAtt RefreshQueue.Arn
 
+  DropGamesSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-publish-games
+      ScheduleExpression: rate(1 minute)
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt RefreshQueue.Arn
+        RoleArn: !GetAtt WarClockScheduleRole.Arn
+        Input: '{"version":1,"type":"drop-games","tick":"<aws.scheduler.scheduled-time>"}'
+        SqsParameters: { MessageGroupId: drop-games }
   WarClockSchedule:
     Type: AWS::Scheduler::Schedule
     Properties:

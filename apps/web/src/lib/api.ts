@@ -5,6 +5,8 @@ import {
   apiConfigSchema,
   apiErrorSchema,
   completedRunSchema,
+  exactTenDealSchema,
+  exactTenSolveSchema,
   leaderboardResponseSchema,
   loginPollResponseSchema,
   meResponseSchema,
@@ -365,6 +367,17 @@ export function deleteMe(sessionToken: string, confirmation: string) {
 // The session token is optional: with none, the request is a guest request and
 // the server deals/scores a run that is never recorded. apiRequest only sends
 // the authorization header when a token is present.
+export function startExactTen(sessionToken: string) {
+  return apiRequest('/exact-ten/start', exactTenDealSchema, { method: 'POST', sessionToken })
+}
+export function recordExactTen(handToken: string, selected: number[], sessionToken: string) {
+  return apiRequest('/exact-ten/complete', exactTenSolveSchema, {
+    method: 'POST',
+    sessionToken,
+    retry: true,
+    body: JSON.stringify({ handToken, selected })
+  })
+}
 export function startRun(mode: GameMode, sessionToken?: string) {
   return apiRequest('/runs/start', startedRunSchema, {
     method: 'POST',

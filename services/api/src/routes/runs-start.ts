@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { gamePlayer, type GamePlayer } from "../drop-game.js";
 import { HttpError } from "../errors.js";
 import { isGameMode } from "../games.js";
 import { json } from "../http.js";
@@ -47,6 +48,7 @@ export async function startRun({ request, config, repository }: RouteContext) {
   // subs are base64url SHA-256 email hashes, never the literal string.
   const owner = session?.sub ?? "guest";
   const isGuest = !session;
+  let player: GamePlayer | undefined;
   if (session) {
     const profile = await repository.getProfile(session.sub);
     // No setup step any more (2026-11-14): the name and picture come from
@@ -54,6 +56,7 @@ export async function startRun({ request, config, repository }: RouteContext) {
     // account that is gone (deleted under a live session) is refused.
     if (!profile)
       throw new HttpError(401, "Sign in again to play.", "profile_missing");
+    player = gamePlayer(profile);
     if (
       body.mode !== "practice" &&
       (await repository.rankedAccess(profile.playerId)) === "restricted"
@@ -85,6 +88,7 @@ export async function startRun({ request, config, repository }: RouteContext) {
     ranked,
     isGuest,
     startCorrelation,
+    ...(player ? [player] : []),
   );
   const runToken = signToken(
     {

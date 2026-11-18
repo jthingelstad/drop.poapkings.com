@@ -59,14 +59,14 @@ test('Home offers RESUME and restores a Practice draft after route loss', { tag:
   // guest draft is not intentionally rejected as belonging to another player.
   await page.goto('/?signedOut=1#/')
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
-  await expect(practice.locator('.ed-grow__play')).toHaveText('RESUME')
+  await expect(practice.getByRole('button', { name: /Practice/ }).locator('.ed-grow__play')).toHaveText('RESUME')
   await practice.getByRole('button', { name: /Practice/ }).click()
   await expect(page.locator('.ed-game__progress')).toHaveText('1 practiced', { timeout: 12_000 })
 
   await page.getByRole('button', { name: 'End session' }).click()
   await expect(page.getByText('Practice session complete', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Home', exact: true }).click()
-  await expect(practice.locator('.ed-grow__play')).toHaveText('PLAY')
+  await expect(practice.getByRole('button', { name: /Practice/ }).locator('.ed-grow__play')).toHaveText('PLAY')
 })
 
 test(
@@ -118,7 +118,7 @@ test(
 
     await page.goto('/#/')
     const practice = page.locator('section[aria-labelledby="home-practice-title"]')
-    await expect(practice.locator('.ed-grow__play')).toHaveText('RESUME')
+    await expect(practice.getByRole('button', { name: /Practice/ }).locator('.ed-grow__play')).toHaveText('RESUME')
     await practice.getByRole('button', { name: /Practice/ }).click()
     await expect(page.locator('.ed-game__progress')).toHaveText('40 practiced', { timeout: 12_000 })
   }

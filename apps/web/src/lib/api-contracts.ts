@@ -168,6 +168,8 @@ export const runChallengeSchema = z.discriminatedUnion('mode', [
   })
 ])
 
+export const exactTenDealSchema = z.object({ handToken: z.string(), cardIds: z.array(z.number().int()).length(5) })
+export const exactTenSolveSchema = z.object({ completedAt: z.string() })
 export const sessionResponseSchema = z.object({ session: sessionSchema })
 export const elixirStartResponseSchema = z.object({
   url: z.string().url(),
