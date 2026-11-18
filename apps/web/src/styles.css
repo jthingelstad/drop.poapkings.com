@@ -8143,6 +8143,12 @@ html.reduce-motion .ed-profile-guest__halo::before {
 
 /* Size the two lanes for the fixed desktop arena, including the label and
    the revealed equation below them. Keep the answer rows out of the board. */
+.ed-desktop--game .ed-xpad__key {
+  height: 46px;
+}
+.ed-desktop--game .ed-xpad__key--even {
+  flex: none;
+}
 .ed-desktop--game .ed-xlane {
   min-height: 0;
   padding: 5px 10px;

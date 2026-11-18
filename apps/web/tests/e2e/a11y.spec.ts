@@ -23,7 +23,6 @@ const a11yRoutes = [
 
 for (const route of a11yRoutes) {
   test(`renders ${route.label} without serious accessibility issues`, async ({ page }, testInfo) => {
-    await page.goto('/')
     await page.goto(`/${route.hash}`)
     await expect(page.locator(route.ready).first()).toBeVisible({ timeout: 12_000 })
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
