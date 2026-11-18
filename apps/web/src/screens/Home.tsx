@@ -88,6 +88,9 @@ export default function Home() {
         <span class="ed-more__title" id="home-practice-title">
           Practice
         </span>
+        <a class="ed-textlink ed-exact-link" href="#/exact-ten">
+          Exact Ten puzzle →
+        </a>
         <span class="ed-more__aside ed-more__aside--pill">UNRANKED</span>
       </div>
       <div class="ed-rows">

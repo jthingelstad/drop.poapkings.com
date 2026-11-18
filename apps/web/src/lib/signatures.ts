@@ -31,25 +31,25 @@ function seconds(ms: number): string {
 }
 
 // ── Surge ───────────────────────────────────────────────────────────────────
-// Seconds per card against the same card in your best run.
+// Each shuffled deal has different cards. Compare elapsed pace at the same split.
 export function surgeSignature(perCardMs: number[], bestPerCardMs?: number[]): Signature {
-  const hasBest = Boolean(bestPerCardMs?.length)
-  const bad = perCardMs.map((ms, i) => {
-    const best = bestPerCardMs?.[i]
-    return best !== undefined && ms > best
-  })
-  const lost = bad.filter(Boolean).length
-  const reading = hasBest
-    ? lost === 0
-      ? 'You beat your best run on every card.'
-      : `Your best run was quicker on ${lost} of ${perCardMs.length} cards.`
-    : `You averaged ${seconds(average(perCardMs))} a card — the pace your next run has to beat.`
+  const hasBest = perCardMs.length > 0 && bestPerCardMs?.length === perCardMs.length
+  let reading = `You averaged ${seconds(average(perCardMs))} a card.`
+  if (hasBest) {
+    const split = Math.min(10, perCardMs.length)
+    const elapsed = (times: number[]) => times.slice(0, split).reduce((sum, ms) => sum + ms, 0)
+    const delta = elapsed(perCardMs) - elapsed(bestPerCardMs)
+    reading =
+      delta === 0
+        ? `At card ${split} you were level with your best pace.`
+        : `At card ${split} you were ${seconds(Math.abs(delta))} ${delta < 0 ? 'ahead of' : 'behind'} your best pace.`
+  }
   return {
     unit: 'Seconds per card',
-    legend: 'The same card in your best run',
-    badLabel: 'slower than your best there',
+    legend: 'Same position in your best run',
+    badLabel: 'slower at this position',
     values: perCardMs,
-    ...(hasBest ? { refs: bestPerCardMs!, bad } : {}),
+    ...(hasBest ? { refs: bestPerCardMs, bad: perCardMs.map((ms, i) => ms > bestPerCardMs[i]!) } : {}),
     reading
   }
 }

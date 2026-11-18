@@ -21,6 +21,7 @@ const COLLECTOR_URL = `https://tinylytics.app/collector/${SITE_ID}`
 const SCRIPT_ID = 'elixir-drop-tinylytics'
 
 const PAGE_PATHS = [
+  '/exact-ten',
   '/practice',
   '/surge',
   '/higher-lower',

@@ -4,6 +4,7 @@ import { expect, test } from './fixtures'
 const a11yRoutes = [
   { hash: '#/', label: 'Home', ready: '.ed-home' },
   { hash: '#/practice', label: 'Practice active play', ready: '.ed-game' },
+  { hash: '#/exact-ten', label: 'Exact Ten', ready: '.ed-exact__hand' },
   { hash: '#/surge', label: 'Surge', ready: '.ed-game' },
   { hash: '#/higher-lower', label: 'Higher / Lower', ready: '.ed-game' },
   { hash: '#/trade', label: 'Trade', ready: '.ed-game' },

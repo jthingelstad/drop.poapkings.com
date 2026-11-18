@@ -287,9 +287,7 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
             }
           })
         )
-      // The exchange board uses a fixed 96×120 card in both lanes at every rung,
-      // so the card no longer scales per rung — it just has to be a real card
-      // kept inside its lane at both ends of the ladder.
+      // Reserve space for the question between the blue lane and the keypad.
       await expect
         .poll(async () => {
           const settled = await measure()
@@ -297,6 +295,16 @@ test('trade auto-advances the ten-exchange ladder with one cost hint per wrong g
         })
         .toBe(true)
       expect((await measure()).every((card) => card.contained)).toBe(true)
+      await expect
+        .poll(() =>
+          page.locator('.ed-trade__prompt').evaluate((prompt) => {
+            const blue = document.querySelector('.ed-xlane--blue')!.getBoundingClientRect()
+            const pad = document.querySelector('.ed-xpad')!.getBoundingClientRect()
+            const question = prompt.getBoundingClientRect()
+            return blue.bottom <= question.top + 1 && question.bottom <= pad.top + 1
+          })
+        )
+        .toBe(true)
     }
 
     // Every run now ends on the widest board the mode can draw, so six cards on

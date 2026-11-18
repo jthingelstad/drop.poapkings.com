@@ -8141,6 +8141,29 @@ html.reduce-motion .ed-profile-guest__halo::before {
   outline-offset: 1px;
 }
 
+/* Size the two lanes for the fixed desktop arena, including the label and
+   the revealed equation below them. Keep the answer rows out of the board. */
+.ed-desktop--game .ed-xlane {
+  min-height: 0;
+  padding: 5px 10px;
+}
+.ed-desktop--game .ed-xlane__label {
+  margin-bottom: 2px;
+}
+.ed-desktop--game .ed-xcard,
+.ed-desktop--game .ed-xcard__art,
+.ed-desktop--game .ed-xcard__img,
+.ed-desktop--game .ed-xcard__fallback {
+  width: 72px;
+}
+.ed-desktop--game .ed-xcard__img,
+.ed-desktop--game .ed-xcard__fallback {
+  height: 90px;
+}
+.ed-desktop--game .ed-xboard__balance {
+  min-height: 24px;
+}
+
 /* The exchange board needs its own short-phone compression. Without this, the lanes keep
    their 150px desktop minimum and paint through the prompt and answer pad on
    Safari's 664px playable viewport. */
@@ -9094,4 +9117,101 @@ html.reduce-motion .ed-skeleton__row {
   margin-left: 8px;
   color: var(--ink-dim, #bdb4e2);
   font-size: 0.85em;
+}
+
+.ed-exact-link {
+  margin-left: auto;
+}
+.ed-exact {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding: 18px 14px 28px;
+  text-align: center;
+}
+.ed-exact__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ed-exact h1 {
+  margin: 20px 0 6px;
+  font-family: var(--font-display);
+  color: var(--gold);
+}
+.ed-exact p {
+  margin: 0 0 16px;
+}
+.ed-exact__hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.ed-exact__card {
+  position: relative;
+  width: calc((100% - 20px) / 3);
+  min-width: 0;
+  padding: 5px;
+  background: #201633;
+  border: 2px solid #55456c;
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+}
+.ed-exact__card[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: #3b2930;
+}
+.ed-exact__art {
+  display: block;
+  width: 100%;
+}
+.ed-exact__img {
+  display: block;
+  width: 100%;
+  height: clamp(68px, 16dvh, 112px);
+  object-fit: contain;
+}
+.ed-exact__name {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+.ed-exact__tick,
+.ed-exact__cost {
+  position: absolute;
+  top: 2px;
+}
+.ed-exact__tick {
+  right: 2px;
+  background: var(--gold);
+  color: #271c10;
+  border-radius: 50%;
+  padding: 2px;
+  display: grid;
+  place-items: center;
+}
+.ed-exact__cost {
+  left: 2px;
+}
+.ed-exact__result,
+.ed-sum__target {
+  margin: 14px 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+.ed-exact > .ed-btn {
+  width: 100%;
+}
+.ed-exact > .ed-btn:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
+
+.ed-game__target {
+  color: var(--gold);
+  font-size: 0.7rem;
+  line-height: 1.2;
 }

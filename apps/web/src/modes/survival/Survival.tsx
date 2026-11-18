@@ -307,6 +307,7 @@ export default function Survival() {
             mode: 'survival',
             score: won.current ? `${streak.value} streak · cleared in ${winTime}` : `${streak.value} streak`
           }}
+          resultScore={streak.value}
           onReplay={replay}
           onHome={() => navigate('/')}
         >

@@ -14,6 +14,9 @@ import { GameStartStage } from './GameStart'
 import { useGameKeys } from '../../lib/use-game-keys'
 import { isInteractiveKeyTarget, isSpaceKey } from '../../lib/game-keys'
 import { keyboardHelpOpen, openKeyboardHelp } from '../../lib/keyboard-help'
+import { route } from '../../lib/router'
+import { scoreTarget } from '../../lib/score-target'
+import { scoreLabel } from '../../lib/game-metadata'
 import { layout } from '../../lib/use-layout'
 
 export interface GameMetric {
@@ -63,6 +66,7 @@ export default function GameFrame({
   fullBleed = false,
   children
 }: Props) {
+  const target = scoreTarget(route.value)
   const quitRef = useRef<HTMLButtonElement>(null)
   const [quitArmed, setQuitArmed] = useState(false)
 
@@ -125,6 +129,7 @@ export default function GameFrame({
             <div class="ed-game__top-c">
               <div class="ed-game__mode">{modeName}</div>
               {progressText && <div class="ed-game__progress">{progressText}</div>}
+              {target && <div class="ed-game__target">Target {scoreLabel(target.mode, target.score)}</div>}
               {offlineRunMode.value && <div class="ed-game__offline">Offline · not saved</div>}
             </div>
             <div class="ed-game__top-r">

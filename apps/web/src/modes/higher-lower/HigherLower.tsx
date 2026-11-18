@@ -336,6 +336,7 @@ export default function HigherLower() {
             mode: 'higher-lower',
             score: `${score.value} correct`
           }}
+          resultScore={score.value}
           onReplay={() => void replay()}
           onHome={() => navigate('/')}
         >

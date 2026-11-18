@@ -315,6 +315,13 @@ Product decisions currently in force:
 
 ---
 
+The untimed Exact Ten prototype at `#/exact-ten` deals five cards from the
+bundled catalog and checks their sum locally. The deliberate next-hand action
+emits `puzzle.dealt_again` with value `exact-ten`. The puzzle has no API mode
+or progression writes. Shared scores pass a numeric target in the game route;
+ranked challenges and server scoring use the ordinary mode contract. Targeted
+Practice merges the selected missed cards into the draft's spaced-review queue.
+
 ## 5. Shared Game Systems
 
 Important shared modules:

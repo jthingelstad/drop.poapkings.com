@@ -556,6 +556,7 @@ export default function Rain() {
             mode: 'rain',
             score: `${score.value} cleared`
           }}
+          resultScore={score.value}
           onReplay={replay}
           replayLabel="Play again"
           onHome={() => navigate('/')}

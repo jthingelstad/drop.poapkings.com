@@ -225,7 +225,7 @@ describe('the shared-run permalink', () => {
     expect(host.textContent).toContain('no account needed')
 
     host.querySelector<HTMLButtonElement>('.ed-sharedrun__cta')!.click()
-    expect(window.location.hash).toBe('#/surge')
+    expect(window.location.hash).toBe('#/surge?target=17412')
   })
 
   it('still opens after the player behind it deleted their account', async () => {

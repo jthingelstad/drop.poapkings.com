@@ -44,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   }
 ]
 
-const GAME_PREFIXES = ['/surge', '/practice', '/higher-lower', '/trade', '/survival', '/rain']
+const GAME_PREFIXES = ['/surge', '/practice', '/higher-lower', '/trade', '/survival', '/rain', '/exact-ten']
 
 // App Info is the in-app page reached from Profile's More list.
 // The public text pages leave the app shell and therefore do not participate in
