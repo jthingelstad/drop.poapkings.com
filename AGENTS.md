@@ -52,7 +52,7 @@ Every other doc points back here instead of keeping its own copy of this list.
    any script, and **talks to Elixir only to sign people in** (Jamie,
    2026-11-13: "The only thing that I have a strong opinion on is that Elixir
    Drop uses Elixir authentication"; the point is that Drop never slows Elixir
-   down). Sign in with Elixir (`services/api/src/elixir-oauth.ts`) is
+   down). The per-game SQS handoff is asynchronous (Jamie, 2026-11-18). Sign in with Elixir (`services/api/src/elixir-oauth.ts`) is
    authorize, token, `GET /oauth/userinfo` and `GET /api/v1/me`, and that is
    every Elixir URL Drop reaches. The `/me` answer that proves which players
    are the person's also gives the primary player's name and clan, and the
@@ -60,13 +60,11 @@ Every other doc points back here instead of keeping its own copy of this list.
    (`cr-profile.ts`); Drop never reads a profile at any other time. The season
    clock is Drop's own (`season-clock.ts`): first Monday to first Monday,
    10:00 UTC boundaries, the same calendar Elixir's policy clock computed,
-   never one clan's observed race and no request to anyone. **Drop writes
-   nothing to Elixir** (Jamie, 2026-11-12: "no writing to Elixir and ONLY
-   authenticating and getting a verified clash Royale account"): its only
+   never one clan's observed race and no request to anyone. Drop hands verified players’ finished games to Elixir’s SQS queue. Its only
    non-GET to Elixir is the OAuth token request. Drop holds no Elixir
    integration key. `services/api/tests/no-elixir-writes.test.ts` pins the
    allowed URLs, the one POST and the retired endpoints. The hub never pushes
-   into Drop. The FIFO refresh worker now carries only the season clock;
+   into Drop. The FIFO refresh worker carries game publication ticks and the season clock;
    clock jobs finalize the old season before advancing the cache, so keep
    those retries durable. The website still reads the committed
    `packages/game-data/cards.json` snapshot.
@@ -789,7 +787,7 @@ mergeCommit`, never the branch's SHA.
 
 ## Elixir integration API
 
-Drop is a Sign in with Elixir client and nothing more (2026-11-13). It
+Drop uses HTTP for Sign in with Elixir and SQS for completed games. It
 reaches `/oauth/authorize`, `/oauth/token` (its one POST), `/oauth/userinfo`
 (the account id and address, scope `account:email`) and `GET /api/v1/me` (the
 person's own players, scope `cr:read`). Retired: the recorded-profile read
@@ -808,8 +806,7 @@ removed 2026-11-14). A `player-profile` job left on
 the refresh queue from before the change is acknowledged and dropped.
 
 A player tag is the Elixir account's primary player, and is verified only when
-Elixir verified it. No Drop identities, scores, XP or
-badges are uploaded. The clock is policy-based, with season/day boundaries at
+Elixir verified it. The games outbox carries completed results and card highlights. Elixir checks the account and verified tag before admitting a game. See SPEC.md. The clock is policy-based, with season/day boundaries at
 10:00 UTC computed by Drop; it is not a clan observation. Finalization
 still precedes caching a new season, and existing run assignments do not change.
 Manual host-only card refresh continues to use Supercell directly.

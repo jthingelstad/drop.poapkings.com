@@ -21,6 +21,7 @@ import {
   getSeasons,
   getStats,
 } from "./routes/public-reads.js";
+import { startExactTen, completeExactTen } from "./routes/exact-ten.js";
 import { completeRun } from "./routes/runs-complete.js";
 import { reportRunFailure } from "./routes/run-reports.js";
 import {
@@ -84,6 +85,8 @@ const ROUTE_PATHS = [
   "/me/seasons",
   "/me/xp",
   "/me/share",
+  "/exact-ten/start",
+  "/exact-ten/complete",
   "/runs/start",
   "/runs/complete",
   "/practice/resume",
@@ -161,6 +164,10 @@ async function route(request: HttpRequest) {
     return getPublicPlayer(context, publicPlayerMatch[1] ?? "");
   if (method === "DELETE" && path === "/me") return deleteMe(context);
   if (method === "PATCH" && path === "/me") return patchMe(context);
+  if (method === "POST" && path === "/exact-ten/start")
+    return startExactTen(context);
+  if (method === "POST" && path === "/exact-ten/complete")
+    return completeExactTen(context);
   if (method === "POST" && path === "/runs/start") return startRun(context);
   if (method === "POST" && path === "/runs/complete")
     return completeRun(context);

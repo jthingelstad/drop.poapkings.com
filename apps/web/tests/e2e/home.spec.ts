@@ -92,10 +92,11 @@ test('the hero features one ranked game and the rest are full-width rows', async
     .locator('.ed-grow__play')
     .first()
     .evaluate((element) => getComputedStyle(element).backgroundImage)
-  const practicePlayBackground = await page
+  const unrankedPlayBackgrounds = await page
     .locator('.ed-grow--drill .ed-grow__play')
-    .evaluate((element) => getComputedStyle(element).backgroundImage)
-  expect(rankedPlayBackground).not.toBe(practicePlayBackground)
+    .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundImage))
+  expect(unrankedPlayBackgrounds).toHaveLength(2)
+  for (const background of unrankedPlayBackgrounds) expect(background).not.toBe(rankedPlayBackground)
 })
 
 test('desktop keeps the mobile game order in a fixed-width center', async ({ page, viewport }) => {
@@ -172,8 +173,8 @@ test('Practice has one direct entry on desktop and mobile', async ({ page }) => 
 
   const practice = page.locator('section[aria-labelledby="home-practice-title"]')
   await expect(practice.locator('.ed-more__aside--pill')).toHaveText('UNRANKED')
-  await expect(practice.locator('.ed-grow--drill')).toHaveCount(1)
-  await expect(practice.locator('.ed-grow__play')).toHaveText('PLAY')
+  await expect(practice.getByRole('button', { name: /Exact Ten/ })).toBeVisible()
+  await expect(practice.getByRole('button', { name: /Practice/ }).locator('.ed-grow__play')).toHaveText('PLAY')
   await expect(practice.getByRole('button', { name: /Practice/ })).toBeVisible()
 
   await practice.getByRole('button', { name: /Practice/ }).click()

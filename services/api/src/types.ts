@@ -59,7 +59,15 @@ export interface RunClaims {
   exp: number;
 }
 
-export type SignedClaims = SessionClaims | RunClaims;
+export interface ExactTenClaims {
+  type: "exact-ten";
+  owner: string;
+  gameId: string;
+  cardIds: number[];
+  iat: number;
+  exp: number;
+}
+export type SignedClaims = SessionClaims | RunClaims | ExactTenClaims;
 
 export interface SurgeAnswer {
   cardId: number;

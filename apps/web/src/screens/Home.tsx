@@ -86,11 +86,8 @@ export default function Home() {
     <section class="ed-more ed-more--practice" aria-labelledby="home-practice-title">
       <div class="ed-more__head">
         <span class="ed-more__title" id="home-practice-title">
-          Practice
+          Practice &amp; puzzles
         </span>
-        <a class="ed-textlink ed-exact-link" href="#/exact-ten">
-          Exact Ten puzzle →
-        </a>
         <span class="ed-more__aside ed-more__aside--pill">UNRANKED</span>
       </div>
       <div class="ed-rows">
@@ -103,6 +100,18 @@ export default function Home() {
           visual={<ModeIcon mode="practice" size={46} />}
           actionLabel={practiceAction}
           onClick={() => navigate('/practice')}
+        />
+        <HomeRow
+          tone="drill"
+          name="Exact Ten"
+          meta="Pick cards worth 10 elixir"
+          visual={
+            <span class="ed-exact-pair">
+              <img src="/cards/26000000.png" alt="" />
+              <img src="/cards/26000055.png" alt="" />
+            </span>
+          }
+          onClick={() => navigate('/exact-ten')}
         />
       </div>
     </section>

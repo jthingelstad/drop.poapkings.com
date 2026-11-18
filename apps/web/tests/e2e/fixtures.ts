@@ -14,7 +14,7 @@ export const testSession = { token: 'session-token', expiresAt: '2099-01-01T00:0
 // though no request reaches AWS.
 export const testApiBaseUrl = `http://127.0.0.1:${Number(process.env.PLAYWRIGHT_PORT ?? 5173)}`
 export const testApiRoute =
-  /^http:\/\/127\.0\.0\.1:[0-9]+\/(?:(?:activity|auth|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|updates(?:\?|$)|badges\/[^/?]+\/share(?:[/?]|$))/
+  /^http:\/\/127\.0\.0\.1:[0-9]+\/(?:(?:activity|auth|exact-ten|leaderboards|me|players|practice|run-reports|runs|shares|stats)(?:[/?]|$)|updates(?:\?|$)|badges\/[^/?]+\/share(?:[/?]|$))/
 export const testSeason = {
   id: 134,
   startsAt: '2026-07-06T10:00:00.000Z',
@@ -603,6 +603,14 @@ export async function fulfillTestRun(route: Route): Promise<boolean> {
         }
       })
     })
+    return true
+  }
+  if (path === '/exact-ten/start') {
+    await route.fulfill({ json: { handToken: 'fixture-hand', cardIds: cardsData.cards.slice(0, 5).map((c) => c.id) } })
+    return true
+  }
+  if (path === '/exact-ten/complete') {
+    await route.fulfill({ json: { completedAt: '2026-11-18T00:00:00.000Z' } })
     return true
   }
   if (path === '/runs/start') {

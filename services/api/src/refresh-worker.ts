@@ -1,4 +1,5 @@
 import type { SQSEvent, SQSBatchResponse } from "aws-lambda";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { required, type Config } from "./config.js";
 import { finalizePreviousSeasonIfNeeded } from "./podium.js";
 import { Repository } from "./repository.js";
@@ -16,6 +17,8 @@ const RETIRED_JOB_TYPES = new Set(["player-profile"]);
 
 function parseJob(body: string): RefreshJob | "retired" {
   const job = JSON.parse(body) as { version?: unknown; type?: unknown } | null;
+  if (job?.version === 1 && job.type === "drop-games")
+    return { version: 1, type: "drop-games" };
   if (job?.version === 1 && job.type === "war-clock")
     return { version: 1, type: "war-clock" };
   if (job?.version === 1 && RETIRED_JOB_TYPES.has(job.type as string))
@@ -43,10 +46,32 @@ async function advanceWarClock(repository: Repository): Promise<void> {
   });
 }
 
+const deliveryQueue = new SQSClient({});
+export async function deliverDropGames(
+  repository: Pick<Repository, "pendingDropGames" | "acknowledgeDropGame">,
+  publish: (body: string) => Promise<unknown>,
+) {
+  const pending = await repository.pendingDropGames();
+  for (let offset = 0; offset < pending.length; offset += 5) {
+    await Promise.all(
+      pending.slice(offset, offset + 5).map(async ({ pk, sk, event }) => {
+        await publish(JSON.stringify(event));
+        await repository.acknowledgeDropGame(pk, sk);
+      }),
+    );
+  }
+}
+
 export async function processRefreshJob(
-  _job: RefreshJob,
+  job: RefreshJob,
   repository: Repository,
 ): Promise<void> {
+  if (job.type === "drop-games") {
+    const QueueUrl = required("DROP_GAMES_QUEUE_URL");
+    return deliverDropGames(repository, (MessageBody) =>
+      deliveryQueue.send(new SendMessageCommand({ QueueUrl, MessageBody })),
+    );
+  }
   try {
     await advanceWarClock(repository);
   } finally {

@@ -8379,7 +8379,7 @@ html.reduce-motion .ed-profile-guest__halo::before {
   width: 100%;
   max-width: 404px;
   margin-inline: auto;
-  padding: 0 2px 8px;
+  padding: 0 2px 4px;
   gap: 5px;
 }
 .ed-app--desktop .ed-cause {
@@ -8457,7 +8457,8 @@ html.reduce-motion .ed-profile-guest__halo::before {
   font-size: 0.82rem;
 }
 .ed-app--desktop .ed-more .ed-grow {
-  padding: 6px 8px;
+  min-height: 45px;
+  padding: 3px 8px;
 }
 .ed-app--desktop .ed-more .ed-grow__art,
 .ed-app--desktop .ed-more--practice .ed-grow__art,
@@ -8476,10 +8477,6 @@ html.reduce-motion .ed-profile-guest__halo::before {
 .ed-app--desktop .ed-more .ed-grow__meta,
 .ed-app--desktop .ed-more--practice .ed-grow__meta {
   font-size: 0.61rem;
-}
-.ed-app--desktop .ed-more--practice .ed-grow {
-  min-height: 50px;
-  padding: 6px 8px;
 }
 .ed-app--desktop .ed-home__ready {
   margin: 1px 0 0;
@@ -9125,8 +9122,21 @@ html.reduce-motion .ed-skeleton__row {
   font-size: 0.85em;
 }
 
-.ed-exact-link {
-  margin-left: auto;
+.ed-exact-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+}
+.ed-grow__art .ed-exact-pair img {
+  width: 28px;
+  height: auto;
+  transform: rotate(-10deg);
+}
+.ed-grow__art .ed-exact-pair img + img {
+  margin-left: -10px;
+  transform: rotate(10deg);
 }
 .ed-exact {
   width: min(100%, 460px);

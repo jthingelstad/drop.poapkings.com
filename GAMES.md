@@ -427,13 +427,12 @@ seal. The floor is a difficulty model, and a model is exactly the kind of thing
 that false-positives on an exceptional player — which is precisely why it never
 costs that player their rank.
 
-### Exact Ten · local prototype
+### Exact Ten · untimed puzzle
 
-Open **Exact Ten puzzle** beside Practice on Home. Pick any of five cards whose
+Open **Exact Ten** beside Practice on Home. Pick any of five cards whose
 base costs add up to ten and check the total. Every hand has a solution.
 A miss gives the sum and lets the player change the selection. A solve reveals
-the card costs and offers **Deal again**. The puzzle is untimed and local, with
-no recorded run, XP, badges or standings.
+the card costs and offers **Deal again**. Each online signed-in solve records one game. A verified player’s timeline shows the winning cards and their costs. Guest and offline hands play locally.
 
 ### "Elixir Rain" screensaver
 
